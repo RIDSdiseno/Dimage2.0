@@ -1,0 +1,48 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(grep -l \"CREATE TABLE.*feriados\\\\|CREATE TABLE.*corrections\" \"c:/Users/Joel/Desktop/resplados Repo/Dimage-Proyect/database/changelog/\"*)",
+      "Bash(grep -n \"CREATE TABLE.*corrections\\\\|create table corrections\" \"c:/Users/Joel/Desktop/resplados Repo/Dimage-Proyect/database/changelog/\"* -i)",
+      "Bash(grep -l \"corrections\" \"c:/Users/Joel/Desktop/resplados Repo/Dimage-Proyect/database/changelog/\"*)",
+      "Bash(xargs grep:*)",
+      "Bash(grep -A 30 \"CREATE TABLE \\\\`corrections\\\\`\" \"c:/Users/Joel/Desktop/resplados Repo/Dimage-Proyect/public/--adminer.sql\")",
+      "Bash(grep -A 40 \"CREATE TABLE \\\\`orders\\\\`\" \"c:/Users/Joel/Desktop/resplados Repo/Dimage-Proyect/public/--adminer.sql\")",
+      "Bash(find 'c:/Users/Joel/Desktop/resplados Repo/Dimage-Proyect/resources/views/users' -type f -name *.php)",
+      "Bash(find 'c:/Users/Joel/Desktop/resplados Repo/Dimage-Proyect/app/Models' -type f -name *.php)",
+      "Bash(wc -l \"c:/Users/Joel/Desktop/resplados Repo/Dimage-Proyect/app/Http/Controllers\"/*.php)",
+      "Bash(done)",
+      "Bash(composer show:*)",
+      "Read(//c/Users/Joel/**)",
+      "Read(//c/Users/**)",
+      "Read(//c/Users/Joel/Desktop/dimage2.0/**)",
+      "Bash(ls \"c:\\\\Users\\\\Joel\\\\Desktop\\\\resplados Repo\\\\Dimage-Proyect\\\\app\\\\Http\\\\Controllers\"\" 2>/dev/null || echo \"PATH NOT FOUND \")",
+      "Bash(find C:UsersJoelDesktopdimage2.0resourcesjsPages -name *.vue)",
+      "Bash(grep -E \"Controller.php$\")",
+      "Bash(ls -la *.blade.php)",
+      "Bash(find /c/Users/Joel/Desktop/dimage2.0 -type f \\\\\\(-iname *.jpg -o -iname *.jpeg -o -iname *.png -o -iname *.gif -o -iname *.svg -o -iname *.webp -o -iname *.ico \\\\\\))",
+      "Bash(find '/c/Users/Joel/Desktop/resplados Repo/Dimage-Proyect' -type f \\\\\\(-iname *.jpg -o -iname *.jpeg -o -iname *.png -o -iname *.gif -o -iname *.svg -o -iname *.webp -o -iname *.ico -o -iname favicon* \\\\\\) ! -path */node_modules/* ! -path */vendor/*)",
+      "Bash(find '/c/Users/Joel/Desktop/resplados Repo/Dimage-Proyect' -type f \\\\\\(-iname *.jpg -o -iname *.jpeg -o -iname *.png \\\\\\) ! -path */node_modules/* ! -path */vendor/*)",
+      "Bash(find '/c/Users/Joel/Desktop/resplados Repo/Dimage-Proyect/public' -maxdepth 3 -type f \\\\\\(-iname *.jpg -o -iname *.jpeg -o -iname *.png -o -iname *.gif -o -iname *.svg -o -iname *.ico \\\\\\))",
+      "Bash(cp \"c:/Users/Joel/Desktop/resplados Repo/Dimage-Proyect/public/assets/images/dimage_logo.png\" \"c:/Users/Joel/Desktop/dimage2.0/public/images/dimage_logo.png\")",
+      "Bash(cp \"c:/Users/Joel/Desktop/resplados Repo/Dimage-Proyect/public/assets/images/logo.png\" \"c:/Users/Joel/Desktop/dimage2.0/public/images/logo.png\")",
+      "Bash(cp \"c:/Users/Joel/Desktop/resplados Repo/Dimage-Proyect/public/assets/images/logo.svg\" \"c:/Users/Joel/Desktop/dimage2.0/public/images/logo.svg\")",
+      "Bash(cp \"c:/Users/Joel/Desktop/resplados Repo/Dimage-Proyect/public/assets/images/logo_lg.png\" \"c:/Users/Joel/Desktop/dimage2.0/public/images/logo_lg.png\")",
+      "Bash(cp \"c:/Users/Joel/Desktop/resplados Repo/Dimage-Proyect/public/assets/images/logo_xs.png\" \"c:/Users/Joel/Desktop/dimage2.0/public/images/logo_xs.png\")",
+      "Bash(find '/c/Users/Joel/Desktop/resplados Repo/Dimage-Proyect/resources/views' -type f -name *.blade.php)",
+      "Bash(find /c/Users/Joel/Desktop/dimage2.0/resources/js/Pages -type f \\\\\\(-name *.vue -o -name *.jsx -o -name *.tsx \\\\\\))",
+      "Bash(find '/c/Users/Joel/Desktop/resplados Repo/Dimage-Proyect/app' -type f -name *.php)",
+      "Bash(find '/c/Users/Joel/Desktop/resplados Repo/Dimage-Proyect/app/Http/Controllers' -type f -name *.php)",
+      "Bash(find /c/Users/Joel/Desktop/dimage2.0/app/Http/Controllers -type f -name *.php)",
+      "Bash(find '/c/Users/Joel/Desktop/resplados Repo/Dimage-Proyect' -type f \\\\\\(-name routes.php -o -name *.php -path */Http/* \\\\\\))",
+      "Bash(grep -l Route:: /c/Users/Joel/Desktop/resplados Repo/Dimage-Proyect/app/Http/Controllers/*.php)",
+      "Bash(find '/c/Users/Joel/Desktop/resplados Repo/Dimage-Proyect/app/Http/Controllers/Apiv3' -type f -name *.php)",
+      "Bash(grep -n \"return $this->userType\" \"c:/Users/Joel/Desktop/dimage2.0/app/Http/Controllers/AdminController.php\")",
+      "Bash(grep -l \"toggle\\\\|activar\" /c/Users/Joel/Desktop/dimage2.0/resources/js/Pages/Admin/Clinicas/*.vue /c/Users/Joel/Desktop/dimage2.0/resources/js/Pages/Admin/Holdings/*.vue)",
+      "Bash(curl -s \"https://api.boostr.cl/holidays.json\")",
+      "Bash(python3 -c \"import json,sys; d=json.load\\(sys.stdin\\); print\\(json.dumps\\(d['data'][:3], indent=2\\)\\)\")"
+    ],
+    "additionalDirectories": [
+      "c:\\Users\\Joel\\Desktop\\resplados Repo\\Dimage-Proyect\\public\\assets\\img"
+    ]
+  }
+}

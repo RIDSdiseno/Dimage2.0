@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(php artisan:*)",
+      "Bash(php -r \":*)",
+      "Bash(npm run:*)",
+      "Read(//c/Users/Joel/Desktop/resplados Repo/Dimage-Proyect/app/Http/Controllers/**)",
+      "Read(//c/Users/Joel/Desktop/resplados Repo/Dimage-Proyect/app/models/**)"
+    ]
+  }
+}
