@@ -39,7 +39,9 @@
       "Bash(grep -n \"return $this->userType\" \"c:/Users/Joel/Desktop/dimage2.0/app/Http/Controllers/AdminController.php\")",
       "Bash(grep -l \"toggle\\\\|activar\" /c/Users/Joel/Desktop/dimage2.0/resources/js/Pages/Admin/Clinicas/*.vue /c/Users/Joel/Desktop/dimage2.0/resources/js/Pages/Admin/Holdings/*.vue)",
       "Bash(curl -s \"https://api.boostr.cl/holidays.json\")",
-      "Bash(python3 -c \"import json,sys; d=json.load\\(sys.stdin\\); print\\(json.dumps\\(d['data'][:3], indent=2\\)\\)\")"
+      "Bash(python3 -c \"import json,sys; d=json.load\\(sys.stdin\\); print\\(json.dumps\\(d['data'][:3], indent=2\\)\\)\")",
+      "Bash(composer update:*)",
+      "Bash(echo \"EXIT:$?\")"
     ],
     "additionalDirectories": [
       "c:\\Users\\Joel\\Desktop\\resplados Repo\\Dimage-Proyect\\public\\assets\\img"
