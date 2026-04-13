@@ -9,7 +9,7 @@ class Kind extends Model
     protected $table = 'kinds';
     protected $hidden = ['pivot'];
 
-    protected $fillable = ['name', 'description'];
+    protected $fillable = ['descipcion', 'group'];
 
     public function staff()
     {

@@ -44,7 +44,8 @@
       "Bash(echo \"EXIT:$?\")"
     ],
     "additionalDirectories": [
-      "c:\\Users\\Joel\\Desktop\\resplados Repo\\Dimage-Proyect\\public\\assets\\img"
+      "c:\\Users\\Joel\\Desktop\\resplados Repo\\Dimage-Proyect\\public\\assets\\img",
+      "c:\\Users\\Joel\\.claude\\projects\\c--Users-Joel-Desktop-dimage2-0\\memory"
     ]
   }
 }

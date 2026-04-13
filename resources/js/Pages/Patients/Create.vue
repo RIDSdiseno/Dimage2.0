@@ -19,8 +19,8 @@
                         </div>
 
                         <div>
-                            <label class="block text-sm font-medium mb-1">RUT / Pasaporte *</label>
-                            <InputText v-model="form.rut" class="w-full" placeholder="12345678-9" :class="{'p-invalid': form.errors.rut}" />
+                            <label class="block text-sm font-medium mb-1">{{ terms.id_label }} / Pasaporte *</label>
+                            <InputText v-model="form.rut" class="w-full" :placeholder="terms.id_placeholder" :class="{'p-invalid': form.errors.rut}" />
                             <small class="text-red-500">{{ form.errors.rut }}</small>
                         </div>
 
@@ -67,6 +67,9 @@
 <script setup>
 import { Link, useForm } from '@inertiajs/vue3';
 import AppLayout from '@/Layouts/AppLayout.vue';
+import { useTerms } from '@/composables/useTerms.js';
+
+const { terms } = useTerms();
 import InputText from 'primevue/inputtext';
 import DatePicker from 'primevue/datepicker';
 import MultiSelect from 'primevue/multiselect';

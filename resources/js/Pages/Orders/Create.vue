@@ -59,7 +59,7 @@
                                     v-model="patientSearch"
                                     :suggestions="patientSuggestions"
                                     optionLabel="name"
-                                    placeholder="Buscar por nombre o RUT..."
+                                    :placeholder="`Buscar por nombre o ${terms.id_label}...`"
                                     class="w-full"
                                     :class="{'p-invalid': form.errors.patient_id}"
                                     :disabled="!form.clinic_id"
@@ -69,7 +69,7 @@
                                     <template #option="{ option }">
                                         <div>
                                             <span class="font-medium">{{ option.name }}</span>
-                                            <span class="text-gray-400 text-xs ml-2">{{ option.rut }}</span>
+                                            <span class="text-gray-400 text-xs ml-2">{{ terms.id_label }}: {{ option.rut }}</span>
                                         </div>
                                     </template>
                                 </AutoComplete>
@@ -149,7 +149,7 @@
                                             :value="exam.id"
                                             v-model="form.examenes"
                                         />
-                                        <label :for="`exam_${exam.id}`" class="text-sm cursor-pointer">{{ exam.label }}</label>
+                                        <label :for="`exam_${exam.id}`" class="text-sm cursor-pointer">{{ examLabel(exam.label) }}</label>
                                     </div>
                                     <!-- File upload cuando está seleccionado -->
                                     <div v-if="isSelected(exam.id)" class="mt-2">
@@ -205,6 +205,9 @@
 import { ref, reactive } from 'vue';
 import { Link, useForm, router } from '@inertiajs/vue3';
 import AppLayout from '@/Layouts/AppLayout.vue';
+import { useTerms } from '@/composables/useTerms.js';
+
+const { terms, examLabel } = useTerms();
 import Button from 'primevue/button';
 import Select from 'primevue/select';
 import AutoComplete from 'primevue/autocomplete';

@@ -63,7 +63,7 @@
                                 <span class="w-6 h-6 rounded-full bg-blue-500 text-white text-xs flex items-center justify-center font-bold">
                                     {{ idx + 1 }}
                                 </span>
-                                <span class="font-semibold text-white text-sm">{{ ex.descripcion }}</span>
+                                <span class="font-semibold text-white text-sm">{{ examLabel(ex.descripcion) }}</span>
                             </div>
                             <span class="text-xs text-blue-200">Grupo {{ ex.grupo }}</span>
                         </div>
@@ -92,7 +92,7 @@
                                 </label>
                                 <Textarea
                                     v-model="respuestas[idx].texto"
-                                    :placeholder="`Ingrese el informe para ${ex.descripcion}...`"
+                                    :placeholder="`Ingrese el informe para ${examLabel(ex.descripcion)}...`"
                                     rows="5"
                                     class="w-full"
                                     :class="{'p-invalid': !!respuestaErrors[idx]}"
@@ -147,6 +147,9 @@ import { router, Link } from '@inertiajs/vue3';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import Button from 'primevue/button';
 import Textarea from 'primevue/textarea';
+import { useTerms } from '@/composables/useTerms.js';
+
+const { examLabel } = useTerms();
 
 const props = defineProps({
     order:    Object,

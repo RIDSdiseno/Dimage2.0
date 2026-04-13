@@ -66,6 +66,25 @@
                             <InputText v-model="form.telefonoresponsable" class="w-full" />
                         </div>
 
+                        <div class="md:col-span-2">
+                            <label class="block text-sm font-medium mb-1">País *</label>
+                            <div class="flex gap-3">
+                                <label
+                                    v-for="option in paisOptions"
+                                    :key="option.value"
+                                    class="flex items-center gap-2 border rounded-lg px-4 py-2.5 cursor-pointer transition"
+                                    :class="form.pais === option.value
+                                        ? 'border-blue-500 bg-blue-50 text-blue-700'
+                                        : 'border-gray-200 hover:border-gray-300 text-gray-600'"
+                                >
+                                    <RadioButton v-model="form.pais" :value="option.value" />
+                                    <span class="text-lg">{{ option.flag }}</span>
+                                    <span class="text-sm font-medium">{{ option.label }}</span>
+                                </label>
+                            </div>
+                            <small class="text-red-500">{{ form.errors.pais }}</small>
+                        </div>
+
                     </div>
 
                     <div class="flex justify-end gap-3 mt-6">
@@ -92,9 +111,15 @@ import { Link, useForm } from '@inertiajs/vue3';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import Button from 'primevue/button';
 import InputText from 'primevue/inputtext';
+import RadioButton from 'primevue/radiobutton';
 import Message from 'primevue/message';
 
 const props = defineProps({ holding: Object });
+
+const paisOptions = [
+    { value: 'CL', label: 'Chile',   flag: '🇨🇱' },
+    { value: 'UY', label: 'Uruguay', flag: '🇺🇾' },
+];
 
 const form = useForm({
     name:                props.holding?.name ?? '',
@@ -104,6 +129,7 @@ const form = useForm({
     representantelegal:  props.holding?.representantelegal ?? '',
     emailresponsable:    props.holding?.emailresponsable ?? '',
     telefonoresponsable: props.holding?.telefonoresponsable ?? '',
+    pais:                props.holding?.pais ?? 'CL',
 });
 
 const submit = () => {

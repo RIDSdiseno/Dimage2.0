@@ -19,6 +19,34 @@
             </div>
 
             <div class="ml-auto flex items-center gap-3">
+
+                <!-- Selector de región -->
+                <Select
+                    :modelValue="currentRegion"
+                    :options="regionOptions"
+                    optionLabel="label"
+                    optionValue="value"
+                    class="w-36"
+                    @change="setRegion($event.value)"
+                >
+                    <template #value="{ value }">
+                        <div v-if="value" class="flex items-center gap-2">
+                            <img :src="`https://flagcdn.com/20x15/${regionOptions.find(o => o.value === value)?.code}.png`"
+                                :alt="value" class="rounded-sm shadow-sm" style="width:20px;height:15px;object-fit:cover;" />
+                            <span class="text-xs font-medium text-gray-700">{{ regionOptions.find(o => o.value === value)?.label }}</span>
+                        </div>
+                    </template>
+                    <template #option="{ option }">
+                        <div class="flex items-center gap-2">
+                            <img :src="`https://flagcdn.com/20x15/${option.code}.png`"
+                                :alt="option.label" class="rounded-sm shadow-sm" style="width:20px;height:15px;object-fit:cover;" />
+                            <span class="text-sm">{{ option.label }}</span>
+                        </div>
+                    </template>
+                </Select>
+
+                <div class="w-px h-5 bg-white/20" />
+
                 <div class="flex items-center gap-2">
                     <div class="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold"
                         style="background-color:#3452ff;">
@@ -121,6 +149,12 @@
                             <NavSub href="/admin/integraciones" label="Listar API Keys" />
                         </NavGroup>
 
+                        <NavGroup label="Tipos de Examen" icon="pi-list" icon-color="#0891b2"
+                            :open="menus.examenes" @toggle="menus.examenes = !menus.examenes">
+                            <NavSub href="/admin/examenes/crear" label="Agregar Tipo" />
+                            <NavSub href="/admin/examenes" label="Ver Tipos" />
+                        </NavGroup>
+
                     </template>
 
                     <!-- Calendario (todos) -->
@@ -177,7 +211,8 @@
 
 <script setup>
 import { ref, reactive, computed, defineComponent, h } from 'vue';
-import { Link, usePage } from '@inertiajs/vue3';
+import { Link, usePage, router } from '@inertiajs/vue3';
+import Select from 'primevue/select';
 
 // ── Sub-components ────────────────────────────────────────────────────────
 
@@ -243,9 +278,19 @@ const NavGroup = defineComponent({
 
 // ── Layout logic ──────────────────────────────────────────────────────────
 
-const page        = usePage();
-const sidebarOpen = ref(true);
-const path        = window.location.pathname;
+const page          = usePage();
+const sidebarOpen   = ref(true);
+const path          = window.location.pathname;
+const currentRegion = computed(() => page.props.region ?? 'CL');
+
+const regionOptions = [
+    { value: 'CL', label: 'Chile',   code: 'cl' },
+    { value: 'UY', label: 'Uruguay', code: 'uy' },
+];
+
+const setRegion = (value) => {
+    router.post(route('region.update'), { region: value }, { preserveScroll: true });
+};
 
 const menus = reactive({
     admin:       path.startsWith('/admin') && !path.startsWith('/admin/holdings') && !path.startsWith('/admin/clinicas') && !path.startsWith('/admin/radiologos') && !path.startsWith('/admin/odontologos') && !path.startsWith('/admin/tecnicos') && !path.startsWith('/admin/secretarias') && !path.startsWith('/admin/usuarios'),
@@ -261,6 +306,7 @@ const menus = reactive({
     contralores:    path.startsWith('/admin/contralores'),
     controloria:    path.startsWith('/admin/controloria'),
     integraciones:  path.startsWith('/admin/integraciones'),
+    examenes:       path.startsWith('/admin/examenes'),
     administracion: path.startsWith('/admin/administracion') || path.startsWith('/admin/feriados') || path.startsWith('/admin/excel') || path.startsWith('/admin/usuarios'),
     excel:          path.startsWith('/admin/excel'),
 });

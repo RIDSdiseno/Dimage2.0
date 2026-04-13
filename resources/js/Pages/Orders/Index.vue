@@ -20,7 +20,7 @@
                     <InputIcon class="pi pi-search" />
                     <InputText
                         v-model="filters.q"
-                        placeholder="Buscar por paciente, RUT, clínica, odontólogo..."
+                        :placeholder="`Buscar por paciente, ${terms.id_label}, clínica, odontólogo...`"
                         class="w-full"
                         @input="onSearch"
                     />
@@ -95,7 +95,7 @@
                                 <td class="px-4 py-3 text-gray-600 hidden lg:table-cell">{{ orden.clinica }}</td>
                                 <td class="px-4 py-3 text-gray-500 hidden xl:table-cell">{{ orden.odontologo }}</td>
                                 <td class="px-4 py-3 text-gray-500 hidden xl:table-cell">{{ orden.radiologos }}</td>
-                                <td class="px-4 py-3 text-gray-500 text-xs hidden lg:table-cell">{{ orden.tipo_examen }}</td>
+                                <td class="px-4 py-3 text-gray-500 text-xs hidden lg:table-cell">{{ examListLabel(orden.tipo_examen) }}</td>
                                 <td class="px-4 py-3 text-gray-400 text-xs hidden md:table-cell">{{ orden.created_at }}</td>
                                 <td class="px-4 py-3">
                                     <div class="flex items-center gap-1.5">
@@ -149,6 +149,9 @@
 import { ref, reactive, onMounted, computed } from 'vue';
 import { Link, router, usePage } from '@inertiajs/vue3';
 import AppLayout from '@/Layouts/AppLayout.vue';
+import { useTerms } from '@/composables/useTerms.js';
+
+const { terms, examListLabel } = useTerms();
 import Button from 'primevue/button';
 import InputText from 'primevue/inputtext';
 import IconField from 'primevue/iconfield';

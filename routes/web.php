@@ -1,6 +1,8 @@
 <?php
 
 use App\Http\Controllers\AdministracionController;
+use App\Http\Controllers\ExamenesController;
+use App\Http\Controllers\RegionController;
 use App\Http\Controllers\CalendarController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\AdminController;
@@ -18,6 +20,9 @@ use Illuminate\Support\Facades\Route;
 Route::get('login', [AuthController::class, 'showLogin'])->name('login')->middleware('guest');
 Route::post('login', [AuthController::class, 'login'])->middleware('guest');
 Route::post('logout', [AuthController::class, 'logout'])->name('logout')->middleware('auth');
+
+// Selector de región (sesión) — disponible sin auth para evitar problemas de redirect
+Route::post('/region', [RegionController::class, 'update'])->name('region.update')->middleware('auth');
 
 // App (autenticado)
 Route::middleware(['auth'])->group(function () {
@@ -172,6 +177,14 @@ Route::middleware(['auth'])->group(function () {
         Route::post('/integraciones/{id}/desactivar', [IntegracionesController::class, 'destroy'])->name('integraciones.destroy');
 
         // Excel (movido fuera de este grupo — ver abajo)
+
+        // Tipos de Examen
+        Route::get('/examenes',               [ExamenesController::class, 'index'])->name('examenes');
+        Route::get('/examenes/search',        [ExamenesController::class, 'search'])->name('examenes.search');
+        Route::get('/examenes/crear',          [ExamenesController::class, 'create'])->name('examenes.create');
+        Route::post('/examenes',              [ExamenesController::class, 'store'])->name('examenes.store');
+        Route::get('/examenes/{id}/editar',   [ExamenesController::class, 'edit'])->name('examenes.edit');
+        Route::put('/examenes/{id}',          [ExamenesController::class, 'update'])->name('examenes.update');
 
         // Administración
         Route::get('/administracion/corregir',     [AdministracionController::class, 'corregir'])->name('administracion.corregir');

@@ -28,6 +28,7 @@ class HandleInertiaRequests extends Middleware
                     'roles'   => $request->user()->getRoleNames(),
                 ] : null,
             ],
+            'region' => $request->session()->get('region', 'CL'),
             'ziggy' => fn () => [
                 ...(new Ziggy)->toArray(),
                 'location' => $request->url(),

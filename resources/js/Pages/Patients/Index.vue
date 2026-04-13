@@ -20,7 +20,7 @@
                     <InputIcon class="pi pi-search" />
                     <InputText
                         v-model="searchTerm"
-                        placeholder="Buscar por nombre, RUT o email..."
+                        :placeholder="`Buscar por nombre, ${terms.id_label} o email...`"
                         class="w-full md:w-96"
                         @input="onSearch"
                     />
@@ -32,7 +32,7 @@
                 <table class="w-full text-sm">
                     <thead style="background-color:#f8fafc;">
                         <tr>
-                            <th class="text-left px-5 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wide w-36">RUT</th>
+                            <th class="text-left px-5 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wide w-36">{{ terms.id_label }}</th>
                             <th class="text-left px-5 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wide">Nombre</th>
                             <th class="text-left px-5 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wide hidden md:table-cell">Email</th>
                             <th class="text-left px-5 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wide hidden lg:table-cell w-28">Edad</th>
@@ -71,7 +71,7 @@
                             <td colspan="5" class="px-5 py-16 text-center">
                                 <i class="pi pi-users text-4xl text-gray-200 block mb-3" />
                                 <p class="text-gray-400 font-medium">
-                                    {{ searchTerm ? 'No se encontraron pacientes con ese nombre o RUT.' : 'Ingresa un nombre o RUT para buscar.' }}
+                                    {{ searchTerm ? `No se encontraron pacientes con ese nombre o ${terms.id_label}.` : `Ingresa un nombre o ${terms.id_label} para buscar.` }}
                                 </p>
                                 <Link v-if="!searchTerm" :href="route('pacientes.create')"
                                     class="inline-block mt-3 text-sm text-blue-600 hover:underline">
@@ -107,6 +107,9 @@ import InputText from 'primevue/inputtext';
 import IconField from 'primevue/iconfield';
 import InputIcon from 'primevue/inputicon';
 import Paginator from 'primevue/paginator';
+import { useTerms } from '@/composables/useTerms.js';
+
+const { terms } = useTerms();
 
 const patients    = ref([]);
 const loading     = ref(true);

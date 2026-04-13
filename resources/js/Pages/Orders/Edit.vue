@@ -114,7 +114,7 @@
                                 class="border border-gray-200 rounded-lg p-4">
                                 <p class="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-2">
                                     <i class="pi pi-file-edit text-blue-500" />
-                                    {{ examen.descripcion }}
+                                    {{ examLabel(examen.descripcion) }}
                                     <span class="text-xs text-gray-400 font-normal">({{ examen.archivos.length }} archivo(s))</span>
                                 </p>
 
@@ -166,7 +166,7 @@
                                     :class="isSelected(exam.id) ? 'border-blue-400 bg-blue-50' : 'border-gray-200 hover:border-gray-300'">
                                     <div class="flex items-center gap-2 mb-2">
                                         <Checkbox :inputId="`new_${exam.id}`" :value="exam.id" v-model="nuevosExamenes" />
-                                        <label :for="`new_${exam.id}`" class="text-sm cursor-pointer">{{ exam.label }}</label>
+                                        <label :for="`new_${exam.id}`" class="text-sm cursor-pointer">{{ examLabel(exam.label) }}</label>
                                     </div>
                                     <div v-if="isSelected(exam.id)" class="mt-2">
                                         <FileUpload
@@ -227,6 +227,9 @@ import Select from 'primevue/select';
 import Textarea from 'primevue/textarea';
 import Checkbox from 'primevue/checkbox';
 import FileUpload from 'primevue/fileupload';
+import { useTerms } from '@/composables/useTerms.js';
+
+const { examLabel } = useTerms();
 
 const props = defineProps({
     order:     Object,

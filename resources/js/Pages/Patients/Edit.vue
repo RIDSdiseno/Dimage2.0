@@ -7,7 +7,7 @@
                 </Link>
                 <div>
                     <h1 class="text-2xl font-bold text-gray-800">{{ patient.name }}</h1>
-                    <span class="text-sm text-gray-500">RUT: {{ patient.rut }}</span>
+                    <span class="text-sm text-gray-500">{{ terms.id_label }}: {{ patient.rut }}</span>
                 </div>
             </div>
 
@@ -27,7 +27,7 @@
                         </div>
 
                         <div>
-                            <label class="block text-sm font-medium mb-1">RUT</label>
+                            <label class="block text-sm font-medium mb-1">{{ terms.id_label }}</label>
                             <InputText :value="patient.rut" class="w-full" disabled />
                         </div>
 
@@ -74,6 +74,9 @@
 <script setup>
 import { Link, useForm } from '@inertiajs/vue3';
 import AppLayout from '@/Layouts/AppLayout.vue';
+import { useTerms } from '@/composables/useTerms.js';
+
+const { terms } = useTerms();
 import InputText from 'primevue/inputtext';
 import DatePicker from 'primevue/datepicker';
 import MultiSelect from 'primevue/multiselect';

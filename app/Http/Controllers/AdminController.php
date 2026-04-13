@@ -423,6 +423,7 @@ class AdminController extends Controller
         $request->validate([
             'name'     => ['required', 'min:2'],
             'username' => ['required', 'unique:users,username'],
+            'pais'     => ['required', 'in:CL,UY'],
         ]);
 
         DB::transaction(function () use ($request) {
@@ -444,6 +445,7 @@ class AdminController extends Controller
                 'rutholding'          => trim($request->rutholding ?? ''),
                 'emailresponsable'    => trim($request->emailresponsable ?? ''),
                 'telefonoresponsable' => trim($request->telefonoresponsable ?? ''),
+                'pais'                => $request->pais,
                 'created_at'          => now(),
                 'updated_at'          => now(),
             ]);
@@ -467,7 +469,8 @@ class AdminController extends Controller
                 'holdings.rutholding',
                 'holdings.emailresponsable',
                 'holdings.telefonoresponsable',
-                'holdings.representantelegal'
+                'holdings.representantelegal',
+                'holdings.pais'
             )
             ->where('holdings.id', $id)
             ->first();
@@ -486,6 +489,7 @@ class AdminController extends Controller
                 'emailresponsable'    => $h->emailresponsable,
                 'telefonoresponsable' => $h->telefonoresponsable,
                 'representantelegal'  => $h->representantelegal,
+                'pais'                => $h->pais ?? 'CL',
             ],
         ]);
     }
@@ -501,6 +505,7 @@ class AdminController extends Controller
 
         $request->validate([
             'name' => ['required', 'min:2'],
+            'pais' => ['required', 'in:CL,UY'],
         ]);
 
         DB::transaction(function () use ($request, $h) {
@@ -516,6 +521,7 @@ class AdminController extends Controller
                 'rutholding'          => trim($request->rutholding ?? ''),
                 'emailresponsable'    => trim($request->emailresponsable ?? ''),
                 'telefonoresponsable' => trim($request->telefonoresponsable ?? ''),
+                'pais'                => $request->pais,
                 'updated_at'          => now(),
             ]);
         });

@@ -98,7 +98,7 @@
                     </p>
                     <div class="space-y-1.5 text-sm">
                         <p class="font-semibold text-gray-800 text-base">{{ paciente?.name }}</p>
-                        <p class="text-gray-600"><span class="text-gray-400">RUT:</span> {{ paciente?.rut }}</p>
+                        <p class="text-gray-600"><span class="text-gray-400">{{ terms.id_label }}:</span> {{ paciente?.rut }}</p>
                         <p v-if="paciente?.edad !== null" class="text-gray-600">
                             <span class="text-gray-400">Edad:</span> {{ paciente?.edad }} años
                         </p>
@@ -139,7 +139,7 @@
                             <span class="ml-1">{{ odontologo?.nombre ?? '-' }}</span>
                         </p>
                         <p v-if="odontologo?.rut" class="text-gray-600">
-                            <span class="text-gray-400">RUT Odontólogo:</span>
+                            <span class="text-gray-400">{{ terms.id_label }} Odontólogo:</span>
                             <span class="ml-1">{{ odontologo.rut }}</span>
                         </p>
                         <div v-if="radiologos?.length">
@@ -221,7 +221,7 @@
                     <div class="flex items-center justify-between px-5 py-3" style="background-color:#0b2a4a;">
                         <div class="flex items-center gap-2">
                             <i class="pi pi-file-edit text-blue-300 text-sm" />
-                            <span class="font-semibold text-white text-sm">{{ examen.descripcion }}</span>
+                            <span class="font-semibold text-white text-sm">{{ examLabel(examen.descripcion) }}</span>
                         </div>
                         <div class="flex items-center gap-2">
                             <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium"
@@ -329,6 +329,9 @@ import { computed, reactive } from 'vue';
 import { Link, router } from '@inertiajs/vue3';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import Button from 'primevue/button';
+import { useTerms } from '@/composables/useTerms.js';
+
+const { terms, examLabel } = useTerms();
 import FileThumbnail from '@/Components/FileThumbnail.vue';
 
 const props = defineProps({
