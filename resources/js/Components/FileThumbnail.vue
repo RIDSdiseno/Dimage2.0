@@ -4,7 +4,8 @@
 
         <!-- PDF: icon card -->
         <template v-if="isPdf">
-            <a :href="imgSrc" target="_blank" style="display:flex; flex-direction:column; align-items:center; justify-content:center; width:100%; height:100%;"
+            <a :href="fileSrc" target="_blank"
+                style="display:flex; flex-direction:column; align-items:center; justify-content:center; width:100%; height:100%;"
                 class="hover:bg-red-50 transition-colors no-underline">
                 <i class="pi pi-file-pdf" style="font-size:3rem; color:#e3342f;" />
                 <span style="font-size:11px; margin-top:6px; padding:0 6px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:130px; color:#6b7280; text-align:center;">
@@ -13,19 +14,68 @@
             </a>
         </template>
 
-        <!-- Image/unknown: try as image, fallback to icon -->
+        <!-- DCM (individual o serie CBCT) → toda la tarjeta es clickeable para abrir el visor -->
+        <template v-else-if="isDcm">
+            <a :href="visorUrl" target="_blank"
+                style="display:flex; flex-direction:column; align-items:center; justify-content:center; width:100%; height:100%; background:#0b2a4a; position:relative; text-decoration:none;"
+                @click.stop>
+                <i class="pi pi-box" style="font-size:2.5rem; color:#60a5fa;" />
+                <span style="font-size:10px; margin-top:5px; color:#93c5fd; font-weight:700; letter-spacing:0.08em;">
+                    {{ isCbctSerie ? 'CBCT / DICOM' : 'DICOM' }}
+                </span>
+                <span style="font-size:10px; margin-top:3px; padding:0 6px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:130px; color:#60a5fa; text-align:center;">
+                    {{ file.name || 'Archivo' }}
+                </span>
+                <!-- Botón visor siempre visible abajo -->
+                <div style="position:absolute; bottom:6px; right:6px; display:flex; gap:4px;">
+                    <span style="display:flex; align-items:center; justify-content:center; width:26px; height:26px; border-radius:5px; background:rgba(52,82,255,0.9); color:#fff;">
+                        <i class="pi pi-eye" style="font-size:12px;" />
+                    </span>
+                    <a :href="fileSrc" target="_blank" download title="Descargar"
+                        style="display:flex; align-items:center; justify-content:center; width:26px; height:26px; border-radius:5px; background:rgba(255,255,255,0.15); color:#fff; text-decoration:none;"
+                        @click.stop>
+                        <i class="pi pi-download" style="font-size:12px;" />
+                    </a>
+                </div>
+            </a>
+        </template>
+
+        <!-- ZIP CBCT antiguo → procesar para visor o descargar -->
+        <template v-else-if="isZip && showDicom">
+            <div style="display:flex; flex-direction:column; align-items:center; justify-content:center; width:100%; height:100%; background:#0b2a4a; position:relative;">
+                <i :class="extracting ? 'pi pi-spin pi-spinner' : 'pi pi-box'" style="font-size:2.5rem; color:#60a5fa;" />
+                <span style="font-size:10px; margin-top:5px; color:#93c5fd; font-weight:700; letter-spacing:0.08em;">CBCT / DICOM</span>
+                <span style="font-size:10px; margin-top:3px; padding:0 6px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:130px; color:#60a5fa; text-align:center;">
+                    {{ extractMsg || file.name || 'Archivo' }}
+                </span>
+                <!-- Hover: procesar + descargar -->
+                <div v-if="!extracting" class="opacity-0 group-hover:opacity-100 transition-opacity"
+                    style="position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:6px; background:rgba(11,42,74,0.92); border-radius:inherit;">
+                    <button
+                        style="display:flex; align-items:center; gap:5px; padding:6px 12px; border-radius:6px; background:#3452ff; color:#fff; border:none; cursor:pointer; font-size:11px; font-weight:600;"
+                        @click.stop="processZip">
+                        <i class="pi pi-cog" style="font-size:11px;" /> Procesar para visor
+                    </button>
+                    <a :href="serveUrl" download :download="file.name"
+                        style="display:flex; align-items:center; gap:5px; padding:5px 10px; border-radius:6px; background:rgba(255,255,255,0.1); color:#93c5fd; text-decoration:none; font-size:10px;"
+                        @click.stop>
+                        <i class="pi pi-download" style="font-size:10px;" /> Descargar ZIP
+                    </a>
+                </div>
+            </div>
+        </template>
+
+        <!-- Image: try as img, fallback to generic download -->
         <template v-else>
-            <!-- While loading or after success: show img -->
             <img v-if="!imgFailed"
-                :src="imgSrc"
+                :src="fileSrc"
                 :alt="file.name"
                 loading="lazy"
                 style="width:100%; height:100%; object-fit:cover; display:block;"
-                @click="$emit('lightbox', { ...file, url: imgSrc })"
+                @click="$emit('lightbox', { ...file, url: fileSrc })"
                 @error="imgFailed = true" />
 
-            <!-- Failed: generic download card -->
-            <a v-else :href="imgSrc" target="_blank"
+            <a v-else :href="fileSrc" target="_blank"
                 style="display:flex; flex-direction:column; align-items:center; justify-content:center; width:100%; height:100%;"
                 class="hover:bg-blue-50 transition-colors no-underline">
                 <i class="pi pi-file" style="font-size:3rem; color:#9ca3af;" />
@@ -34,11 +84,10 @@
                 </span>
             </a>
 
-            <!-- Zoom overlay (only when image loaded) -->
             <div v-if="!imgFailed"
                 style="position:absolute; inset:0; background:rgba(0,0,0,0); transition:background 0.2s; display:flex; align-items:flex-end; justify-content:flex-end;"
                 class="group-hover:bg-black/30"
-                @click="$emit('lightbox', { ...file, url: imgSrc })">
+                @click="$emit('lightbox', { ...file, url: fileSrc })">
                 <span style="margin:6px; background:rgba(255,255,255,0.9); border-radius:4px; padding:3px 5px;"
                     class="opacity-0 group-hover:opacity-100 transition-opacity">
                     <i class="pi pi-search" style="font-size:12px; color:#2563eb;" />
@@ -58,14 +107,65 @@
 import { ref, computed } from 'vue';
 
 const props = defineProps({
-    file: { type: Object, required: true },
+    file:       { type: Object, required: true },
+    showDicom:  { type: Boolean, default: false }, // forzar visor DICOM (ej. ZIP de Cone Beam)
 });
 
-defineEmits(['lightbox']);
+const emit = defineEmits(['lightbox', 'extracted']);
 
-const imgFailed = ref(false);
-const isPdf = computed(() => (props.file.extension || '').toLowerCase() === 'pdf');
-const serveUrl = computed(() => route('archivos.serve', props.file.id));
-// Prefer the pre-signed S3 URL (already provided by controller) over the server proxy
-const imgSrc = computed(() => props.file.url || serveUrl.value);
+const imgFailed  = ref(false);
+const extracting = ref(false);
+const extractMsg = ref('');
+
+const ext       = computed(() => (props.file.extension || '').toLowerCase());
+const isPdf     = computed(() => ext.value === 'pdf');
+const isDcm     = computed(() => ext.value === 'dcm' || ext.value === 'dicom');
+const isZip     = computed(() => ext.value === 'zip');
+const isCbctSerie = computed(() => isDcm.value && !!props.file.ruta_dcm);
+const serveUrl  = computed(() => route('archivos.serve', props.file.id));
+const fileSrc   = computed(() => props.file.url || serveUrl.value);
+
+async function processZip() {
+    extracting.value = true;
+    extractMsg.value = 'Procesando...';
+    try {
+        const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content || '';
+        const res = await fetch(route('archivos.extraer', props.file.id), {
+            method: 'POST',
+            headers: { 'X-CSRF-TOKEN': csrfToken, 'Accept': 'application/json' },
+        });
+        const json = await res.json();
+        if (json.ok) {
+            extractMsg.value = json.message || 'Listo';
+            emit('extracted', props.file.id);
+            // Reload page after brief delay so thumbnail refreshes
+            setTimeout(() => window.location.reload(), 1200);
+        } else {
+            extractMsg.value = json.message || 'Error';
+            extracting.value = false;
+        }
+    } catch (e) {
+        extractMsg.value = 'Error de red';
+        extracting.value = false;
+    }
+}
+
+const visorUrl = computed(() => {
+    const base = route('visor-dicom');
+    if (isCbctSerie.value) {
+        // CBCT serie: pass file ID so the viewer can load all slices
+        const params = new URLSearchParams({
+            id:   props.file.id,
+            name: props.file.name || 'DICOM',
+        });
+        return `${base}?${params.toString()}`;
+    }
+    // Single DCM: pass the serve URL with filename for dwv type detection
+    const fname = encodeURIComponent(props.file.name || `file.${ext.value || 'bin'}`);
+    const params = new URLSearchParams({
+        file: `/archivos/${props.file.id}/${fname}`,
+        name: props.file.name || 'DICOM',
+    });
+    return `${base}?${params.toString()}`;
+});
 </script>

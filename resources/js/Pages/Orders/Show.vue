@@ -1,21 +1,7 @@
 <template>
     <AppLayout title="Ver Orden">
 
-        <!-- Image lightbox -->
-        <Teleport to="body">
-            <div v-if="lightbox.open" @click.self="lightbox.open = false"
-                class="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4">
-                <div class="relative max-w-5xl max-h-full w-full">
-                    <button @click="lightbox.open = false"
-                        class="absolute -top-10 right-0 text-white hover:text-gray-300 text-2xl font-bold">
-                        <i class="pi pi-times" />
-                    </button>
-                    <img :src="lightbox.src" :alt="lightbox.name"
-                        class="max-h-[85vh] max-w-full mx-auto rounded-lg shadow-2xl object-contain" />
-                    <p class="text-center text-white/70 text-xs mt-2">{{ lightbox.name }}</p>
-                </div>
-            </div>
-        </Teleport>
+        <ImageViewer :src="lightbox.open ? lightbox.src : null" :name="lightbox.name" @close="lightbox.open = false" />
 
         <div class="p-6 max-w-5xl mx-auto">
 
@@ -229,7 +215,7 @@
                                 <i :class="examen.respuesta ? 'pi pi-check' : 'pi pi-clock'" class="text-xs" />
                                 {{ examen.respuesta ? 'Informado' : 'Pendiente' }}
                             </span>
-                            <button v-if="order.estadoradiologo != 1"
+                            <button v-if="esAdmin && order.estadoradiologo != 1"
                                 @click="eliminarExamen(examen.id)"
                                 class="text-red-300 hover:text-red-100 transition p-1 rounded"
                                 title="Eliminar examen">
@@ -247,8 +233,8 @@
                             </p>
                             <div v-if="examen.archivos?.length" class="flex flex-wrap gap-3">
                                 <div v-for="f in examen.archivos" :key="f.id" class="relative group">
-                                    <FileThumbnail :file="f" @lightbox="openLightbox" />
-                                    <button v-if="order.estadoradiologo != 1 && !esRadiologo"
+                                    <FileThumbnail :file="f" @lightbox="openLightbox" :showDicom="examen.grupo === 4" />
+                                    <button v-if="esAdmin && order.estadoradiologo != 1"
                                         @click="eliminarArchivo(f.id)"
                                         class="absolute top-1 right-1 hidden group-hover:flex items-center justify-center w-5 h-5 rounded-full bg-red-500 text-white shadow"
                                         title="Eliminar archivo">
@@ -278,7 +264,8 @@
                                     <FileThumbnail
                                         v-for="f in examen.archivos_informe" :key="f.id"
                                         :file="f"
-                                        @lightbox="openLightbox" />
+                                        @lightbox="openLightbox"
+                                        :showDicom="examen.grupo === 4" />
                                 </div>
                             </div>
 
@@ -333,6 +320,7 @@ import { useTerms } from '@/composables/useTerms.js';
 
 const { terms, examLabel } = useTerms();
 import FileThumbnail from '@/Components/FileThumbnail.vue';
+import ImageViewer   from '@/Components/ImageViewer.vue';
 
 const props = defineProps({
     order:          Object,

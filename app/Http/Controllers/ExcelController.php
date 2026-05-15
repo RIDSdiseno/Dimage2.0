@@ -27,7 +27,9 @@ class ExcelController extends Controller
 
     public function index()
     {
-        return Inertia::render('Admin/Excel/Index');
+        return Inertia::render('Admin/Excel/Index', [
+            'esRadiologoRestringido' => $this->radiologoRestringidoId() !== null,
+        ]);
     }
 
     public function download(Request $request): Response
@@ -48,6 +50,8 @@ class ExcelController extends Controller
             default     => 'orders.created_at',
         };
 
+        $restrictedId = $this->radiologoRestringidoId();
+
         $rows = DB::table('orders')
             ->join('patients as p', 'p.id', '=', 'orders.patient_id')
             ->join('clinics as c', 'c.id', '=', 'orders.clinic_id')
@@ -57,6 +61,7 @@ class ExcelController extends Controller
             ->leftJoin('staffs as rad', 'rad.id', '=', 'orders.radiologo_id')
             ->leftJoin('users as urad', 'urad.id', '=', 'rad.user_id')
             ->whereBetween($dateColumn, [$desde, $hasta])
+            ->when($restrictedId, fn ($q) => $q->where('orders.radiologo_id', $restrictedId))
             ->select(
                 'orders.id',
                 'uc.name as clinica',
@@ -261,6 +266,27 @@ class ExcelController extends Controller
         ]);
     }
 
+    /**
+     * Returns the staff_id if the current user is a radiologist WITHOUT admin rights,
+     * meaning their queries must be scoped to their own orders only.
+     * Returns null for admins and non-radiologist users (no restriction).
+     */
+    private function radiologoRestringidoId(): ?int
+    {
+        $user = auth()->user();
+        if ((int) $user->type_id !== 5) {
+            return null;
+        }
+        $staff = DB::table('staffs')
+            ->where('user_id', $user->id)
+            ->first(['id', 'puede_crear_ordenes']);
+
+        if (! $staff || $staff->puede_crear_ordenes) {
+            return null; // admin radiologist — unrestricted
+        }
+        return (int) $staff->id;
+    }
+
     // ── Helpers ───────────────────────────────────────────────────────────────
 
     private function streamXlsx(Spreadsheet $spreadsheet, string $filename): Response
@@ -320,11 +346,14 @@ class ExcelController extends Controller
             default     => 'orders.created_at',
         };
 
+        $restrictedId = $this->radiologoRestringidoId();
+
         $rows = DB::table('examination_order as eo')
             ->join('orders', 'orders.id', '=', 'eo.order_id')
             ->join('examinations as e', 'e.id', '=', 'eo.examination_id')
             ->join('kinds as k', 'k.id', '=', 'e.kind_id')
             ->whereBetween($dateCol, [$desde, $hasta])
+            ->when($restrictedId, fn ($q) => $q->where('orders.radiologo_id', $restrictedId))
             ->select(
                 'k.descipcion as tipo',
                 DB::raw('COUNT(DISTINCT eo.order_id) as total_ordenes'),
@@ -375,6 +404,10 @@ class ExcelController extends Controller
 
     public function downloadByRadiologo(Request $request): Response
     {
+        if ($this->radiologoRestringidoId() !== null) {
+            abort(403, 'Sin permiso para este reporte.');
+        }
+
         $request->validate([
             'desde'      => ['required', 'date'],
             'hasta'      => ['required', 'date', 'after_or_equal:desde'],
@@ -389,10 +422,13 @@ class ExcelController extends Controller
             default     => 'orders.created_at',
         };
 
+        $restrictedId = $this->radiologoRestringidoId();
+
         $rows = DB::table('orders')
             ->leftJoin('staffs as rad', 'rad.id', '=', 'orders.radiologo_id')
             ->leftJoin('users as u', 'u.id', '=', 'rad.user_id')
             ->whereBetween($dateCol, [$desde, $hasta])
+            ->when($restrictedId, fn ($q) => $q->where('orders.radiologo_id', $restrictedId))
             ->select(
                 DB::raw("COALESCE(u.name, 'Sin asignar') as radiologo"),
                 DB::raw('COUNT(*) as total'),
@@ -445,6 +481,11 @@ class ExcelController extends Controller
 
     public function downloadEspacioUso(): Response
     {
+        // Space report is clinic-level data — restricted radiologists cannot access it
+        if ($this->radiologoRestringidoId() !== null) {
+            abort(403, 'Sin permiso para este reporte.');
+        }
+
         $rows = DB::table('files as f')
             ->join('examinations as e', 'e.id', '=', 'f.examination_id')
             ->join('examination_order as eo', 'eo.examination_id', '=', 'e.id')

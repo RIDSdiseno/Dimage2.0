@@ -6,6 +6,7 @@ use App\Mail\OrdenAsignada;
 use App\Models\Clinic;
 use App\Models\Examination;
 use App\Models\Kind;
+use App\Models\KindGroup;
 use App\Models\Order;
 use App\Models\Patient;
 use App\Models\Staff;
@@ -18,6 +19,8 @@ use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Storage;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -29,6 +32,49 @@ class OrderController extends Controller
         2 => ['label' => 'Corrección', 'color' => 'danger'],
         4 => ['label' => 'Guardada', 'color' => 'secondary'],
     ];
+
+    public function visorDicom(Request $request)
+    {
+        if ($request->has('id')) {
+            $id   = (int) $request->get('id');
+            $name = $request->get('name', 'DICOM');
+            $file = DB::table('files')->where('id', $id)->first(['ruta', 'ruta_dcm']);
+
+            abort_if(!$file || !$file->ruta, 404);
+
+            $base    = request()->getSchemeAndHttpHost();
+            $urlMap  = [];
+
+            if ($file->ruta_dcm) {
+                // CBCT series: pre-generate signed S3 URLs for every slice so
+                // the JS XHR interceptor can bypass the PHP proxy entirely.
+                $baseProxy = "{$base}/archivos/{$id}/dcm";
+                $fileUrl   = $baseProxy . '/' . rawurlencode(basename($file->ruta));
+
+                $paths = Cache::remember("serie_paths_{$id}", 3600, function () use ($file) {
+                    $all = Storage::disk('s3')->allFiles($file->ruta_dcm);
+                    $dcm = array_filter($all, fn($p) => in_array(
+                        strtolower(pathinfo($p, PATHINFO_EXTENSION)), ['dcm', 'dicom'], true
+                    ));
+                    sort($dcm);
+                    return array_values($dcm);
+                });
+
+                foreach ($paths as $path) {
+                    $proxyUrl = $baseProxy . '/' . rawurlencode(basename($path));
+                    try {
+                        $urlMap[$proxyUrl] = Storage::disk('s3')->temporaryUrl($path, now()->addHours(2));
+                    } catch (\Throwable) {}
+                }
+            } else {
+                $fileUrl = "{$base}/archivos/{$id}/" . rawurlencode(basename($file->ruta));
+            }
+
+            return view('visor3d', compact('fileUrl', 'name', 'urlMap'));
+        }
+
+        return view('visor3d');
+    }
 
     public function index(): Response
     {
@@ -133,34 +179,41 @@ class OrderController extends Controller
         ]);
     }
 
-    public function create(): Response
+    private function guardRadiologoCrear(): void
     {
         $user = Auth::user();
+        if ((int) $user->type_id === 5) {
+            $puede = DB::table('staffs')->where('user_id', $user->id)->value('puede_crear_ordenes');
+            if (! $puede) {
+                abort(403, 'Sin permiso para crear órdenes.');
+            }
+        }
+    }
 
-        $kinds = Kind::query()
-            ->orderBy('group')
-            ->orderBy('id')
-            ->get(['id', 'descipcion', 'group']);
+    private function buildExamTabs(): array
+    {
+        $groups = KindGroup::orderBy('tab')->orderBy('orden')->orderBy('id')->get();
+        $kinds  = Kind::whereIn('group', $groups->pluck('id'))->orderBy('id')->get(['id', 'descipcion', 'group']);
 
-        $groupNames = [
-            '1' => 'Adulto',
-            '2' => 'Niño',
-            '3' => 'General',
-            '4' => '3D',
-        ];
+        $tabs = [];
+        foreach ($groups as $g) {
+            $tab = $g->tab; // 'intraorales' | 'extraorales'
+            if (!isset($tabs[$tab])) $tabs[$tab] = [];
+            $tabs[$tab][] = [
+                'group_id' => $g->id,
+                'nombre'   => $g->nombre,
+                'items'    => $kinds->where('group', (string) $g->id)
+                    ->map(fn ($k) => ['id' => $k->id, 'label' => $k->descipcion])
+                    ->values(),
+            ];
+        }
+        return $tabs;
+    }
 
-        $examTypes = $kinds
-            ->groupBy('group')
-            ->map(function (Collection $items, $group) use ($groupNames) {
-                return [
-                    'label' => $groupNames[(string) $group] ?? "Grupo {$group}",
-                    'items' => $items->map(fn ($k) => [
-                        'id' => $k->id,
-                        'label' => $k->descipcion,
-                    ])->values(),
-                ];
-            })
-            ->values();
+    public function create(): Response
+    {
+        $this->guardRadiologoCrear();
+        $user = Auth::user();
 
         $clinics = $this->clinicsForUser($user)
             ->map(function ($c) {
@@ -172,8 +225,8 @@ class OrderController extends Controller
             ->values();
 
         return Inertia::render('Orders/Create', [
-            'examTypes' => $examTypes,
-            'clinics' => $clinics,
+            'examTypes' => $this->buildExamTabs(),
+            'clinics'   => $clinics,
         ]);
     }
 
@@ -246,17 +299,24 @@ class OrderController extends Controller
 
     public function store(Request $request): RedirectResponse
     {
+        $this->guardRadiologoCrear();
         $request->validate([
-            'patient_id' => ['required', 'exists:patients,id'],
-            'clinic_id' => ['required', 'exists:clinics,id'],
-            'odontologo_id' => ['nullable', 'exists:staffs,id'],
+            'patient_id'   => ['required', 'exists:patients,id'],
+            'clinic_id'    => ['required', 'exists:clinics,id'],
+            'odontologo_id'=> ['nullable', 'exists:staffs,id'],
             'radiologo_id' => ['nullable', 'exists:staffs,id'],
-            'diagnostico' => ['required', 'min:3'],
-            'prioridad' => ['required', 'in:Normal,Urgente'],
-            'examenes' => ['required', 'array', 'min:1'],
-            'examenes.*' => ['required', 'exists:kinds,id'],
-            'action' => ['required', 'in:guardar,enviar'],
+            'diagnostico'  => ['required', 'min:3'],
+            'prioridad'    => ['required', 'in:Normal,Urgente'],
+            'examenes'     => ['required', 'array', 'min:1'],
+            'action'       => ['required', 'in:guardar,enviar'],
         ]);
+
+        // Validate all exam IDs in one query instead of N queries
+        $examenes = array_unique(array_map('intval', (array) $request->examenes));
+        $validCount = DB::table('kinds')->whereIn('id', $examenes)->count();
+        if ($validCount < count($examenes)) {
+            abort(422, 'Tipo de examen inválido.');
+        }
 
         $user = Auth::user();
         $enviar = $request->action === 'enviar';
@@ -266,7 +326,7 @@ class OrderController extends Controller
             $odontologoId = $user->staff->id;
         }
 
-        DB::transaction(function () use ($request, $enviar, $odontologoId): void {
+        DB::transaction(function () use ($request, $enviar, $odontologoId, $examenes): void {
             $order = Order::create([
                 'patient_id' => $request->patient_id,
                 'clinic_id' => $request->clinic_id,
@@ -282,49 +342,59 @@ class OrderController extends Controller
                 'sin_diagnostico' => 0,
             ]);
 
-            foreach ($request->examenes as $kindId) {
-                $examination = Examination::create([
-                    'kind_id' => $kindId,
-                    'order_id' => $order->id,
+            $examOrderRows = [];
+            $fileRows      = [];
+
+            foreach ($examenes as $kindId) {
+                $examinationId = DB::table('examinations')->insertGetId([
+                    'kind_id'    => $kindId,
+                    'created_at' => now(),
+                    'updated_at' => now(),
                 ]);
 
-                if (method_exists($order, 'examinations')) {
-                    $order->examinations()->syncWithoutDetaching([$examination->id]);
-                } else {
-                    DB::table('examination_order')->insert([
-                        'order_id' => $order->id,
-                        'examination_id' => $examination->id,
-                    ]);
-                }
+                $examOrderRows[] = [
+                    'order_id'       => $order->id,
+                    'examination_id' => $examinationId,
+                    'created_at'     => now(),
+                    'updated_at'     => now(),
+                ];
 
                 $fileKey = "files_{$kindId}";
                 if (!$request->hasFile($fileKey)) {
                     continue;
                 }
 
+                $kindGroup = $this->kindGroupFor((int) $kindId);
+
                 foreach ((array) $request->file($fileKey) as $file) {
                     if (!$file) {
                         continue;
                     }
 
-                    $path = $file->store("ordenes/{$order->id}", 's3');
+                    $stored = $this->storeUploadedFile($file, $order->id, $kindGroup);
 
-                    DB::table('files')->insert([
-                        'ruta' => $path,
-                        'examination_id' => $examination->id,
-                        'created_at' => now(),
-                        'updated_at' => now(),
-                        'name' => $file->getClientOriginalName(),
-                        'type_id' => 0,
-                        'extension' => strtolower((string) $file->getClientOriginalExtension()),
-                        'ruta_dcm' => null,
-                        'nombre_dcm' => null,
-                        'file_size' => (int) $file->getSize(),
+                    $fileRows[] = [
+                        'ruta'               => $stored['ruta'],
+                        'examination_id'     => $examinationId,
+                        'created_at'         => now(),
+                        'updated_at'         => now(),
+                        'name'               => $stored['name'],
+                        'type_id'            => 0,
+                        'extension'          => $stored['extension'],
+                        'ruta_dcm'           => $stored['ruta_dcm'],
+                        'nombre_dcm'         => null,
+                        'file_size'          => $stored['file_size'],
                         'file_size_procesed' => 1,
-                        'file_size_error' => null,
-                        'desde_informar' => 0,
-                    ]);
+                        'file_size_error'    => null,
+                        'desde_informar'     => 0,
+                    ];
                 }
+            }
+
+            DB::table('examination_order')->insert($examOrderRows);
+
+            if (!empty($fileRows)) {
+                DB::table('files')->insert($fileRows);
             }
 
             if ($enviar && $request->filled('radiologo_id')) {
@@ -336,15 +406,16 @@ class OrderController extends Controller
                 ]);
             }
 
-            if (method_exists($order, 'staff')) {
-                $staffIds = array_values(array_filter([
-                    $odontologoId,
-                    $request->radiologo_id,
-                ]));
-
-                if (!empty($staffIds)) {
-                    $order->staff()->sync($staffIds);
-                }
+            $staffIds = array_values(array_filter([
+                $odontologoId,
+                $request->radiologo_id,
+            ]));
+            if (!empty($staffIds)) {
+                $orderStaffRows = array_map(fn ($sid) => [
+                    'order_id' => $order->id,
+                    'staff_id' => (int) $sid,
+                ], $staffIds);
+                DB::table('order_staff')->insertOrIgnore($orderStaffRows);
             }
         });
 
@@ -394,7 +465,7 @@ class OrderController extends Controller
                     'id'          => $e->examination_id,
                     'kind_id'     => $e->kind_id,
                     'descripcion' => $e->descripcion,
-                    'grupo'       => $e->grupo,
+                    'grupo'       => (int) $e->grupo,
                     'url_texto'   => $e->url_texto,
                     'archivos'    => $archivos,
                     'archivos_informe' => $archivosInforme,
@@ -450,9 +521,9 @@ class OrderController extends Controller
             'label' => 'Desconocido', 'color' => 'secondary',
         ];
 
-        $puedeResponder = $user->hasAnyRole(['radiologo', 'tecnico'])
+        $puedeResponder = $user->hasAnyRole(['radiologo', 'admin', 'secretaria'])
             && (int) $order->estadoradiologo === 0
-            && $radiologos->contains('id', $user->staff?->id);
+            && ($user->hasAnyRole(['admin', 'secretaria']) || $radiologos->contains('id', $user->staff?->id));
 
         return Inertia::render('Orders/Show', [
             'order' => [
@@ -496,7 +567,7 @@ class OrderController extends Controller
     {
         $user = Auth::user();
 
-        if (!$user->hasAnyRole(['radiologo', 'tecnico'])) {
+        if (!$user->hasAnyRole(['radiologo', 'admin', 'secretaria'])) {
             return redirect()->route('ordenes.show', $order)->with('error', 'Sin permiso para responder órdenes.');
         }
 
@@ -516,21 +587,24 @@ class OrderController extends Controller
             ])
             ->get()
             ->map(function ($e) {
-                $respuesta = DB::table('answers')
+                $ans = DB::table('answers')
                     ->where('examination_id', $e->examination_id)
-                    ->first(['id', 'texto', 'url_texto']);
+                    ->first();
 
                 $archivos = DB::table('files')
                     ->where('examination_id', $e->examination_id)
-                    ->get(['id', 'name', 'ruta', 'extension', 'file_size']);
+                    ->get(['id', 'name', 'ruta', 'extension', 'file_size'])
+                    ->map(function ($f) {
+                        return array_merge((array) $f, ['url' => $this->signedUrl($f->ruta)]);
+                    });
 
                 return [
-                    'id' => $e->examination_id,
-                    'kind_id' => $e->kind_id,
+                    'id'          => $e->examination_id,
+                    'kind_id'     => $e->kind_id,
                     'descripcion' => $e->descripcion,
-                    'grupo' => $e->grupo,
-                    'archivos' => $archivos,
-                    'respuesta' => $respuesta,
+                    'grupo'       => $e->grupo,
+                    'archivos'    => $archivos,
+                    'respuesta'   => $ans ? (array) $ans : null,
                 ];
             });
 
@@ -538,98 +612,154 @@ class OrderController extends Controller
         $clinica  = DB::table('clinics as c')->join('users as u', 'u.id', '=', 'c.user_id')
                       ->where('c.id', $order->clinic_id)->value('u.name');
 
+        $staff = DB::table('staffs')->where('user_id', $user->id)->first(['solo_adjuntar_informe']);
+        $conPermisoSoloAdjuntar = (bool) ($staff->solo_adjuntar_informe ?? false);
+
         return Inertia::render('Orders/Respond', [
             'order' => [
-                'id'           => $order->id,
-                'diagnostico'  => $order->diagnostico,
-                'observaciones'=> $order->observaciones,
-                'prioridad'    => $order->prioridad,
-                'created_at'   => $order->created_at ? Carbon::parse($order->created_at)->format('d/m/Y H:i') : null,
-                'enviada'      => $order->enviada    ? Carbon::parse($order->enviada)->format('d/m/Y H:i') : null,
+                'id'             => $order->id,
+                'diagnostico'    => $order->diagnostico,
+                'observaciones'  => $order->observaciones,
+                'observaciones_2'=> $order->observaciones_2,
+                'prioridad'      => $order->prioridad,
+                'created_at'     => $order->created_at ? Carbon::parse($order->created_at)->format('d/m/Y H:i') : null,
+                'enviada'        => $order->enviada    ? Carbon::parse($order->enviada)->format('d/m/Y H:i') : null,
             ],
-            'paciente' => $paciente,
-            'clinica'  => $clinica,
-            'examenes' => $examenes,
+            'paciente'               => $paciente,
+            'clinica'                => $clinica,
+            'examenes'               => $examenes,
+            'conPermisoSoloAdjuntar' => $conPermisoSoloAdjuntar,
         ]);
     }
+
+    private const PANORAMICA_KIND_ID = 44;
+
+    private const PANORAMICA_DIENTES = [
+        11,12,13,14,15,16,17,18,
+        21,22,23,24,25,26,27,28,
+        31,32,33,34,35,36,37,38,
+        41,42,43,44,45,46,47,48,
+        51,52,53,54,55,
+        61,62,63,64,65,
+        71,72,73,74,75,
+        81,82,83,84,85,
+    ];
 
     public function doResponder(Request $request, Order $order): RedirectResponse
     {
         $user = Auth::user();
 
-        if (!$user->hasAnyRole(['radiologo', 'tecnico'])) {
+        if (!$user->hasAnyRole(['radiologo', 'admin', 'secretaria'])) {
             return redirect()->route('ordenes.show', $order)->with('error', 'Sin permiso.');
         }
 
+        $soloAdjunto = $request->boolean('solo_adjunto');
+        $action      = $request->input('action', 'responder'); // responder | borrador | correccion
+
         $request->validate([
-            'respuestas'         => ['required', 'array', 'min:1'],
-            'respuestas.*.id'    => ['required', 'exists:examinations,id'],
-            'respuestas.*.texto' => ['required', 'string', 'min:5'],
+            'respuestas'      => ['required', 'array', 'min:1'],
+            'respuestas.*.id' => ['required', 'exists:examinations,id'],
         ]);
 
-        DB::transaction(function () use ($request, $order, $user): void {
+        DB::transaction(function () use ($request, $order, $user, $soloAdjunto, $action): void {
             foreach ($request->respuestas as $r) {
-                $examinationId = $r['id'];
-                $texto = $r['texto'];
+                $examinationId = (int) $r['id'];
+                $kindId = DB::table('examinations')->where('id', $examinationId)->value('kind_id');
+                $isPanoramica = ($kindId == self::PANORAMICA_KIND_ID);
 
-                // Upsert answer
-                $existing = DB::table('answers')->where('examination_id', $examinationId)->first();
-                if ($existing) {
-                    DB::table('answers')->where('id', $existing->id)->update([
-                        'campo_1'    => $texto,
-                        'updated_at' => now(),
-                    ]);
+                if ($isPanoramica) {
+                    $answerData = ['solo_adjunto' => $soloAdjunto];
+                    for ($i = 1; $i <= 8; $i++) {
+                        $answerData["campo_{$i}"] = $r["campo_{$i}"] ?? null;
+                    }
+                    foreach (self::PANORAMICA_DIENTES as $d) {
+                        $answerData["diente_{$d}"] = $r["diente_{$d}"] ?? null;
+                    }
                 } else {
-                    DB::table('answers')->insert([
-                        'examination_id' => $examinationId,
-                        'campo_1'        => $texto,
-                        'created_at'     => now(),
-                        'updated_at'     => now(),
-                    ]);
+                    $answerData = [
+                        'campo_1'      => $r['texto'] ?? '',
+                        'solo_adjunto' => $soloAdjunto,
+                    ];
                 }
 
-                // Upload informe files if provided
+                $existing = DB::table('answers')->where('examination_id', $examinationId)->first();
+                if ($existing) {
+                    DB::table('answers')->where('id', $existing->id)->update(
+                        array_merge($answerData, ['updated_at' => now()])
+                    );
+                } else {
+                    DB::table('answers')->insert(
+                        array_merge($answerData, [
+                            'examination_id' => $examinationId,
+                            'created_at'     => now(),
+                            'updated_at'     => now(),
+                        ])
+                    );
+                }
+
                 $fileKey = "archivos_{$examinationId}";
                 if ($request->hasFile($fileKey)) {
                     foreach ((array) $request->file($fileKey) as $file) {
                         if (!$file) continue;
                         $path = $file->store("informes/{$order->id}", 's3');
                         DB::table('files')->insert([
-                            'ruta'              => $path,
-                            'examination_id'    => $examinationId,
-                            'name'              => $file->getClientOriginalName(),
-                            'type_id'           => 1,
-                            'extension'         => strtolower($file->getClientOriginalExtension()),
-                            'ruta_dcm'          => null,
-                            'nombre_dcm'        => null,
-                            'file_size'         => (int) $file->getSize(),
-                            'file_size_procesed'=> 1,
-                            'file_size_error'   => null,
-                            'desde_informar'    => 1,
-                            'created_at'        => now(),
-                            'updated_at'        => now(),
+                            'ruta'               => $path,
+                            'examination_id'     => $examinationId,
+                            'name'               => $file->getClientOriginalName(),
+                            'type_id'            => 1,
+                            'extension'          => strtolower($file->getClientOriginalExtension()),
+                            'ruta_dcm'           => null,
+                            'nombre_dcm'         => null,
+                            'file_size'          => (int) $file->getSize(),
+                            'file_size_procesed' => 1,
+                            'file_size_error'    => null,
+                            'desde_informar'     => 1,
+                            'created_at'         => now(),
+                            'updated_at'         => now(),
                         ]);
                     }
                 }
             }
 
-            // Mark order as responded
-            $order->update([
-                'estadoradiologo'  => 1,
-                'estadoodontologo' => 1,
-                'respondida'       => now(),
+            // Save observaciones_2
+            DB::table('orders')->where('id', $order->id)->update([
+                'observaciones_2' => $request->input('observaciones_2', ''),
             ]);
 
-            // Mark order_staff_exam as respondida
-            if ($user->staff) {
-                DB::table('order_staff_exam')
-                    ->where('order_id', $order->id)
-                    ->where('staff_id', $user->staff->id)
-                    ->update(['respondida' => 1]);
+            if ($action === 'borrador') {
+                $order->update(['estadoradiologo' => 4]);
+            } elseif ($action === 'correccion') {
+                $order->update(['estadoradiologo' => 2, 'estadoodontologo' => 3]);
+                DB::table('corrections')->insert([
+                    'order_id'    => $order->id,
+                    'staff_id'    => $user->staff?->id,
+                    'description' => $request->input('mensaje_correccion', ''),
+                    'status'      => 'pendiente',
+                    'created_at'  => now(),
+                    'updated_at'  => now(),
+                ]);
+            } else {
+                $order->update([
+                    'estadoradiologo'  => 1,
+                    'estadoodontologo' => 1,
+                    'respondida'       => now(),
+                    'vista'            => 0,
+                ]);
+                if ($user->staff) {
+                    DB::table('order_staff_exam')
+                        ->where('order_id', $order->id)
+                        ->where('staff_id', $user->staff->id)
+                        ->update(['respondida' => 1]);
+                }
             }
         });
 
-        return redirect()->route('ordenes.show', $order)->with('success', '¡Orden respondida correctamente!');
+        $messages = [
+            'borrador'   => '¡Borrador guardado correctamente!',
+            'correccion' => 'Solicitud de corrección enviada.',
+        ];
+        return redirect()->route('ordenes.show', $order)
+            ->with('success', $messages[$action] ?? '¡Orden respondida correctamente!');
     }
 
     public function pdf(Order $order): \Illuminate\Http\Response
@@ -642,7 +772,7 @@ class OrderController extends Controller
             ->get()
             ->map(function ($e) {
                 $respuesta = DB::table('answers')->where('examination_id', $e->examination_id)->first();
-                return ['descripcion' => $e->descripcion, 'respuesta' => $respuesta?->texto ?? ''];
+                return ['descripcion' => $e->descripcion, 'respuesta' => $respuesta?->campo_1 ?? ''];
             });
 
         $paciente  = DB::table('patients')->where('id', $order->patient_id)->first();
@@ -811,14 +941,7 @@ class OrderController extends Controller
 
         $user = Auth::user();
 
-        $kinds = Kind::query()->orderBy('group')->orderBy('id')->get(['id', 'descipcion', 'group']);
-        $groupNames = ['1' => 'Adulto', '2' => 'Niño', '3' => 'General', '4' => '3D'];
-        $examTypes = $kinds->groupBy('group')->map(function (Collection $items, $group) use ($groupNames) {
-            return [
-                'label' => $groupNames[(string) $group] ?? "Grupo {$group}",
-                'items' => $items->map(fn($k) => ['id' => $k->id, 'label' => $k->descipcion])->values(),
-            ];
-        })->values();
+        $examTypes = $this->buildExamTabs();
 
         $clinics = $this->clinicsForUser($user)->map(fn($c) => [
             'id'   => $c->id,
@@ -900,15 +1023,16 @@ class OrderController extends Controller
             foreach ($existingIds as $examinationId) {
                 $fileKey = "archivos_{$examinationId}";
                 if (!$request->hasFile($fileKey)) continue;
+                $kindGroup = $this->kindGroupForExam((int) $examinationId);
                 foreach ((array) $request->file($fileKey) as $file) {
                     if (!$file) continue;
-                    $path = $file->store("ordenes/{$order->id}", 's3');
+                    $stored = $this->storeUploadedFile($file, $order->id, $kindGroup);
                     DB::table('files')->insert([
-                        'ruta' => $path, 'examination_id' => $examinationId,
-                        'name' => $file->getClientOriginalName(), 'type_id' => 0,
-                        'extension' => strtolower($file->getClientOriginalExtension()),
-                        'ruta_dcm' => null, 'nombre_dcm' => null,
-                        'file_size' => (int) $file->getSize(), 'file_size_procesed' => 1,
+                        'ruta' => $stored['ruta'], 'examination_id' => $examinationId,
+                        'name' => $stored['name'], 'type_id' => 0,
+                        'extension' => $stored['extension'],
+                        'ruta_dcm' => $stored['ruta_dcm'], 'nombre_dcm' => null,
+                        'file_size' => $stored['file_size'], 'file_size_procesed' => 1,
                         'file_size_error' => null, 'desde_informar' => 0,
                         'created_at' => now(), 'updated_at' => now(),
                     ]);
@@ -922,15 +1046,16 @@ class OrderController extends Controller
                 DB::table('examination_order')->insert(['order_id' => $order->id, 'examination_id' => $examination->id]);
                 $fileKey = "archivos_nuevo_{$kindId}";
                 if (!$request->hasFile($fileKey)) continue;
+                $kindGroup = $this->kindGroupFor((int) $kindId);
                 foreach ((array) $request->file($fileKey) as $file) {
                     if (!$file) continue;
-                    $path = $file->store("ordenes/{$order->id}", 's3');
+                    $stored = $this->storeUploadedFile($file, $order->id, $kindGroup);
                     DB::table('files')->insert([
-                        'ruta' => $path, 'examination_id' => $examination->id,
-                        'name' => $file->getClientOriginalName(), 'type_id' => 0,
-                        'extension' => strtolower($file->getClientOriginalExtension()),
-                        'ruta_dcm' => null, 'nombre_dcm' => null,
-                        'file_size' => (int) $file->getSize(), 'file_size_procesed' => 1,
+                        'ruta' => $stored['ruta'], 'examination_id' => $examination->id,
+                        'name' => $stored['name'], 'type_id' => 0,
+                        'extension' => $stored['extension'],
+                        'ruta_dcm' => $stored['ruta_dcm'], 'nombre_dcm' => null,
+                        'file_size' => $stored['file_size'], 'file_size_procesed' => 1,
                         'file_size_error' => null, 'desde_informar' => 0,
                         'created_at' => now(), 'updated_at' => now(),
                     ]);
@@ -1006,6 +1131,10 @@ class OrderController extends Controller
 
     public function deleteExamen(Order $order, int $examinationId): \Illuminate\Http\RedirectResponse
     {
+        if ((int) (Auth::user()->type_id ?? 0) !== 1) {
+            abort(403);
+        }
+
         if ((int) $order->estadoradiologo === 1) {
             return back()->with('error', 'No se puede eliminar un examen de una orden ya respondida.');
         }
@@ -1135,7 +1264,7 @@ class OrderController extends Controller
     /** Generate a 60-minute pre-signed S3 URL for a given path. */
     private function signedUrl(?string $ruta): ?string
     {
-        if (!$ruta) {
+        if (!$ruta || $ruta === '0') {
             return null;
         }
         try {
@@ -1144,5 +1273,125 @@ class OrderController extends Controller
         } catch (\Throwable) {
             return null;
         }
+    }
+
+    /**
+     * Store an uploaded file. If it's a ZIP for a CBCT exam (group=4),
+     * extract the DCM files and upload them individually to S3,
+     * preserving the internal folder structure of the ZIP.
+     *
+     * @return array{ruta:string,ruta_dcm:string|null,extension:string,name:string,file_size:int}
+     */
+    private function storeUploadedFile(
+        \Illuminate\Http\UploadedFile $file,
+        int $orderId,
+        int $kindGroup
+    ): array {
+        $ext = strtolower($file->getClientOriginalExtension());
+
+        if ($ext === 'zip' && $kindGroup === 4) {
+            return $this->extractCbctZip($file, $orderId);
+        }
+
+        $path = $file->store("ordenes/{$orderId}", 's3');
+
+        return [
+            'ruta'      => $path,
+            'ruta_dcm'  => null,
+            'extension' => $ext,
+            'name'      => $file->getClientOriginalName(),
+            'file_size' => (int) $file->getSize(),
+        ];
+    }
+
+    /**
+     * Extract DICOM files from a ZIP and upload each to S3 maintaining
+     * the ZIP's internal folder structure under ordenes/{orderId}/.
+     *
+     * @return array{ruta:string|null,ruta_dcm:string|null,extension:string,name:string,file_size:int}
+     */
+    private function extractCbctZip(
+        \Illuminate\Http\UploadedFile $zipFile,
+        int $orderId
+    ): array {
+        $fallback = function () use ($zipFile, $orderId) {
+            $path = $zipFile->store("ordenes/{$orderId}", 's3');
+            return [
+                'ruta'      => $path,
+                'ruta_dcm'  => null,
+                'extension' => 'zip',
+                'name'      => $zipFile->getClientOriginalName(),
+                'file_size' => (int) $zipFile->getSize(),
+            ];
+        };
+
+        $za = new \ZipArchive();
+        if ($za->open($zipFile->getRealPath()) !== true) {
+            return $fallback();
+        }
+
+        $firstDcmS3  = null;
+        $seriePrefix = null;
+
+        for ($i = 0; $i < $za->numFiles; $i++) {
+            $entry = $za->getNameIndex($i);
+            if (!$entry || str_ends_with($entry, '/')) {
+                continue;
+            }
+
+            $entryExt = strtolower(pathinfo($entry, PATHINFO_EXTENSION));
+            if (!in_array($entryExt, ['dcm', 'dicom'], true)) {
+                continue;
+            }
+
+            $content = $za->getFromIndex($i);
+            if ($content === false) {
+                continue;
+            }
+
+            $s3Path = "ordenes/{$orderId}/{$entry}";
+            Storage::disk('s3')->put($s3Path, $content);
+
+            if ($firstDcmS3 === null) {
+                $firstDcmS3  = $s3Path;
+                $dir         = dirname($entry);
+                $seriePrefix = "ordenes/{$orderId}/" . ($dir === '.' ? '' : rtrim($dir, '/') . '/');
+            }
+        }
+
+        $za->close();
+
+        if ($firstDcmS3 === null) {
+            return $fallback();
+        }
+
+        return [
+            'ruta'      => $firstDcmS3,
+            'ruta_dcm'  => $seriePrefix,
+            'extension' => 'dcm',
+            'name'      => $zipFile->getClientOriginalName(),
+            'file_size' => (int) $zipFile->getSize(),
+        ];
+    }
+
+    /** Resolve the kind.group for a given kind_id (cached per request). */
+    private array $kindGroupCache = [];
+
+    private function kindGroupFor(int $kindId): int
+    {
+        if (!isset($this->kindGroupCache[$kindId])) {
+            $this->kindGroupCache[$kindId] = (int) DB::table('kinds')
+                ->where('id', $kindId)
+                ->value('group');
+        }
+        return $this->kindGroupCache[$kindId];
+    }
+
+    private function kindGroupForExam(int $examinationId): int
+    {
+        return (int) DB::table('examinations')
+            ->join('kinds', 'kinds.id', '=', 'examinations.kind_id')
+            ->where('examinations.id', $examinationId)
+            ->value('kinds.group');
     }
 }

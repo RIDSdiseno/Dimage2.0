@@ -7,10 +7,12 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
 use Inertia\Response;
+use App\Traits\CalculaAlertas;
 use Carbon\Carbon;
 
 class DashboardController extends Controller
 {
+    use CalculaAlertas;
     public function index(Request $request): Response
     {
         $user = Auth::user();
@@ -235,10 +237,10 @@ class DashboardController extends Controller
             $w = ' AND o.clinic_id IN (SELECT c.id FROM holdings h INNER JOIN clinics c ON h.id = c.holding_id WHERE h.id = :holding_id)';
             $params['holding_id'] = $holdingId;
         }
-        $sql = "SELECT COUNT(1)                                                        AS total_examenes,
-                       SUM(IF(e.kind_id NOT IN (19,20,21,22,23,27), 1, 0))             AS total_2d,
-                       SUM(IF(e.kind_id IN (19,20,21,22,23,27), 1, 0))                AS total_3d,
-                       SUM(IF(ose.respondida = 1, 1, 0))                              AS total_respondidos
+        $sql = "SELECT COUNT(1)                                     AS total_examenes,
+                       SUM(IF(k.`group` != 4, 1, 0))               AS total_2d,
+                       SUM(IF(k.`group`  = 4, 1, 0))               AS total_3d,
+                       SUM(IF(ose.respondida = 1, 1, 0))           AS total_respondidos
                 FROM orders o
                 INNER JOIN examination_order eo  ON o.id = eo.order_id
                 INNER JOIN examinations e        ON eo.examination_id = e.id

@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Storage;
 use Inertia\Inertia;
 
 class AdminController extends Controller
@@ -536,6 +537,7 @@ class AdminController extends Controller
     {
         return match ($typeStaff) {
             3  => [
+                'type_staff'    => 3,
                 'label'         => 'Radiólogo',
                 'label_plural'  => 'Radiólogos',
                 'route_index'   => 'admin.radiologos',
@@ -546,6 +548,7 @@ class AdminController extends Controller
                 'route_toggle'  => 'admin.radiologos.toggle',
             ],
             6  => [
+                'type_staff'    => 6,
                 'label'         => 'Odontólogo',
                 'label_plural'  => 'Odontólogos',
                 'route_index'   => 'admin.odontologos',
@@ -556,6 +559,7 @@ class AdminController extends Controller
                 'route_toggle'  => 'admin.odontologos.toggle',
             ],
             7  => [
+                'type_staff'    => 7,
                 'label'         => 'Contralor',
                 'label_plural'  => 'Contralores',
                 'route_index'   => 'admin.contralores',
@@ -566,6 +570,7 @@ class AdminController extends Controller
                 'route_toggle'  => 'admin.contralores.toggle',
             ],
             11 => [
+                'type_staff'    => 11,
                 'label'         => 'Técnico',
                 'label_plural'  => 'Técnicos',
                 'route_index'   => 'admin.tecnicos',
@@ -636,20 +641,27 @@ class AdminController extends Controller
     {
         $this->requireAdmin();
         return Inertia::render('Admin/Staff/Form', [
-            'staff'       => null,
-            'tipo'        => $this->staffTipo($typeStaff),
-            'clinicasList'=> $this->clinicasOptions(),
+            'staff'        => null,
+            'tipo'         => $this->staffTipo($typeStaff),
+            'clinicasList' => $this->clinicasOptions(),
+            'holdingsList' => $this->holdingsOptions(),
+            'kindsList'    => $this->kindsOptions(),
         ]);
     }
 
     private function staffStore(Request $request, int $typeStaff, int $userTypeId): \Illuminate\Http\RedirectResponse
     {
         $this->requireAdmin();
-        $request->validate([
-            'name'     => ['required', 'min:2'],
-            'username' => ['required', 'unique:users,username'],
-            'password' => ['required', 'min:6'],
-        ]);
+        $rules = [
+            'name'                  => ['required', 'min:2'],
+            'username'              => ['required', 'unique:users,username'],
+            'password'              => ['required', 'min:6'],
+            'password_confirmation' => ['required', 'same:password'],
+        ];
+        if ($request->hasFile('firma')) {
+            $rules['firma'] = ['image', 'max:2048'];
+        }
+        $request->validate($rules);
 
         DB::transaction(function () use ($request, $typeStaff, $userTypeId) {
             $userId = DB::table('users')->insertGetId([
@@ -664,20 +676,47 @@ class AdminController extends Controller
                 'updated_at' => now(),
             ]);
 
+            $firmaPath = null;
+            if ($request->hasFile('firma')) {
+                $firmaPath = $request->file('firma')->store('firmas', 'public');
+            }
+
             $staffId = DB::table('staffs')->insertGetId([
-                'user_id'    => $userId,
-                'type_staff' => $typeStaff,
-                'rut'        => trim($request->rut ?? ''),
-                'activo'     => 1,
-                'externo'    => 0,
-                'created_at' => now(),
-                'updated_at' => now(),
+                'user_id'                     => $userId,
+                'type_staff'                  => $typeStaff,
+                'rut'                         => trim($request->rut ?? ''),
+                'firma'                       => $firmaPath,
+                'address'                     => trim($request->address ?? ''),
+                'solo_adjuntar_informe'       => $request->boolean('solo_adjuntar_informe'),
+                'puede_crear_ordenes'         => $request->boolean('puede_crear_ordenes'),
+                'puede_seleccionar_radiologo' => $request->boolean('puede_seleccionar_radiologo'),
+                'puede_sin_diagnostico'       => $request->boolean('puede_sin_diagnostico'),
+                'puede_derivacion_clinica'    => $request->boolean('puede_derivacion_clinica'),
+                'puede_ver_menu_busqueda'     => $request->boolean('puede_ver_menu_busqueda'),
+                'activo'                      => 1,
+                'externo'                     => 0,
+                'created_at'                  => now(),
+                'updated_at'                  => now(),
             ]);
 
             foreach ((array) ($request->clinica_ids ?? []) as $clinicId) {
                 DB::table('clinic_staff')->insertOrIgnore([
                     'clinic_id' => (int) $clinicId,
                     'staff_id'  => $staffId,
+                ]);
+            }
+
+            foreach ((array) ($request->holding_ids ?? []) as $holdingId) {
+                DB::table('holding_staff')->insertOrIgnore([
+                    'holding_id' => (int) $holdingId,
+                    'staff_id'   => $staffId,
+                ]);
+            }
+
+            foreach ((array) ($request->kind_ids ?? []) as $kindId) {
+                DB::table('kind_staff')->insertOrIgnore([
+                    'kind_id'  => (int) $kindId,
+                    'staff_id' => $staffId,
                 ]);
             }
         });
@@ -692,27 +731,44 @@ class AdminController extends Controller
         $s = DB::table('staffs as s')
             ->join('users as u', 'u.id', '=', 's.user_id')
             ->where('s.id', $id)->where('s.type_staff', $typeStaff)
-            ->select('s.id', 's.user_id', 'u.name', 'u.username', 'u.mail', 'u.telephone', 's.rut', 's.activo')
+            ->select('s.id', 's.user_id', 'u.name', 'u.username', 'u.mail', 'u.telephone',
+                     's.rut', 's.activo', 's.firma', 's.address', 's.solo_adjuntar_informe',
+                     's.puede_crear_ordenes', 's.puede_seleccionar_radiologo',
+                     's.puede_sin_diagnostico', 's.puede_derivacion_clinica', 's.puede_ver_menu_busqueda')
             ->first();
 
         abort_if(! $s, 404);
 
-        $clinicaIds = DB::table('clinic_staff')->where('staff_id', $id)->pluck('clinic_id')->all();
+        $clinicaIds  = DB::table('clinic_staff')->where('staff_id', $id)->pluck('clinic_id')->all();
+        $holdingIds  = DB::table('holding_staff')->where('staff_id', $id)->pluck('holding_id')->all();
+        $kindIds     = DB::table('kind_staff')->where('staff_id', $id)->pluck('kind_id')->all();
 
         return Inertia::render('Admin/Staff/Form', [
             'staff' => [
-                'id'          => $s->id,
-                'user_id'     => $s->user_id,
-                'name'        => $s->name,
-                'username'    => $s->username,
-                'mail'        => $s->mail,
-                'telephone'   => $s->telephone,
-                'rut'         => $s->rut,
-                'activo'      => (bool) $s->activo,
-                'clinica_ids' => $clinicaIds,
+                'id'                          => $s->id,
+                'user_id'                     => $s->user_id,
+                'name'                        => $s->name,
+                'username'                    => $s->username,
+                'mail'                        => $s->mail,
+                'telephone'                   => $s->telephone,
+                'rut'                         => $s->rut,
+                'activo'                      => (bool) $s->activo,
+                'firma_url'                   => $s->firma ? Storage::disk('public')->url($s->firma) : null,
+                'address'                     => $s->address ?? '',
+                'solo_adjuntar_informe'       => (bool) ($s->solo_adjuntar_informe ?? false),
+                'puede_crear_ordenes'         => (bool) ($s->puede_crear_ordenes ?? false),
+                'puede_seleccionar_radiologo' => (bool) ($s->puede_seleccionar_radiologo ?? false),
+                'puede_sin_diagnostico'       => (bool) ($s->puede_sin_diagnostico ?? false),
+                'puede_derivacion_clinica'    => (bool) ($s->puede_derivacion_clinica ?? false),
+                'puede_ver_menu_busqueda'     => (bool) ($s->puede_ver_menu_busqueda ?? false),
+                'clinica_ids'                 => $clinicaIds,
+                'holding_ids'                 => $holdingIds,
+                'kind_ids'                    => $kindIds,
             ],
-            'tipo'        => $this->staffTipo($typeStaff),
-            'clinicasList'=> $this->clinicasOptions(),
+            'tipo'         => $this->staffTipo($typeStaff),
+            'clinicasList' => $this->clinicasOptions(),
+            'holdingsList' => $this->holdingsOptions(),
+            'kindsList'    => $this->kindsOptions(),
         ]);
     }
 
@@ -722,7 +778,15 @@ class AdminController extends Controller
         $s = DB::table('staffs')->where('id', $id)->where('type_staff', $typeStaff)->first();
         abort_if(! $s, 404);
 
-        $request->validate(['name' => ['required', 'min:2']]);
+        $rules = ['name' => ['required', 'min:2']];
+        if (! empty($request->password)) {
+            $rules['password']              = ['min:6'];
+            $rules['password_confirmation'] = ['required', 'same:password'];
+        }
+        if ($request->hasFile('firma')) {
+            $rules['firma'] = ['image', 'max:2048'];
+        }
+        $request->validate($rules);
 
         DB::transaction(function () use ($request, $s, $id) {
             $userData = [
@@ -732,21 +796,50 @@ class AdminController extends Controller
                 'updated_at' => now(),
             ];
             if (! empty($request->password)) {
-                $request->validate(['password' => ['min:6']]);
                 $userData['password'] = Hash::make($request->password);
             }
             DB::table('users')->where('id', $s->user_id)->update($userData);
 
-            DB::table('staffs')->where('id', $id)->update([
-                'rut'        => trim($request->rut ?? ''),
-                'updated_at' => now(),
-            ]);
+            $staffData = [
+                'rut'                         => trim($request->rut ?? ''),
+                'address'                     => trim($request->address ?? ''),
+                'solo_adjuntar_informe'       => $request->boolean('solo_adjuntar_informe'),
+                'puede_crear_ordenes'         => $request->boolean('puede_crear_ordenes'),
+                'puede_seleccionar_radiologo' => $request->boolean('puede_seleccionar_radiologo'),
+                'puede_sin_diagnostico'       => $request->boolean('puede_sin_diagnostico'),
+                'puede_derivacion_clinica'    => $request->boolean('puede_derivacion_clinica'),
+                'puede_ver_menu_busqueda'     => $request->boolean('puede_ver_menu_busqueda'),
+                'updated_at'                  => now(),
+            ];
+            if ($request->hasFile('firma')) {
+                if ($s->firma) {
+                    Storage::disk('public')->delete($s->firma);
+                }
+                $staffData['firma'] = $request->file('firma')->store('firmas', 'public');
+            }
+            DB::table('staffs')->where('id', $id)->update($staffData);
 
             DB::table('clinic_staff')->where('staff_id', $id)->delete();
             foreach ((array) ($request->clinica_ids ?? []) as $clinicId) {
                 DB::table('clinic_staff')->insertOrIgnore([
                     'clinic_id' => (int) $clinicId,
                     'staff_id'  => $id,
+                ]);
+            }
+
+            DB::table('holding_staff')->where('staff_id', $id)->delete();
+            foreach ((array) ($request->holding_ids ?? []) as $holdingId) {
+                DB::table('holding_staff')->insertOrIgnore([
+                    'holding_id' => (int) $holdingId,
+                    'staff_id'   => $id,
+                ]);
+            }
+
+            DB::table('kind_staff')->where('staff_id', $id)->delete();
+            foreach ((array) ($request->kind_ids ?? []) as $kindId) {
+                DB::table('kind_staff')->insertOrIgnore([
+                    'kind_id'  => (int) $kindId,
+                    'staff_id' => $id,
                 ]);
             }
         });
@@ -777,6 +870,26 @@ class AdminController extends Controller
             ->orderBy('u.name')
             ->get()
             ->map(fn ($c) => ['value' => $c->id, 'label' => $c->name]);
+    }
+
+    private function holdingsOptions(): \Illuminate\Support\Collection
+    {
+        return DB::table('holdings')
+            ->join('users', 'users.id', '=', 'holdings.user_id')
+            ->select('holdings.id', 'users.name')
+            ->orderBy('users.name')
+            ->get()
+            ->map(fn ($h) => ['value' => $h->id, 'label' => $h->name]);
+    }
+
+    private function kindsOptions(): \Illuminate\Support\Collection
+    {
+        return DB::table('kinds')
+            ->select('id', 'descipcion', 'group')
+            ->orderBy('group')
+            ->orderBy('descipcion')
+            ->get()
+            ->map(fn ($k) => ['value' => $k->id, 'label' => $k->descipcion, 'group' => $k->group]);
     }
 
     // ─── Radiólogos ──────────────────────────────────────────────────────────

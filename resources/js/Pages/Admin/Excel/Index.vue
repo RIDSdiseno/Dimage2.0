@@ -90,33 +90,47 @@
 </template>
 
 <script setup>
-import { ref, reactive } from 'vue';
+import { ref, reactive, computed } from 'vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import Button from 'primevue/button';
 import InputText from 'primevue/inputtext';
 
-const reportTypes = [
+const props = defineProps({
+    esRadiologoRestringido: { type: Boolean, default: false },
+});
+
+const allReportTypes = [
     {
         value: 'ordenes',
         label: 'Órdenes Radiográficas',
         description: 'Listado completo de órdenes con paciente, radiólogo, estado y fechas.',
+        adminOnly: false,
     },
     {
         value: 'por-examen',
         label: 'Por Tipo de Examen',
         description: 'Cantidad de órdenes e informes agrupados por tipo de examen radiográfico.',
+        adminOnly: false,
     },
     {
         value: 'por-radiologo',
         label: 'Por Radiólogo',
         description: 'Resumen de órdenes asignadas a cada radiólogo con desglose de estados.',
+        adminOnly: true,
     },
     {
         value: 'espacio',
         label: 'Uso de Espacio',
         description: 'Cantidad de archivos y espacio de almacenamiento consumido por clínica.',
+        adminOnly: true,
     },
 ];
+
+const reportTypes = computed(() =>
+    props.esRadiologoRestringido
+        ? allReportTypes.filter(t => !t.adminOnly)
+        : allReportTypes
+);
 
 const routeMap = {
     'ordenes':      'admin.excel.download',

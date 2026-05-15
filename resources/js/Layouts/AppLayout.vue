@@ -47,6 +47,60 @@
 
                 <div class="w-px h-5 bg-white/20" />
 
+                <!-- Campana de notificaciones (solo no-radiólogos) -->
+                <div v-if="!isRadiologo" class="relative" ref="bellRef">
+                    <button @click="toggleBell"
+                        class="relative flex items-center justify-center w-8 h-8 rounded-full text-white/70 hover:text-white hover:bg-white/10 transition">
+                        <i class="pi pi-bell text-base" />
+                        <span v-if="notifCount > 0"
+                            class="absolute -top-1 -right-1 min-w-[16px] h-4 px-0.5 rounded-full text-white text-[10px] font-bold flex items-center justify-center"
+                            style="background-color:#ef4444;">
+                            {{ notifCount > 99 ? '99+' : notifCount }}
+                        </span>
+                    </button>
+
+                    <!-- Dropdown notificaciones -->
+                    <div v-if="bellOpen"
+                        class="absolute right-0 top-10 w-80 bg-white rounded-xl shadow-xl border border-gray-100 z-50 overflow-hidden">
+                        <div class="flex items-center justify-between px-4 py-3 border-b border-gray-100">
+                            <span class="text-sm font-semibold text-gray-700">
+                                Órdenes respondidas
+                                <span v-if="notifCount > 0" class="ml-1 text-xs font-normal text-gray-400">({{ notifCount }})</span>
+                            </span>
+                            <button v-if="notifCount > 0"
+                                @click="marcarTodas"
+                                class="text-xs text-blue-500 hover:text-blue-700 transition">
+                                Marcar todas como vistas
+                            </button>
+                        </div>
+
+                        <div v-if="loadingNotif" class="py-8 flex justify-center">
+                            <i class="pi pi-spin pi-spinner text-gray-300 text-xl" />
+                        </div>
+
+                        <div v-else-if="notifOrdenes.length === 0" class="py-8 text-center text-sm text-gray-400">
+                            <i class="pi pi-check-circle text-2xl block mb-2 text-gray-200" />
+                            Sin órdenes nuevas
+                        </div>
+
+                        <div v-else class="max-h-80 overflow-y-auto divide-y divide-gray-50">
+                            <a v-for="o in notifOrdenes" :key="o.id"
+                                :href="`/ordenes/${o.id}`"
+                                @click.prevent="abrirOrden(o.id)"
+                                class="flex items-start gap-3 px-4 py-3 hover:bg-blue-50 transition cursor-pointer">
+                                <div class="w-8 h-8 rounded-full bg-green-100 flex items-center justify-center shrink-0 mt-0.5">
+                                    <i class="pi pi-check text-green-600 text-xs" />
+                                </div>
+                                <div class="flex-1 min-w-0">
+                                    <p class="text-sm font-medium text-gray-800 truncate">{{ o.paciente }}</p>
+                                    <p class="text-xs text-gray-400 truncate">{{ o.clinica }} · Orden #{{ o.id }}</p>
+                                    <p class="text-xs text-green-600 font-medium">Respondida {{ o.respondida }}</p>
+                                </div>
+                            </a>
+                        </div>
+                    </div>
+                </div>
+
                 <div class="flex items-center gap-2">
                     <div class="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold"
                         style="background-color:#3452ff;">
@@ -79,12 +133,12 @@
                 <nav class="py-2">
 
                     <!-- Inicio -->
-                    <NavItem href="/dashboard" icon="pi-home" label="Inicio" icon-color="#3452ff"
-                        :active="isActive('/dashboard') || isActive('/')" />
+                    <NavItem href="/" icon="pi-home" label="Inicio" icon-color="#3452ff"
+                        :active="isActive('/')" />
 
                     <!-- Dashboard -->
                     <NavItem href="/dashboard" icon="pi-chart-bar" label="Dashboard" icon-color="#6366f1"
-                        :active="false" />
+                        :active="isActive('/dashboard')" />
 
                     <!-- ── Secciones admin ── -->
                     <template v-if="isAdmin">
@@ -151,6 +205,8 @@
 
                         <NavGroup label="Tipos de Examen" icon="pi-list" icon-color="#0891b2"
                             :open="menus.examenes" @toggle="menus.examenes = !menus.examenes">
+                            <NavSub href="/admin/examenes/categorias/crear" label="Agregar Categoría" />
+                            <NavSub href="/admin/examenes/categorias" label="Ver Categorías" />
                             <NavSub href="/admin/examenes/crear" label="Agregar Tipo" />
                             <NavSub href="/admin/examenes" label="Ver Tipos" />
                         </NavGroup>
@@ -210,7 +266,7 @@
 </template>
 
 <script setup>
-import { ref, reactive, computed, defineComponent, h } from 'vue';
+import { ref, reactive, computed, defineComponent, h, onMounted, onUnmounted } from 'vue';
 import { Link, usePage, router } from '@inertiajs/vue3';
 import Select from 'primevue/select';
 
@@ -327,4 +383,66 @@ const isRadiologo = computed(() => {
 });
 
 const isActive = (p) => window.location.pathname === p;
+
+// ── Notificaciones ────────────────────────────────────────────────────────
+
+const bellOpen      = ref(false);
+const bellRef       = ref(null);
+const notifCount    = ref(0);
+const notifOrdenes  = ref([]);
+const loadingNotif  = ref(false);
+let   pollTimer     = null;
+
+const fetchNotif = async () => {
+    if (isRadiologo.value) return;
+    try {
+        const res  = await fetch(route('notificaciones.index'));
+        const json = await res.json();
+        notifCount.value   = json.total;
+        notifOrdenes.value = json.ordenes;
+    } catch {}
+};
+
+const toggleBell = async () => {
+    bellOpen.value = !bellOpen.value;
+    if (bellOpen.value) {
+        loadingNotif.value = true;
+        await fetchNotif();
+        loadingNotif.value = false;
+    }
+};
+
+const marcarTodas = async () => {
+    await fetch(route('notificaciones.todas'), { method: 'POST', headers: { 'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content ?? '' } });
+    notifCount.value   = 0;
+    notifOrdenes.value = [];
+};
+
+const abrirOrden = async (id) => {
+    bellOpen.value = false;
+    await fetch(route('notificaciones.vista', id), { method: 'POST', headers: { 'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content ?? '' } });
+    notifCount.value   = Math.max(0, notifCount.value - 1);
+    notifOrdenes.value = notifOrdenes.value.filter(o => o.id !== id);
+    router.visit(`/ordenes/${id}`);
+};
+
+// Cerrar al hacer click fuera
+const onClickOutside = (e) => {
+    if (bellRef.value && !bellRef.value.contains(e.target)) {
+        bellOpen.value = false;
+    }
+};
+
+onMounted(() => {
+    if (!isRadiologo.value) {
+        fetchNotif();
+        pollTimer = setInterval(fetchNotif, 60000);
+        document.addEventListener('click', onClickOutside);
+    }
+});
+
+onUnmounted(() => {
+    clearInterval(pollTimer);
+    document.removeEventListener('click', onClickOutside);
+});
 </script>

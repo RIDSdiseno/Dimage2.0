@@ -8,7 +8,7 @@
                     <h1 class="text-2xl font-bold text-gray-800">Órdenes Radiográficas</h1>
                     <p class="text-sm text-gray-400 mt-0.5">{{ total }} órdenes encontradas</p>
                 </div>
-                <Link :href="route('ordenes.create')">
+                <Link v-if="!esRadiologoRestringido" :href="route('ordenes.create')">
                     <Button label="Nueva Orden" icon="pi pi-plus"
                         style="background-color:#3452ff;border-color:#3452ff;" />
                 </Link>
@@ -20,7 +20,7 @@
                     <InputIcon class="pi pi-search" />
                     <InputText
                         v-model="filters.q"
-                        :placeholder="`Buscar por paciente, ${terms.id_label}, clínica, odontólogo...`"
+                        :placeholder="`Buscar por paciente, ${terms.id_label}, clínica, radiólogo...`"
                         class="w-full"
                         @input="onSearch"
                     />
@@ -47,86 +47,101 @@
                 </button>
             </div>
 
-            <!-- Tabla con skeleton -->
+            <!-- Tabla -->
             <div class="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
-                <table class="w-full text-sm">
-                    <thead style="background-color:#f8fafc;">
-                        <tr>
-                            <th class="text-left px-4 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wide w-16">#</th>
-                            <th class="text-left px-4 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wide">Paciente</th>
-                            <th class="text-left px-4 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wide hidden lg:table-cell">Clínica</th>
-                            <th class="text-left px-4 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wide hidden xl:table-cell">Odontólogo</th>
-                            <th class="text-left px-4 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wide hidden xl:table-cell">Radiólogo</th>
-                            <th class="text-left px-4 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wide hidden lg:table-cell">Examen</th>
-                            <th class="text-left px-4 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wide w-24 hidden md:table-cell">Creada</th>
-                            <th class="text-left px-4 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wide w-28">Estado</th>
-                            <th class="w-10"></th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <!-- Skeleton -->
-                        <template v-if="loading">
-                            <tr v-for="n in 8" :key="n" class="border-t border-gray-50 animate-pulse">
-                                <td class="px-4 py-3"><div class="h-3 bg-gray-100 rounded w-8" /></td>
-                                <td class="px-4 py-3">
-                                    <div class="h-3 bg-gray-100 rounded w-32 mb-1.5" />
-                                    <div class="h-2.5 bg-gray-100 rounded w-20" />
-                                </td>
-                                <td class="px-4 py-3 hidden lg:table-cell"><div class="h-3 bg-gray-100 rounded w-28" /></td>
-                                <td class="px-4 py-3 hidden xl:table-cell"><div class="h-3 bg-gray-100 rounded w-24" /></td>
-                                <td class="px-4 py-3 hidden xl:table-cell"><div class="h-3 bg-gray-100 rounded w-24" /></td>
-                                <td class="px-4 py-3 hidden lg:table-cell"><div class="h-3 bg-gray-100 rounded w-20" /></td>
-                                <td class="px-4 py-3 hidden md:table-cell"><div class="h-3 bg-gray-100 rounded w-16" /></td>
-                                <td class="px-4 py-3"><div class="h-5 bg-gray-100 rounded-full w-20" /></td>
-                                <td class="px-4 py-3"></td>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-sm whitespace-nowrap">
+                        <thead style="background-color:#f8fafc;">
+                            <tr>
+                                <th class="text-left px-3 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wide">N°</th>
+                                <th class="text-left px-3 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wide">{{ terms.id_label }}</th>
+                                <th class="text-left px-3 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wide">Clínica</th>
+                                <th class="text-left px-3 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wide">Paciente</th>
+                                <th class="text-left px-3 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wide">Radiólogo</th>
+                                <th class="text-left px-3 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wide">Odontólogo</th>
+                                <th class="text-left px-3 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wide">Prioridad</th>
+                                <th class="text-left px-3 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wide">Exámenes</th>
+                                <th class="text-left px-3 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wide">Estado</th>
+                                <th class="text-left px-3 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wide">Ver/Editar</th>
+                                <th class="text-left px-3 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wide">Creada</th>
+                                <th class="text-left px-3 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wide">Enviada</th>
+                                <th class="text-left px-3 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wide">Respondida</th>
                             </tr>
-                        </template>
+                        </thead>
+                        <tbody>
+                            <!-- Skeleton -->
+                            <template v-if="loading">
+                                <tr v-for="n in 10" :key="n" class="border-t border-gray-50 animate-pulse">
+                                    <td v-for="c in 13" :key="c" class="px-3 py-3">
+                                        <div class="h-3 bg-gray-100 rounded w-16" />
+                                    </td>
+                                </tr>
+                            </template>
 
-                        <!-- Datos -->
-                        <template v-else-if="orders.length">
-                            <tr v-for="orden in orders" :key="orden.id"
-                                class="border-t border-gray-50 hover:bg-blue-50/30 transition cursor-pointer"
-                                @click="goTo(orden.id)">
-                                <td class="px-4 py-3 text-gray-400 font-mono text-xs">#{{ orden.id }}</td>
-                                <td class="px-4 py-3">
-                                    <p class="font-medium text-gray-800">{{ orden.paciente }}</p>
-                                    <p class="text-xs text-gray-400">{{ orden.rut }}</p>
-                                </td>
-                                <td class="px-4 py-3 text-gray-600 hidden lg:table-cell">{{ orden.clinica }}</td>
-                                <td class="px-4 py-3 text-gray-500 hidden xl:table-cell">{{ orden.odontologo }}</td>
-                                <td class="px-4 py-3 text-gray-500 hidden xl:table-cell">{{ orden.radiologos }}</td>
-                                <td class="px-4 py-3 text-gray-500 text-xs hidden lg:table-cell">{{ examListLabel(orden.tipo_examen) }}</td>
-                                <td class="px-4 py-3 text-gray-400 text-xs hidden md:table-cell">{{ orden.created_at }}</td>
-                                <td class="px-4 py-3">
-                                    <div class="flex items-center gap-1.5">
-                                        <Tag :severity="orden.estado.color" :value="orden.estado.label" class="text-xs" />
+                            <!-- Datos -->
+                            <template v-else-if="orders.length">
+                                <tr v-for="orden in orders" :key="orden.id"
+                                    class="border-t border-gray-50 hover:bg-blue-50/30 transition">
+                                    <td class="px-3 py-3 text-gray-400 font-mono text-xs">{{ orden.id }}</td>
+                                    <td class="px-3 py-3 text-gray-600 text-xs">{{ orden.rut }}</td>
+                                    <td class="px-3 py-3 text-gray-600">{{ orden.clinica }}</td>
+                                    <td class="px-3 py-3 font-medium text-gray-800">{{ orden.paciente }}</td>
+                                    <td class="px-3 py-3 text-gray-500 text-xs max-w-36 truncate">{{ orden.radiologos }}</td>
+                                    <td class="px-3 py-3 text-gray-500 text-xs">{{ orden.odontologo }}</td>
+                                    <td class="px-3 py-3">
                                         <span v-if="orden.prioridad === 'Urgente'"
-                                            class="w-1.5 h-1.5 rounded-full bg-red-500 flex-shrink-0"
-                                            v-tooltip="'Urgente'" />
-                                    </div>
-                                </td>
-                                <td class="px-4 py-3 text-right">
-                                    <i class="pi pi-chevron-right text-gray-300 text-xs" />
+                                            class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-red-100 text-red-700">
+                                            <i class="pi pi-exclamation-circle text-xs" /> Urgente
+                                        </span>
+                                        <span v-else class="text-xs text-gray-400">Normal</span>
+                                    </td>
+                                    <td class="px-3 py-3 text-gray-500 text-xs max-w-48 truncate" :title="orden.tipo_examen">
+                                        {{ examListLabel(orden.tipo_examen) }}
+                                    </td>
+                                    <td class="px-3 py-3">
+                                        <Tag :severity="orden.estado.color" :value="orden.estado.label" class="text-xs" />
+                                    </td>
+                                    <td class="px-3 py-3">
+                                        <div class="flex items-center gap-1">
+                                            <Link :href="route('ordenes.show', orden.id)">
+                                                <Button icon="pi pi-eye" size="small" text v-tooltip.top="'Ver'" />
+                                            </Link>
+                                            <Link v-if="!esRadiologo && orden.estado.color !== 'success'"
+                                                :href="route('ordenes.edit', orden.id)">
+                                                <Button icon="pi pi-pencil" size="small" text severity="secondary"
+                                                    v-tooltip.top="'Editar'" />
+                                            </Link>
+                                        </div>
+                                    </td>
+                                    <td class="px-3 py-3 text-gray-400 text-xs">{{ orden.created_at }}</td>
+                                    <td class="px-3 py-3 text-xs"
+                                        :class="orden.enviada !== '-' ? 'text-blue-600' : 'text-gray-300'">
+                                        {{ orden.enviada }}
+                                    </td>
+                                    <td class="px-3 py-3 text-xs"
+                                        :class="orden.respondida !== '-' ? 'text-green-600 font-medium' : 'text-gray-300'">
+                                        {{ orden.respondida }}
+                                    </td>
+                                </tr>
+                            </template>
+
+                            <!-- Empty -->
+                            <tr v-else>
+                                <td colspan="13" class="px-4 py-16 text-center">
+                                    <i class="pi pi-file-edit text-4xl text-gray-200 block mb-3" />
+                                    <p class="text-gray-400 font-medium">
+                                        {{ filters.q || filters.estado !== null ? 'No se encontraron órdenes con ese filtro.' : 'No hay órdenes disponibles.' }}
+                                    </p>
+                                    <Link v-if="!filters.q && filters.estado === null && !esRadiologoRestringido"
+                                        :href="route('ordenes.create')"
+                                        class="inline-block mt-3 text-sm text-blue-600 hover:underline">
+                                        + Crear primera orden
+                                    </Link>
                                 </td>
                             </tr>
-                        </template>
-
-                        <!-- Empty state -->
-                        <tr v-else>
-                            <td colspan="9" class="px-4 py-16 text-center">
-                                <i class="pi pi-file-edit text-4xl text-gray-200 block mb-3" />
-                                <p class="text-gray-400 font-medium">
-                                    {{ filters.q || filters.estado !== null ? 'No se encontraron órdenes con ese filtro.' : 'No hay órdenes disponibles.' }}
-                                </p>
-                                <Link v-if="!filters.q && filters.estado === null"
-                                    :href="route('ordenes.create')"
-                                    class="inline-block mt-3 text-sm text-blue-600 hover:underline">
-                                    + Crear primera orden
-                                </Link>
-                            </td>
-                        </tr>
-                    </tbody>
-                </table>
+                        </tbody>
+                    </table>
+                </div>
 
                 <!-- Paginación -->
                 <div v-if="total > perPage" class="flex justify-between items-center px-5 py-3 border-t border-gray-100">
@@ -163,12 +178,17 @@ import Paginator from 'primevue/paginator';
 const page = usePage();
 const user = computed(() => page.props.auth?.user);
 
-// Mostrar toggle solo para roles que tienen un subconjunto "mis órdenes" diferente al general
+const esRadiologo = computed(() =>
+    user.value?.roles?.includes('radiologo') || user.value?.type_id === 5
+);
+
+const esRadiologoRestringido = computed(() => esRadiologo.value);
+
 const showMisOrdenesToggle = computed(() => {
     const typeId = user.value?.type_id;
     const roles  = user.value?.roles ?? [];
-    return [4, 6, 11].includes(typeId)                          // clínica, odontólogo, técnico
-        || roles.some(r => ['clinica','odontologo','tecnico'].includes(r));
+    return [4, 6, 11].includes(typeId)
+        || roles.some(r => ['clinica', 'odontologo', 'tecnico'].includes(r));
 });
 
 const orders      = ref([]);
@@ -218,8 +238,6 @@ const onPageChange = (e) => {
     currentPage.value = e.page + 1;
     fetchOrders();
 };
-
-const goTo = (id) => router.visit(route('ordenes.show', id));
 
 onMounted(fetchOrders);
 </script>

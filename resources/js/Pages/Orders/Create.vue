@@ -131,41 +131,46 @@
                     </div>
 
                     <!-- Sección 3: Tipos de examen -->
-                    <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
-                        <h2 class="text-sm font-semibold uppercase tracking-wide mb-4" style="color:#3452ff">
-                            <i class="pi pi-list mr-2" />Tipos de Examen *
-                        </h2>
-                        <small class="text-red-500 block mb-3" v-if="form.errors.examenes">{{ form.errors.examenes }}</small>
+                    <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+                        <div class="px-5 pt-5 pb-3 border-b border-gray-100">
+                            <h2 class="text-sm font-semibold uppercase tracking-wide" style="color:#3452ff">
+                                <i class="pi pi-list mr-2" />Tipos de Examen *
+                            </h2>
+                        </div>
+                        <small class="text-red-500 block px-5 pt-2" v-if="form.errors.examenes">{{ form.errors.examenes }}</small>
 
-                        <div v-for="group in examTypes" :key="group.label" class="mb-5">
-                            <p class="text-xs font-bold uppercase text-gray-400 tracking-widest mb-2">{{ group.label }}</p>
-                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                                <div v-for="exam in group.items" :key="exam.id"
-                                    class="border rounded-lg p-3 transition"
-                                    :class="isSelected(exam.id) ? 'border-blue-400 bg-blue-50' : 'border-gray-200 hover:border-gray-300'">
-                                    <div class="flex items-center gap-2 mb-2">
-                                        <Checkbox
-                                            :inputId="`exam_${exam.id}`"
-                                            :value="exam.id"
-                                            v-model="form.examenes"
-                                        />
-                                        <label :for="`exam_${exam.id}`" class="text-sm cursor-pointer">{{ examLabel(exam.label) }}</label>
-                                    </div>
-                                    <!-- File upload cuando está seleccionado -->
-                                    <div v-if="isSelected(exam.id)" class="mt-2">
-                                        <FileUpload
-                                            :name="`files_${exam.id}`"
-                                            mode="basic"
-                                            accept="image/*,.dcm"
-                                            :multiple="true"
-                                            chooseLabel="Adjuntar imágenes"
-                                            class="w-full text-xs"
-                                            @select="(e) => onFilesSelect(exam.id, e)"
-                                        />
-                                        <div v-if="examFiles[exam.id]?.length" class="mt-1 text-xs text-gray-500">
-                                            {{ examFiles[exam.id].length }} archivo(s) seleccionado(s)
-                                        </div>
-                                    </div>
+                        <!-- Tab bar -->
+                        <div class="flex border-b border-gray-200 bg-gray-50">
+                            <button type="button" @click="activeTab = 'intraorales'"
+                                class="px-5 py-2.5 text-sm font-medium border-b-2 transition-colors focus:outline-none"
+                                :class="activeTab === 'intraorales'
+                                    ? 'border-blue-600 text-white bg-blue-600'
+                                    : 'border-transparent text-gray-600 hover:text-gray-800 bg-gray-50'">
+                                Radiografías Intraorales
+                            </button>
+                            <button type="button" @click="activeTab = 'extraorales'"
+                                class="px-5 py-2.5 text-sm font-medium border-b-2 transition-colors focus:outline-none"
+                                :class="activeTab === 'extraorales'
+                                    ? 'border-blue-600 text-white bg-blue-600'
+                                    : 'border-transparent text-gray-600 hover:text-gray-800 bg-gray-50'">
+                                Radiografías Extraorales
+                            </button>
+                        </div>
+
+                        <!-- Tab content -->
+                        <div class="p-5">
+                            <div v-if="activeTab === 'intraorales'" class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                <div v-for="col in intraoralesCols" :key="col.group_id">
+                                    <ExamCol :col="col" :selected="form.examenes" :examFiles="examFiles"
+                                        :examLabel="examLabel" :stripSuffix="stripGroupSuffix"
+                                        @toggle="toggleExam" @files="onFilesSelect" />
+                                </div>
+                            </div>
+                            <div v-else class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                <div v-for="col in extraoralesCols" :key="col.group_id">
+                                    <ExamCol :col="col" :selected="form.examenes" :examFiles="examFiles"
+                                        :examLabel="examLabel" :stripSuffix="(l) => l"
+                                        @toggle="toggleExam" @files="onFilesSelect" />
                                 </div>
                             </div>
                         </div>
@@ -202,7 +207,7 @@
 </template>
 
 <script setup>
-import { ref, reactive } from 'vue';
+import { ref, reactive, computed } from 'vue';
 import { Link, useForm, router } from '@inertiajs/vue3';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import { useTerms } from '@/composables/useTerms.js';
@@ -212,8 +217,7 @@ import Button from 'primevue/button';
 import Select from 'primevue/select';
 import AutoComplete from 'primevue/autocomplete';
 import Textarea from 'primevue/textarea';
-import Checkbox from 'primevue/checkbox';
-import FileUpload from 'primevue/fileupload';
+import ExamCol from '@/Components/ExamCol.vue';
 
 const props = defineProps({
     clinics:   Array,
@@ -241,7 +245,18 @@ const examFiles           = reactive({});
 const loadingOdontologos  = ref(false);
 const loadingRadiologos   = ref(false);
 
+// ── Tabs de examen ─────────────────────────────────────────────────────────
+const activeTab = ref('intraorales');
+
+// examTypes = { intraorales: [{group_id, nombre, items}], extraorales: [...] }
+const intraoralesCols = computed(() => props.examTypes?.intraorales ?? []);
+const extraoralesCols = computed(() => props.examTypes?.extraorales ?? []);
+
+const stripGroupSuffix = (label) =>
+    label.replace(/ Adulto$/i, '').replace(/ Niño$/i, '');
+
 const isSelected = (id) => form.examenes.includes(id);
+const toggleExam = (val) => { form.examenes = val; };
 
 // Al cambiar clínica, recarga odontólogos y radiólogos
 const onClinicChange = async () => {

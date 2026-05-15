@@ -47,6 +47,8 @@ const EXAM_NAME_MAP_UY = {
     'Panorámica':                             'Ortopantomografía',
     // Telerradiografía
     'Telerradiografía PA':                    'Telerradiografía Frontal',
+    // Cone Beam por Zona o Diente
+    'Cone Beam por Zona o Diente':            'Tomografía por Zona o Diente',
     // Carpo
     'Carpo':                                  'Carpal',
 };

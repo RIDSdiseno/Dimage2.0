@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Kind;
+use App\Models\KindGroup;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -10,17 +11,18 @@ use Inertia\Response;
 
 class ExamenesController extends Controller
 {
-    const GRUPOS = [
-        1 => 'Adulto',
-        2 => 'Niño',
-        3 => 'General',
-        4 => '3D',
-    ];
+    private function gruposFromDb(): array
+    {
+        return KindGroup::orderBy('tab')->orderBy('orden')->orderBy('id')
+            ->get(['id', 'nombre'])
+            ->mapWithKeys(fn ($g) => [$g->id => $g->nombre])
+            ->toArray();
+    }
 
     public function index(): Response
     {
         return Inertia::render('Admin/Examenes/Index', [
-            'grupos' => self::GRUPOS,
+            'grupos' => $this->gruposFromDb(),
         ]);
     }
 
@@ -55,15 +57,17 @@ class ExamenesController extends Controller
     {
         return Inertia::render('Admin/Examenes/Form', [
             'examen' => null,
-            'grupos' => self::GRUPOS,
+            'grupos' => $this->gruposFromDb(),
         ]);
     }
 
     public function store(Request $request): RedirectResponse
     {
+        $validGroupIds = KindGroup::pluck('id')->toArray();
+
         $request->validate([
             'descipcion' => ['required', 'string', 'max:255'],
-            'group'      => ['required', 'in:1,2,3,4'],
+            'group'      => ['required', 'integer', 'in:' . implode(',', $validGroupIds)],
         ]);
 
         Kind::create([
@@ -80,15 +84,17 @@ class ExamenesController extends Controller
 
         return Inertia::render('Admin/Examenes/Form', [
             'examen' => $examen,
-            'grupos' => self::GRUPOS,
+            'grupos' => $this->gruposFromDb(),
         ]);
     }
 
     public function update(Request $request, int $id): RedirectResponse
     {
+        $validGroupIds = KindGroup::pluck('id')->toArray();
+
         $request->validate([
             'descipcion' => ['required', 'string', 'max:255'],
-            'group'      => ['required', 'in:1,2,3,4'],
+            'group'      => ['required', 'integer', 'in:' . implode(',', $validGroupIds)],
         ]);
 
         Kind::where('id', $id)->update([

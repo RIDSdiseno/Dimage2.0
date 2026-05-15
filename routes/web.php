@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\AdministracionController;
 use App\Http\Controllers\ExamenesController;
+use App\Http\Controllers\KindGroupsController;
 use App\Http\Controllers\RegionController;
 use App\Http\Controllers\CalendarController;
 use App\Http\Controllers\ProfileController;
@@ -12,8 +13,10 @@ use App\Http\Controllers\ExcelController;
 use App\Http\Controllers\IntegracionesController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\FileController;
+use App\Http\Controllers\HomeController;
 use App\Http\Controllers\OrderController;
 use App\Http\Controllers\PatientController;
+use App\Http\Controllers\NotificacionesController;
 use Illuminate\Support\Facades\Route;
 
 // Auth
@@ -26,8 +29,15 @@ Route::post('/region', [RegionController::class, 'update'])->name('region.update
 
 // App (autenticado)
 Route::middleware(['auth'])->group(function () {
-    Route::get('/', [DashboardController::class, 'index'])->name('dashboard');
-    Route::get('/dashboard', [DashboardController::class, 'index']);
+    Route::get('/', [HomeController::class, 'index'])->name('home');
+    Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
+
+    // Notificaciones (órdenes respondidas no vistas) — todos excepto radiólogos
+    Route::middleware('role:1,2,3,4,6,7,11')->group(function () {
+        Route::get('/api/notificaciones',                         [NotificacionesController::class, 'index'])->name('notificaciones.index');
+        Route::post('/api/notificaciones/{id}/vista',             [NotificacionesController::class, 'marcarVista'])->name('notificaciones.vista');
+        Route::post('/api/notificaciones/marcar-todas',           [NotificacionesController::class, 'marcarTodasVistas'])->name('notificaciones.todas');
+    });
 
     // Perfil (todos los usuarios autenticados)
     // Calendario (todos los usuarios autenticados)
@@ -42,8 +52,13 @@ Route::middleware(['auth'])->group(function () {
     Route::put('/perfil/password',  [ProfileController::class, 'password'])->name('perfil.password');
 
     // Files (S3 signed URLs) - todos los autenticados
-    Route::get('/archivos/{id}',    [FileController::class, 'serve'])->name('archivos.serve');
-    Route::delete('/archivos/{id}', [FileController::class, 'destroy'])->name('archivos.destroy');
+    Route::get('/archivos/{id}',                 [FileController::class, 'serve'])->name('archivos.serve');
+    Route::get('/archivos/{id}/serie/info',      [FileController::class, 'serieInfo'])->name('archivos.serie');
+    Route::get('/archivos/{id}/slice/{index}',   [FileController::class, 'serveSlice'])->name('archivos.slice');
+    Route::get('/archivos/{id}/dcm/{filename}',  [FileController::class, 'serveDcm'])->name('archivos.dcm');
+    Route::get('/archivos/{id}/{filename}',      [FileController::class, 'serve'])->name('archivos.serve_named');
+    Route::post('/archivos/{id}/extraer',        [FileController::class, 'extractSerie'])->name('archivos.extraer');
+    Route::delete('/archivos/{id}',              [FileController::class, 'destroy'])->name('archivos.destroy');
 
     // Pacientes - admin, secretaria, holding, clínica, odontólogo, técnico (sin radiólogo)
     Route::middleware('role:1,2,3,4,6,11')->group(function () {
@@ -55,12 +70,15 @@ Route::middleware(['auth'])->group(function () {
         Route::put('/pacientes/{patient}',        [PatientController::class, 'update'])->name('pacientes.update');
     });
 
+    // Visor DICOM (nueva pestaña)
+    Route::get('/visor-dicom', [OrderController::class, 'visorDicom'])->name('visor-dicom');
+
     // Órdenes (static segments first to avoid {order} wildcard conflicts)
     Route::get('/ordenes',        [OrderController::class, 'index'])->name('ordenes.index');
     Route::get('/ordenes/search', [OrderController::class, 'search'])->name('ordenes.search');
 
     // Órdenes - crear (static segments before {order} wildcard)
-    Route::middleware('role:1,2,4,6,11')->group(function () {
+    Route::middleware('role:1,2,4,5,6,11')->group(function () {
         Route::get('/ordenes/crear',  [OrderController::class, 'create'])->name('ordenes.create');
         Route::post('/ordenes',       [OrderController::class, 'store'])->name('ordenes.store');
         Route::get('/ordenes/ajax/patients',    [OrderController::class, 'getPatients'])->name('ordenes.patients');
@@ -79,8 +97,8 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/ordenes/{order}/pdf',    [OrderController::class, 'pdf'])->name('ordenes.pdf');
     Route::get('/ordenes/{order}/zip',    [OrderController::class, 'zip'])->name('ordenes.zip');
 
-    // Órdenes - responder: admin, secretaria, radiólogo, técnico
-    Route::middleware('role:1,2,5,11')->group(function () {
+    // Órdenes - responder: admin, secretaria, radiólogo (operador no puede responder)
+    Route::middleware('role:1,2,5')->group(function () {
         Route::get('/ordenes/{order}/responder',  [OrderController::class, 'responder'])->name('ordenes.responder');
         Route::post('/ordenes/{order}/responder', [OrderController::class, 'doResponder'])->name('ordenes.doResponder');
     });
@@ -88,8 +106,8 @@ Route::middleware(['auth'])->group(function () {
     // Órdenes - eliminar orden (admin only, extra check inside controller)
     Route::delete('/ordenes/{order}', [OrderController::class, 'destroy'])->name('ordenes.destroy');
 
-    // Órdenes - eliminar examen: admin, secretaria, clínica, odontólogo, técnico
-    Route::middleware('role:1,2,4,6,11')->group(function () {
+    // Órdenes - eliminar examen: solo admin
+    Route::middleware('role:1')->group(function () {
         Route::delete('/ordenes/{order}/examenes/{examination}', [OrderController::class, 'deleteExamen'])->name('ordenes.examenes.destroy');
     });
 
@@ -185,6 +203,14 @@ Route::middleware(['auth'])->group(function () {
         Route::post('/examenes',              [ExamenesController::class, 'store'])->name('examenes.store');
         Route::get('/examenes/{id}/editar',   [ExamenesController::class, 'edit'])->name('examenes.edit');
         Route::put('/examenes/{id}',          [ExamenesController::class, 'update'])->name('examenes.update');
+
+        // Categorías de examen
+        Route::get('/examenes/categorias',              [KindGroupsController::class, 'index'])->name('examenes.categorias');
+        Route::get('/examenes/categorias/crear',        [KindGroupsController::class, 'create'])->name('examenes.categorias.create');
+        Route::post('/examenes/categorias',             [KindGroupsController::class, 'store'])->name('examenes.categorias.store');
+        Route::get('/examenes/categorias/{id}/editar',  [KindGroupsController::class, 'edit'])->name('examenes.categorias.edit');
+        Route::put('/examenes/categorias/{id}',         [KindGroupsController::class, 'update'])->name('examenes.categorias.update');
+        Route::delete('/examenes/categorias/{id}',      [KindGroupsController::class, 'destroy'])->name('examenes.categorias.destroy');
 
         // Administración
         Route::get('/administracion/corregir',     [AdministracionController::class, 'corregir'])->name('administracion.corregir');
