@@ -1,5 +1,8 @@
 <template>
     <AppLayout title="Editar Orden">
+
+        <ImageViewer :src="lightbox.open ? lightbox.src : null" :name="lightbox.name" @close="lightbox.open = false" />
+
         <div class="p-6 max-w-4xl mx-auto">
 
             <div class="flex items-center gap-3 mb-6">
@@ -119,16 +122,13 @@
                                 </p>
 
                                 <!-- Archivos actuales -->
-                                <div v-if="examen.archivos.length" class="flex flex-wrap gap-2 mb-3">
-                                    <div v-for="f in examen.archivos" :key="f.id"
-                                        class="flex items-center gap-1.5 bg-gray-50 border border-gray-200 rounded px-2 py-1 text-xs text-gray-600">
-                                        <i :class="f.extension === 'pdf' ? 'pi pi-file-pdf text-red-400' : 'pi pi-image text-blue-400'" />
-                                        <span class="max-w-32 truncate">{{ f.name }}</span>
-                                        <a v-if="f.url" :href="f.url" target="_blank"
-                                            class="text-blue-500 hover:text-blue-700 ml-1">
-                                            <i class="pi pi-external-link" style="font-size:10px" />
-                                        </a>
-                                    </div>
+                                <div v-if="examen.archivos.length" class="flex flex-wrap gap-3 mb-3">
+                                    <FileThumbnail
+                                        v-for="f in examen.archivos"
+                                        :key="f.id"
+                                        :file="f"
+                                        :showDicom="examen.grupo === 4"
+                                        @lightbox="openLightbox" />
                                 </div>
                                 <p v-else class="text-xs text-gray-400 italic mb-3">Sin archivos adjuntos.</p>
 
@@ -235,8 +235,18 @@ import Select from 'primevue/select';
 import Textarea from 'primevue/textarea';
 import { useTerms } from '@/composables/useTerms.js';
 import EditExamCol from '@/Components/EditExamCol.vue';
+import FileThumbnail from '@/Components/FileThumbnail.vue';
+import ImageViewer   from '@/Components/ImageViewer.vue';
 
 const { examLabel } = useTerms();
+
+const lightbox = reactive({ open: false, src: '', name: '' });
+
+function openLightbox(file) {
+    lightbox.src  = file.url;
+    lightbox.name = file.name || 'Imagen';
+    lightbox.open = true;
+}
 
 const props = defineProps({
     order:     Object,

@@ -72,7 +72,6 @@
                 :alt="file.name"
                 loading="lazy"
                 style="width:100%; height:100%; object-fit:cover; display:block;"
-                @click="$emit('lightbox', { ...file, url: fileSrc })"
                 @error="imgFailed = true" />
 
             <a v-else :href="fileSrc" target="_blank"
@@ -84,14 +83,22 @@
                 </span>
             </a>
 
+            <!-- Botones siempre visibles en la parte inferior -->
             <div v-if="!imgFailed"
-                style="position:absolute; inset:0; background:rgba(0,0,0,0); transition:background 0.2s; display:flex; align-items:flex-end; justify-content:flex-end;"
-                class="group-hover:bg-black/30"
-                @click="$emit('lightbox', { ...file, url: fileSrc })">
-                <span style="margin:6px; background:rgba(255,255,255,0.9); border-radius:4px; padding:3px 5px;"
-                    class="opacity-0 group-hover:opacity-100 transition-opacity">
-                    <i class="pi pi-search" style="font-size:12px; color:#2563eb;" />
-                </span>
+                style="position:absolute; bottom:0; left:0; right:0; display:flex; justify-content:flex-end; gap:4px; padding:5px; background:rgba(0,0,0,0.45);">
+                <!-- Herramientas: abre el visor con panel de herramientas -->
+                <button
+                    @click.stop="$emit('lightbox', { ...file, url: fileSrc })"
+                    title="Ver con herramientas"
+                    style="display:flex; align-items:center; justify-content:center; width:26px; height:26px; border-radius:5px; background:rgba(52,82,255,0.85); color:#fff; border:none; cursor:pointer;">
+                    <i class="pi pi-wrench" style="font-size:11px;" />
+                </button>
+                <!-- Ampliar: abre la imagen en nueva pestaña -->
+                <a :href="fileSrc" target="_blank" @click.stop
+                    title="Ampliar (nueva pestaña)"
+                    style="display:flex; align-items:center; justify-content:center; width:26px; height:26px; border-radius:5px; background:rgba(255,255,255,0.15); color:#fff; text-decoration:none;">
+                    <i class="pi pi-search" style="font-size:11px;" />
+                </a>
             </div>
         </template>
 

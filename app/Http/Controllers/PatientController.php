@@ -36,6 +36,16 @@ class PatientController extends Controller
             $query->whereHas('clinics', fn($q) =>
                 $q->where('id', $user->clinic->id)
             );
+        } elseif ($user->hasAnyRole(['odontologo', 'tecnico'])) {
+            $staff    = $user->staff;
+            $clinicIds = $staff ? $staff->clinics()->pluck('clinics.id') : collect();
+            if ($clinicIds->isNotEmpty()) {
+                $query->whereHas('clinics', fn($q) =>
+                    $q->whereIn('clinics.id', $clinicIds)
+                );
+            } else {
+                return response()->json(['data' => [], 'total' => 0]);
+            }
         } elseif ($user->hasAnyRole(['radiologo', 'contralor'])) {
             return response()->json(['data' => [], 'total' => 0]);
         }
@@ -149,6 +159,10 @@ class PatientController extends Controller
         } elseif ($user->hasRole('clinica')) {
             $clinics = Clinic::with('user')
                 ->where('holding_id', $user->clinic->holding_id)->get();
+        } elseif ($user->hasAnyRole(['odontologo', 'tecnico'])) {
+            // Staff (odontólogo u operador rx/técnico): solo sus clínicas asociadas
+            $staff   = $user->staff()->with('clinics.user')->first();
+            $clinics = $staff ? $staff->clinics : collect();
         } else {
             $clinics = collect();
         }

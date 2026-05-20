@@ -953,20 +953,22 @@ class OrderController extends Controller
             ->join('examination_order', 'examination_order.examination_id', '=', 'examinations.id')
             ->join('kinds', 'kinds.id', '=', 'examinations.kind_id')
             ->where('examination_order.order_id', $order->id)
-            ->select(['examinations.id as id', 'kinds.id as kind_id', 'kinds.descipcion as descripcion'])
+            ->select(['examinations.id as id', 'kinds.id as kind_id', 'kinds.descipcion as descripcion', 'kinds.group as grupo'])
             ->get()
             ->map(function ($e) {
                 $archivos = DB::table('files')
                     ->where('examination_id', $e->id)
                     ->where('desde_informar', '!=', 1)
-                    ->get(['id', 'name', 'extension', 'ruta'])
+                    ->get(['id', 'name', 'extension', 'ruta', 'ruta_dcm', 'nombre_dcm'])
                     ->map(fn($f) => [
                         'id'        => $f->id,
                         'name'      => $f->name,
                         'extension' => $f->extension,
+                        'ruta_dcm'  => $f->ruta_dcm,
+                        'nombre_dcm'=> $f->nombre_dcm,
                         'url'       => $this->signedUrl($f->ruta),
                     ]);
-                return ['id' => $e->id, 'kind_id' => $e->kind_id, 'descripcion' => $e->descripcion, 'archivos' => $archivos];
+                return ['id' => $e->id, 'kind_id' => $e->kind_id, 'descripcion' => $e->descripcion, 'grupo' => (int) $e->grupo, 'archivos' => $archivos];
             });
 
         $radiologoId = DB::table('order_staff_exam')->where('order_id', $order->id)->value('staff_id');

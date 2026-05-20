@@ -213,9 +213,13 @@ Route::middleware(['auth'])->group(function () {
         Route::delete('/examenes/categorias/{id}',      [KindGroupsController::class, 'destroy'])->name('examenes.categorias.destroy');
 
         // Administración
-        Route::get('/administracion/corregir',     [AdministracionController::class, 'corregir'])->name('administracion.corregir');
-        Route::post('/administracion/enviar-correccion', [AdministracionController::class, 'enviarCorreccion'])->name('administracion.enviar-correccion');
-        Route::post('/administracion/no-informada', [AdministracionController::class, 'noInformada'])->name('administracion.no-informada');
+        Route::get('/administracion/corregir',          [AdministracionController::class, 'corregir'])->name('administracion.corregir');
+        Route::post('/administracion/enviar-correccion',[AdministracionController::class, 'enviarCorreccion'])->name('administracion.enviar-correccion');
+        Route::post('/administracion/no-informada',     [AdministracionController::class, 'noInformada'])->name('administracion.no-informada');
+        Route::get('/administracion/gestion-estado',    [AdministracionController::class, 'gestionEstado'])->name('administracion.gestion-estado');
+        Route::post('/administracion/cambiar-estado',   [AdministracionController::class, 'cambiarEstadoMasivo'])->name('administracion.cambiar-estado');
+        Route::get('/administracion/reasignacion',      [AdministracionController::class, 'reasignacion'])->name('administracion.reasignacion');
+        Route::post('/administracion/reasignar',        [AdministracionController::class, 'reasignarMasivo'])->name('administracion.reasignar');
 
         // Feriados
         Route::get('/feriados',              [AdministracionController::class, 'feriados'])->name('feriados');

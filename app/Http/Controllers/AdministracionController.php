@@ -10,6 +10,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
+use Inertia\Response;
 
 class AdministracionController extends Controller
 {
@@ -110,6 +111,232 @@ class AdministracionController extends Controller
         return redirect()
             ->route('admin.administracion.corregir', ['orden_id' => $request->orden_id])
             ->with('success', 'Orden cambiada a "No Informada".');
+    }
+
+    // ── GESTIÓN DE ESTADO ────────────────────────────────────────────────
+
+    public function gestionEstado(Request $request): Response
+    {
+        $query = DB::table('orders')
+            ->join('patients', 'patients.id', '=', 'orders.patient_id')
+            ->join('clinics', 'clinics.id', '=', 'orders.clinic_id')
+            ->join('users as clinica_user', 'clinica_user.id', '=', 'clinics.user_id')
+            ->leftJoin('staffs as rad_staff', 'rad_staff.id', '=', 'orders.radiologo_id')
+            ->leftJoin('users as rad_user', 'rad_user.id', '=', 'rad_staff.user_id')
+            ->leftJoin('staffs as od_staff', 'od_staff.id', '=', 'orders.odontologo_id')
+            ->leftJoin('users as od_user', 'od_user.id', '=', 'od_staff.user_id')
+            ->whereNotNull('orders.enviada')
+            ->select([
+                'orders.id',
+                'patients.name as paciente',
+                'patients.rut',
+                'clinica_user.name as clinica',
+                'rad_user.name as radiologo',
+                'od_user.name as odontologo',
+                'orders.estadoradiologo',
+                'orders.prioridad',
+                'orders.enviada',
+                'orders.respondida',
+            ]);
+
+        if ($request->filled('q')) {
+            $q = $request->q;
+            $query->where(function ($sub) use ($q) {
+                $sub->where('patients.name', 'like', "%{$q}%")
+                    ->orWhere('patients.rut', 'like', "%{$q}%")
+                    ->orWhere('clinica_user.name', 'like', "%{$q}%")
+                    ->orWhere('rad_user.name', 'like', "%{$q}%")
+                    ->orWhere('orders.id', '=', $q);
+            });
+        }
+
+        if ($request->filled('estado') && $request->estado !== '') {
+            $query->where('orders.estadoradiologo', (int) $request->estado);
+        }
+
+        if ($request->filled('radiologo_id')) {
+            $query->where('orders.radiologo_id', (int) $request->radiologo_id);
+        }
+
+        $paginated = $query->orderByDesc('orders.updated_at')->paginate(25)->withQueryString();
+
+        $radiologos = DB::table('staffs')
+            ->join('users', 'users.id', '=', 'staffs.user_id')
+            ->where('staffs.type_staff', 3)
+            ->select(['staffs.id', 'users.name'])
+            ->orderBy('users.name')
+            ->get();
+
+        return Inertia::render('Admin/Administracion/GestionEstado', [
+            'orders'      => $paginated->items(),
+            'total'       => $paginated->total(),
+            'currentPage' => $paginated->currentPage(),
+            'perPage'     => $paginated->perPage(),
+            'filters'     => $request->only(['q', 'estado', 'radiologo_id']),
+            'radiologos'  => $radiologos,
+            'estados'     => OrderController::ESTADOS,
+        ]);
+    }
+
+    public function cambiarEstadoMasivo(Request $request)
+    {
+        $request->validate([
+            'orden_ids'    => ['required', 'array', 'min:1'],
+            'orden_ids.*'  => ['integer', 'exists:orders,id'],
+            'nuevo_estado' => ['required', 'in:0,2'],
+            'mensaje'      => ['required_if:nuevo_estado,2', 'nullable', 'string', 'min:5'],
+        ]);
+
+        $ids         = $request->orden_ids;
+        $nuevoEstado = (int) $request->nuevo_estado;
+
+        DB::transaction(function () use ($ids, $nuevoEstado, $request) {
+            foreach ($ids as $orderId) {
+                $data = ['estadoradiologo' => $nuevoEstado, 'updated_at' => now()];
+
+                if ($nuevoEstado === 0) {
+                    $data['estadoodontologo'] = 0;
+                    $data['respondida']       = null;
+                }
+
+                DB::table('orders')->where('id', $orderId)->update($data);
+
+                if ($nuevoEstado === 2 && $request->filled('mensaje')) {
+                    Correction::updateOrCreate(
+                        ['order_id' => $orderId],
+                        [
+                            'staff_id'    => Auth::id(),
+                            'description' => $request->mensaje,
+                            'status'      => 1,
+                        ]
+                    );
+                }
+            }
+        });
+
+        $count = count($ids);
+        $label = $nuevoEstado === 0 ? 'No Informada' : 'Corrección';
+
+        return back()->with('success', "{$count} orden(es) cambiada(s) a \"{$label}\" correctamente.");
+    }
+
+    // ── REASIGNACIÓN ─────────────────────────────────────────────────────
+
+    public function reasignacion(Request $request): Response
+    {
+        $query = DB::table('orders')
+            ->join('patients', 'patients.id', '=', 'orders.patient_id')
+            ->join('clinics', 'clinics.id', '=', 'orders.clinic_id')
+            ->join('users as clinica_user', 'clinica_user.id', '=', 'clinics.user_id')
+            ->leftJoin('staffs as rad_staff', 'rad_staff.id', '=', 'orders.radiologo_id')
+            ->leftJoin('users as rad_user', 'rad_user.id', '=', 'rad_staff.user_id')
+            ->leftJoin('staffs as od_staff', 'od_staff.id', '=', 'orders.odontologo_id')
+            ->leftJoin('users as od_user', 'od_user.id', '=', 'od_staff.user_id')
+            ->select([
+                'orders.id',
+                'patients.name as paciente',
+                'patients.rut',
+                'clinica_user.name as clinica',
+                'orders.radiologo_id',
+                'rad_user.name as radiologo',
+                'orders.odontologo_id',
+                'od_user.name as odontologo',
+                'orders.estadoradiologo',
+                'orders.prioridad',
+                'orders.enviada',
+                'orders.created_at',
+            ]);
+
+        if ($request->filled('q')) {
+            $q = $request->q;
+            $query->where(function ($sub) use ($q) {
+                $sub->where('patients.name', 'like', "%{$q}%")
+                    ->orWhere('patients.rut', 'like', "%{$q}%")
+                    ->orWhere('clinica_user.name', 'like', "%{$q}%")
+                    ->orWhere('rad_user.name', 'like', "%{$q}%")
+                    ->orWhere('od_user.name', 'like', "%{$q}%")
+                    ->orWhere('orders.id', '=', $q);
+            });
+        }
+
+        if ($request->filled('estado') && $request->estado !== '') {
+            $query->where('orders.estadoradiologo', (int) $request->estado);
+        }
+
+        if ($request->filled('radiologo_id')) {
+            $query->where('orders.radiologo_id', (int) $request->radiologo_id);
+        }
+
+        if ($request->filled('odontologo_id')) {
+            $query->where('orders.odontologo_id', (int) $request->odontologo_id);
+        }
+
+        $paginated = $query->orderByDesc('orders.updated_at')->paginate(25)->withQueryString();
+
+        $radiologos = DB::table('staffs')
+            ->join('users', 'users.id', '=', 'staffs.user_id')
+            ->where('staffs.type_staff', 3)
+            ->select(['staffs.id', 'users.name'])
+            ->orderBy('users.name')
+            ->get();
+
+        $odontologos = DB::table('staffs')
+            ->join('users', 'users.id', '=', 'staffs.user_id')
+            ->where('staffs.type_staff', 6)
+            ->select(['staffs.id', 'users.name'])
+            ->orderBy('users.name')
+            ->get();
+
+        return Inertia::render('Admin/Administracion/Reasignacion', [
+            'orders'      => $paginated->items(),
+            'total'       => $paginated->total(),
+            'currentPage' => $paginated->currentPage(),
+            'perPage'     => $paginated->perPage(),
+            'filters'     => $request->only(['q', 'estado', 'radiologo_id', 'odontologo_id']),
+            'radiologos'  => $radiologos,
+            'odontologos' => $odontologos,
+            'estados'     => OrderController::ESTADOS,
+        ]);
+    }
+
+    public function reasignarMasivo(Request $request)
+    {
+        $request->validate([
+            'orden_ids'    => ['required', 'array', 'min:1'],
+            'orden_ids.*'  => ['integer', 'exists:orders,id'],
+            'radiologo_id' => ['nullable', 'integer', 'exists:staffs,id'],
+            'odontologo_id'=> ['nullable', 'integer', 'exists:staffs,id'],
+        ]);
+
+        if (!$request->filled('radiologo_id') && !$request->filled('odontologo_id')) {
+            return back()->withErrors(['staff' => 'Debe seleccionar al menos un radiólogo u odontólogo.']);
+        }
+
+        $ids          = $request->orden_ids;
+        $radiologoId  = $request->filled('radiologo_id')  ? (int) $request->radiologo_id  : null;
+        $odontologoId = $request->filled('odontologo_id') ? (int) $request->odontologo_id : null;
+
+        DB::transaction(function () use ($ids, $radiologoId, $odontologoId) {
+            foreach ($ids as $orderId) {
+                $data = ['updated_at' => now()];
+                if ($radiologoId)  $data['radiologo_id']  = $radiologoId;
+                if ($odontologoId) $data['odontologo_id'] = $odontologoId;
+                DB::table('orders')->where('id', $orderId)->update($data);
+
+                if ($radiologoId) {
+                    DB::table('order_staff_exam')
+                        ->where('order_id', $orderId)
+                        ->update(['staff_id' => $radiologoId]);
+                }
+            }
+        });
+
+        $count  = count($ids);
+        $partes = [];
+        if ($radiologoId)  $partes[] = 'radiólogo';
+        if ($odontologoId) $partes[] = 'odontólogo';
+
+        return back()->with('success', "{$count} orden(es) reasignada(s) (" . implode(' y ', $partes) . ") correctamente.");
     }
 
     // ── FERIADOS ─────────────────────────────────────────────────────────
