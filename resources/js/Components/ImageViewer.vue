@@ -1,7 +1,7 @@
 <template>
     <Teleport to="body">
         <div v-if="src" class="fixed inset-0 z-50 flex flex-col bg-black select-none"
-            @keydown.esc="$emit('close')" tabindex="0" ref="container">
+            @keydown.esc="onEsc" tabindex="0" ref="container">
 
             <!-- Toolbar -->
             <div class="flex items-center justify-between px-4 py-2 bg-black/80 z-10 shrink-0">
@@ -15,10 +15,10 @@
                     <span class="text-white/70 text-sm truncate max-w-xs ml-2">{{ name }}</span>
                 </div>
                 <div class="flex items-center gap-1">
-                    <button @click="zoomOut"  title="Alejar"              class="text-white/70 hover:text-white bg-white/10 hover:bg-white/20 rounded px-2 py-1 text-sm transition-colors cursor-pointer"><i class="pi pi-search-minus" /></button>
+                    <button @click="zoomOut"   title="Alejar"             class="text-white/70 hover:text-white bg-white/10 hover:bg-white/20 rounded px-2 py-1 text-sm transition-colors cursor-pointer"><i class="pi pi-search-minus" /></button>
                     <span class="text-white/60 text-xs w-12 text-center">{{ Math.round(scale * 100) }}%</span>
-                    <button @click="zoomIn"   title="Acercar"             class="text-white/70 hover:text-white bg-white/10 hover:bg-white/20 rounded px-2 py-1 text-sm transition-colors cursor-pointer"><i class="pi pi-search-plus" /></button>
-                    <button @click="fit"      title="Ajustar a pantalla"  class="text-white/70 hover:text-white bg-white/10 hover:bg-white/20 rounded px-2 py-1 text-sm transition-colors cursor-pointer"><i class="pi pi-expand" /></button>
+                    <button @click="zoomIn"    title="Acercar"            class="text-white/70 hover:text-white bg-white/10 hover:bg-white/20 rounded px-2 py-1 text-sm transition-colors cursor-pointer"><i class="pi pi-search-plus" /></button>
+                    <button @click="fit"       title="Ajustar pantalla"   class="text-white/70 hover:text-white bg-white/10 hover:bg-white/20 rounded px-2 py-1 text-sm transition-colors cursor-pointer"><i class="pi pi-expand" /></button>
                     <button @click="resetView" title="Tamaño real (100%)" class="text-white/70 hover:text-white bg-white/10 hover:bg-white/20 rounded px-2 py-1 text-xs font-bold transition-colors cursor-pointer">1:1</button>
                     <button @click="rotateImg" title="Rotar"              class="text-white/70 hover:text-white bg-white/10 hover:bg-white/20 rounded px-2 py-1 text-sm transition-colors cursor-pointer"><i class="pi pi-refresh" /></button>
                     <a :href="src" target="_blank" title="Abrir original"
@@ -58,9 +58,16 @@
                             :class="medirActive ? 'bg-blue-600 text-white shadow-lg shadow-blue-900/60' : 'bg-white/10 text-white/60 hover:bg-white/20 hover:text-white'">
                             <i class="pi pi-chart-line text-xl" />
                         </button>
-                        <span v-if="measureDist != null" class="text-blue-300 text-xs font-mono">
-                            {{ measureDist }} px
+                        <!-- Resultado de la medición -->
+                        <span v-if="measureDisplay" class="text-blue-300 text-xs font-mono leading-tight">
+                            {{ measureDisplay }}
                         </span>
+                        <!-- Botón recalibrar (si ya hay calibración) -->
+                        <button v-if="mmPerPx && medirActive"
+                            @click="recalibrar"
+                            class="text-white/30 hover:text-white/60 text-xs transition-colors">
+                            Recalibrar
+                        </button>
                     </div>
 
                     <!-- Invertir -->
@@ -94,7 +101,6 @@
                             class="w-full cursor-pointer" style="accent-color:#ec4899;" />
                     </div>
 
-                    <!-- Resetear -->
                     <button @click="resetFilters"
                         class="text-white/30 hover:text-white/60 text-xs text-center mt-auto transition-colors">
                         Resetear filtros
@@ -109,10 +115,9 @@
                     @mousemove="onMousemove"
                     @mouseup="onMouseup"
                     @mouseleave="onMouseleave"
-                    @wheel.prevent="onWheel"
-                    @click.self="$emit('close')">
+                    @wheel.prevent="onWheel">
 
-                    <!-- Main Image -->
+                    <!-- Main image -->
                     <img :src="src" :alt="name"
                         ref="img"
                         draggable="false"
@@ -125,54 +130,80 @@
                         class="absolute inset-0 pointer-events-none"
                         style="width:100%; height:100%; z-index:5;">
 
-                        <!-- Preview line while placing second point -->
                         <line v-if="measure.p1 && !measure.p2 && cursorPos.x != null"
                             :x1="measure.p1.x" :y1="measure.p1.y"
                             :x2="cursorPos.x" :y2="cursorPos.y"
                             stroke="#3452ff" stroke-width="2" stroke-dasharray="6,3"
                             stroke-linecap="round" />
 
-                        <!-- Completed line -->
                         <line v-if="measure.p1 && measure.p2"
                             :x1="measure.p1.x" :y1="measure.p1.y"
                             :x2="measure.p2.x" :y2="measure.p2.y"
                             stroke="#3452ff" stroke-width="2.5" stroke-linecap="round" />
 
-                        <!-- Start dot -->
                         <circle v-if="measure.p1" :cx="measure.p1.x" :cy="measure.p1.y" r="4" fill="#3452ff" />
-
-                        <!-- End dot -->
                         <circle v-if="measure.p2" :cx="measure.p2.x" :cy="measure.p2.y" r="4" fill="#3452ff" />
 
-                        <!-- Distance label -->
-                        <template v-if="measure.p1 && measure.p2 && measureDist != null">
+                        <template v-if="measure.p1 && measure.p2 && measureDisplay">
                             <rect
-                                :x="(measure.p1.x + measure.p2.x)/2 - 38"
+                                :x="(measure.p1.x + measure.p2.x)/2 - 42"
                                 :y="(measure.p1.y + measure.p2.y)/2 - 24"
-                                width="76" height="18" rx="4"
-                                fill="rgba(0,0,0,0.78)" />
+                                width="84" height="18" rx="4"
+                                fill="rgba(0,0,0,0.80)" />
                             <text
                                 :x="(measure.p1.x + measure.p2.x)/2"
                                 :y="(measure.p1.y + measure.p2.y)/2 - 10"
                                 fill="white" font-size="12" text-anchor="middle"
-                                font-family="Arial,sans-serif">{{ measureDist }} px</text>
+                                font-family="Arial,sans-serif">{{ measureDisplay }}</text>
                         </template>
                     </svg>
 
-                    <!-- Lupa magnifier -->
-                    <div v-if="lupaActive && lupa.visible"
-                        class="pointer-events-none absolute"
-                        style="border-radius:50%; border:3px solid #3452ff; overflow:hidden; z-index:10;
+                    <!-- Lupa — CSS background-image approach -->
+                    <div v-if="lupaActive && lupa.visible && lupaContainerStyle"
+                        class="absolute pointer-events-none"
+                        style="border-radius:50%; border:3px solid #3452ff; z-index:10;
                                box-shadow: 0 0 0 2px rgba(52,82,255,0.3), 0 4px 24px rgba(0,0,0,0.8);"
-                        :style="{
-                            width:  LUPA_SIZE + 'px',
-                            height: LUPA_SIZE + 'px',
-                            left:   (lupa.x - LUPA_SIZE/2) + 'px',
-                            top:    (lupa.y - LUPA_SIZE/2) + 'px',
-                        }">
-                        <img :src="src" draggable="false" :style="lupaImgStyle"
-                            style="position:absolute; pointer-events:none;" />
+                        :style="lupaContainerStyle" />
+
+                    <!-- Calibration dialog overlay -->
+                    <Transition name="fade">
+                    <div v-if="calibDialog"
+                        class="absolute inset-0 z-20 flex items-center justify-center"
+                        style="background:rgba(0,0,0,0.65);"
+                        @mousedown.stop @click.stop>
+                        <div class="rounded-xl shadow-2xl p-5 w-80"
+                            style="background:#1a2540; border:1px solid rgba(255,255,255,0.12);">
+                            <h3 class="text-white font-semibold text-sm mb-1">Calibrar medida</h3>
+                            <p class="text-white/60 text-xs mb-4 leading-relaxed">
+                                Indique la medida de la línea trazada, en milímetros:
+                            </p>
+                            <input
+                                ref="calibInputEl"
+                                v-model="calibInput"
+                                type="number"
+                                min="0.01"
+                                step="0.1"
+                                placeholder="ej: 25.5"
+                                class="w-full rounded-lg px-3 py-2 text-white text-sm outline-none"
+                                style="background:rgba(0,0,0,0.5); border:1px solid rgba(255,255,255,0.2);"
+                                @keydown.enter.stop="acceptCalib"
+                                @keydown.esc.stop="cancelCalib"
+                                @focus="$event.target.select()" />
+                            <div class="flex justify-end gap-2 mt-4">
+                                <button @click="cancelCalib"
+                                    class="px-4 py-1.5 rounded-lg text-sm text-white/60 hover:text-white transition-colors"
+                                    style="background:rgba(255,255,255,0.1);">
+                                    Cancelar
+                                </button>
+                                <button @click="acceptCalib"
+                                    class="px-4 py-1.5 rounded-lg text-sm text-white font-medium transition-colors"
+                                    style="background:#7c3aed;">
+                                    Aceptar
+                                </button>
+                            </div>
+                        </div>
                     </div>
+                    </Transition>
                 </div>
             </div>
 
@@ -187,7 +218,7 @@
 <script setup>
 import { ref, reactive, computed, watch, nextTick, onMounted, onUnmounted } from 'vue';
 
-const LUPA_SIZE = 180;
+const LUPA_SIZE = 200;
 const LUPA_ZOOM = 3;
 
 const props = defineProps({
@@ -196,9 +227,10 @@ const props = defineProps({
 });
 const emit = defineEmits(['close']);
 
-const container = ref(null);
-const viewport  = ref(null);
-const img       = ref(null);
+const container    = ref(null);
+const viewport     = ref(null);
+const img          = ref(null);
+const calibInputEl = ref(null);
 
 // View state
 const scale    = ref(1);
@@ -208,14 +240,18 @@ const ty       = ref(0);
 const dragging = ref(false);
 const dragStart = reactive({ x: 0, y: 0, tx: 0, ty: 0 });
 
+// Natural image dimensions (set on load)
+const imgNatW = ref(0);
+const imgNatH = ref(0);
+
 // Tools panel
-const showTools  = ref(true);
-const lupaActive = ref(false);
+const showTools   = ref(true);
+const lupaActive  = ref(false);
 const medirActive = ref(false);
-const flippedH   = ref(false);
-const flippedV   = ref(false);
-const brightness = ref(100);
-const contrast   = ref(100);
+const flippedH    = ref(false);
+const flippedV    = ref(false);
+const brightness  = ref(100);
+const contrast    = ref(100);
 
 // Lupa tracking
 const lupa      = reactive({ x: 0, y: 0, visible: false });
@@ -224,41 +260,55 @@ const cursorPos = reactive({ x: null, y: null });
 // Measure state
 const measure = reactive({ p1: null, p2: null });
 
-const measureDist = computed(() => {
+// Calibration
+const calibDialog = ref(false);
+const calibInput  = ref('');
+const mmPerPx     = ref(null); // mm per natural image pixel
+
+// Raw pixel distance of current measurement
+const measurePx = computed(() => {
     if (!measure.p1 || !measure.p2) return null;
     const dx = (measure.p2.x - measure.p1.x) / scale.value;
     const dy = (measure.p2.y - measure.p1.y) / scale.value;
-    return Math.round(Math.sqrt(dx * dx + dy * dy));
+    return Math.sqrt(dx * dx + dy * dy);
 });
 
-// Image style (flip via scale signs, then rotate)
+// Displayed distance string (mm if calibrated, px otherwise)
+const measureDisplay = computed(() => {
+    if (measurePx.value == null) return null;
+    if (mmPerPx.value) {
+        return (measurePx.value * mmPerPx.value).toFixed(2) + ' mm';
+    }
+    return Math.round(measurePx.value) + ' px';
+});
+
+// Image style
 const imgStyle = computed(() => {
     const sx = flippedH.value ? -scale.value : scale.value;
     const sy = flippedV.value ? -scale.value : scale.value;
     return {
         transform: `translate(calc(-50% + ${tx.value}px), calc(-50% + ${ty.value}px)) scale(${sx}, ${sy}) rotate(${deg.value}deg)`,
-        top: '50%',
-        left: '50%',
+        top:    '50%',
+        left:   '50%',
         transition: dragging.value ? 'none' : 'transform 0.15s ease',
         filter: `brightness(${brightness.value}%) contrast(${contrast.value}%)`,
-        maxWidth: 'none',
+        maxWidth:  'none',
         maxHeight: 'none',
     };
 });
 
-// Lupa image style — positions the full image inside the circle so
-// the pixel under the cursor appears at the lupa center, zoomed LUPA_ZOOM times.
-const lupaImgStyle = computed(() => {
-    if (!viewport.value || !img.value || !lupa.visible) return {};
+// Lupa via CSS background-image
+const lupaContainerStyle = computed(() => {
+    if (!lupa.visible || !viewport.value || !imgNatW.value || !imgNatH.value) return null;
+
     const vpW  = viewport.value.clientWidth;
     const vpH  = viewport.value.clientHeight;
-    const natW = img.value.naturalWidth  || img.value.clientWidth  || 800;
-    const natH = img.value.naturalHeight || img.value.clientHeight || 600;
+    const natW = imgNatW.value;
+    const natH = imgNatH.value;
     const L    = LUPA_ZOOM;
     const S    = scale.value;
     const half = LUPA_SIZE / 2;
 
-    // Natural image coords under the cursor, accounting for flip in the main viewport
     const nat_x = flippedH.value
         ? natW / 2 - (lupa.x - vpW / 2 - tx.value) / S
         : (lupa.x - vpW / 2 - tx.value) / S + natW / 2;
@@ -266,24 +316,28 @@ const lupaImgStyle = computed(() => {
         ? natH / 2 - (lupa.y - vpH / 2 - ty.value) / S
         : (lupa.y - vpH / 2 - ty.value) / S + natH / 2;
 
-    // When scaleX(-1) is applied with transform-origin center, a natural pixel at nat_x
-    // ends up at: img_left + (natW - nat_x)*L*S → set equal to half.
-    // Without flip: img_left + nat_x*L*S = half.
-    const img_left = flippedH.value
-        ? half - (natW - nat_x) * L * S
-        : half - nat_x * L * S;
-    const img_top = flippedV.value
-        ? half - (natH - nat_y) * L * S
-        : half - nat_y * L * S;
+    const bgNat_x = flippedH.value ? natW - nat_x : nat_x;
+    const bgNat_y = flippedV.value ? natH - nat_y : nat_y;
+
+    const bgSizeW = natW * L * S;
+    const bgSizeH = natH * L * S;
+    const bgPosX  = half - bgNat_x * L * S;
+    const bgPosY  = half - bgNat_y * L * S;
+
+    const fX = flippedH.value ? -1 : 1;
+    const fY = flippedV.value ? -1 : 1;
 
     return {
-        left: img_left + 'px',
-        top:  img_top  + 'px',
-        width:  natW * L * S + 'px',
-        height: natH * L * S + 'px',
-        filter: `brightness(${brightness.value}%) contrast(${contrast.value}%)`,
-        transform: `scaleX(${flippedH.value ? -1 : 1}) scaleY(${flippedV.value ? -1 : 1})`,
-        transformOrigin: 'center center',
+        width:  LUPA_SIZE + 'px',
+        height: LUPA_SIZE + 'px',
+        left:   (lupa.x - half) + 'px',
+        top:    (lupa.y - half) + 'px',
+        backgroundImage:    `url('${props.src}')`,
+        backgroundSize:     `${bgSizeW}px ${bgSizeH}px`,
+        backgroundPosition: `${bgPosX}px ${bgPosY}px`,
+        backgroundRepeat:   'no-repeat',
+        filter:    `brightness(${brightness.value}%) contrast(${contrast.value}%)`,
+        transform: `scaleX(${fX}) scaleY(${fY})`,
     };
 });
 
@@ -297,6 +351,8 @@ const cursorClass = computed(() => {
 // ── View helpers ──────────────────────────────────────────────────────────────
 
 function onImgLoad() {
+    imgNatW.value = img.value?.naturalWidth  || 0;
+    imgNatH.value = img.value?.naturalHeight || 0;
     fit();
     nextTick(() => container.value?.focus());
 }
@@ -305,9 +361,10 @@ function fit() {
     if (!viewport.value || !img.value) return;
     const vw = viewport.value.clientWidth  - 40;
     const vh = viewport.value.clientHeight - 40;
-    const iw = img.value.naturalWidth  || img.value.clientWidth;
-    const ih = img.value.naturalHeight || img.value.clientHeight;
-    scale.value = Math.min(vw / iw, vh / ih, 1);
+    const iw = imgNatW.value || img.value.naturalWidth  || img.value.clientWidth  || 0;
+    const ih = imgNatH.value || img.value.naturalHeight || img.value.clientHeight || 0;
+    if (!iw || !ih) return;
+    scale.value = Math.min(vw / iw, vh / ih);
     tx.value = 0;
     ty.value = 0;
 }
@@ -340,24 +397,59 @@ function toggleMedir() {
     }
 }
 
+// ── Calibration dialog ────────────────────────────────────────────────────────
+
+function openCalibDialog() {
+    calibInput.value  = '';
+    calibDialog.value = true;
+    nextTick(() => calibInputEl.value?.focus());
+}
+
+function acceptCalib() {
+    const mm = parseFloat(calibInput.value);
+    if (mm > 0 && measurePx.value && measurePx.value > 0) {
+        mmPerPx.value = mm / measurePx.value;
+    }
+    calibDialog.value = false;
+    nextTick(() => container.value?.focus());
+}
+
+function cancelCalib() {
+    calibDialog.value = false;
+    nextTick(() => container.value?.focus());
+}
+
+function recalibrar() {
+    mmPerPx.value = null;
+    measure.p1 = null;
+    measure.p2 = null;
+}
+
 // ── Mouse events ──────────────────────────────────────────────────────────────
 
 function onWheel(e) {
+    if (calibDialog.value) return;
     const delta = e.deltaY < 0 ? 1.15 : 1 / 1.15;
     scale.value = Math.min(Math.max(scale.value * delta, 0.05), 8);
 }
 
 function onMousedown(e) {
+    if (calibDialog.value) return;
     if (lupaActive.value) return;
     if (medirActive.value) {
         const rect = viewport.value.getBoundingClientRect();
         const cx = e.clientX - rect.left;
         const cy = e.clientY - rect.top;
         if (!measure.p1 || measure.p2) {
+            // Start new line
             measure.p1 = { x: cx, y: cy };
             measure.p2 = null;
         } else {
+            // Complete line → open calibration if not yet calibrated
             measure.p2 = { x: cx, y: cy };
+            if (!mmPerPx.value) {
+                nextTick(() => openCalibDialog());
+            }
         }
         return;
     }
@@ -369,6 +461,7 @@ function onMousedown(e) {
 }
 
 function onMousemove(e) {
+    if (calibDialog.value) return;
     const rect = viewport.value.getBoundingClientRect();
     const cx = e.clientX - rect.left;
     const cy = e.clientY - rect.top;
@@ -397,9 +490,14 @@ function onMouseleave() {
 
 // ── Keyboard shortcuts ────────────────────────────────────────────────────────
 
+function onEsc() {
+    if (calibDialog.value) { cancelCalib(); return; }
+    emit('close');
+}
+
 function onKey(e) {
     if (!props.src) return;
-    if (e.key === 'Escape') emit('close');
+    if (calibDialog.value) return;
     if (e.key === '+' || e.key === '=') zoomIn();
     if (e.key === '-')  zoomOut();
     if (e.key === '0')  resetView();
@@ -414,14 +512,32 @@ watch(() => props.src, () => {
     tx.value       = 0;
     ty.value       = 0;
     deg.value      = 0;
-    brightness.value = 100;
-    contrast.value   = 100;
-    flippedH.value   = false;
-    flippedV.value   = false;
+    imgNatW.value  = 0;
+    imgNatH.value  = 0;
+    brightness.value  = 100;
+    contrast.value    = 100;
+    flippedH.value    = false;
+    flippedV.value    = false;
     lupaActive.value  = false;
     medirActive.value = false;
     measure.p1 = null;
     measure.p2 = null;
-    nextTick(() => container.value?.focus());
+    lupa.visible    = false;
+    calibDialog.value = false;
+    mmPerPx.value     = null;
+
+    nextTick(() => {
+        container.value?.focus();
+        if (img.value?.complete && img.value?.naturalWidth > 0) {
+            imgNatW.value = img.value.naturalWidth;
+            imgNatH.value = img.value.naturalHeight;
+            fit();
+        }
+    });
 });
 </script>
+
+<style scoped>
+.fade-enter-active, .fade-leave-active { transition: opacity 0.15s ease; }
+.fade-enter-from, .fade-leave-to { opacity: 0; }
+</style>

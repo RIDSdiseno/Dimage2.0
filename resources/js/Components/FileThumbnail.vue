@@ -93,12 +93,13 @@
                     style="display:flex; align-items:center; justify-content:center; width:26px; height:26px; border-radius:5px; background:rgba(52,82,255,0.85); color:#fff; border:none; cursor:pointer;">
                     <i class="pi pi-wrench" style="font-size:11px;" />
                 </button>
-                <!-- Ampliar: abre la imagen en nueva pestaña -->
-                <a :href="fileSrc" target="_blank" @click.stop
+                <!-- Ampliar: abre la imagen en visor full-screen en nueva pestaña -->
+                <button
+                    @click.stop="openAmpliar"
                     title="Ampliar (nueva pestaña)"
-                    style="display:flex; align-items:center; justify-content:center; width:26px; height:26px; border-radius:5px; background:rgba(255,255,255,0.15); color:#fff; text-decoration:none;">
+                    style="display:flex; align-items:center; justify-content:center; width:26px; height:26px; border-radius:5px; background:rgba(255,255,255,0.15); color:#fff; border:none; cursor:pointer;">
                     <i class="pi pi-search" style="font-size:11px;" />
-                </a>
+                </button>
             </div>
         </template>
 
@@ -155,6 +156,48 @@ async function processZip() {
         extractMsg.value = 'Error de red';
         extracting.value = false;
     }
+}
+
+function openAmpliar() {
+    const url  = fileSrc.value;
+    const name = (props.file.name || 'Imagen').replace(/</g, '&lt;').replace(/"/g, '&quot;');
+    const html = `<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>${name}</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{width:100%;height:100%;background:#000;overflow:hidden}
+#wrap{width:100vw;height:100vh;display:flex;align-items:center;justify-content:center;cursor:zoom-in;overflow:hidden}
+#wrap.full{overflow:auto;align-items:flex-start;justify-content:flex-start;cursor:zoom-out}
+img{width:100vw;height:100vh;object-fit:contain;user-select:none;display:block;flex-shrink:0}
+#wrap.full img{width:auto;height:auto;min-width:100%;object-fit:none}
+#hint{position:fixed;bottom:12px;left:50%;transform:translateX(-50%);color:rgba(255,255,255,.35);font:12px/1 Arial,sans-serif;pointer-events:none;white-space:nowrap}
+</style>
+</head>
+<body>
+<div id="wrap" onclick="toggle()">
+  <img src="${url}" alt="${name}" />
+</div>
+<div id="hint">Click para ver tamaño real &middot; Esc para ajustar</div>
+<script>
+function toggle(){
+  var w=document.getElementById('wrap');
+  w.classList.toggle('full');
+  document.getElementById('hint').style.display=w.classList.contains('full')?'none':'block';
+}
+document.addEventListener('keydown',function(e){
+  if(e.key==='Escape'){document.getElementById('wrap').classList.remove('full');document.getElementById('hint').style.display='block';}
+});
+<\/script>
+</body>
+</html>`;
+    const blob   = new Blob([html], { type: 'text/html' });
+    const blobUrl = URL.createObjectURL(blob);
+    window.open(blobUrl, '_blank');
+    setTimeout(() => URL.revokeObjectURL(blobUrl), 10000);
 }
 
 const visorUrl = computed(() => {
