@@ -26,10 +26,8 @@
 
                         <div>
                             <label class="block text-sm font-medium mb-1">Fecha de nacimiento *</label>
-                            <DatePicker v-model="form.dateofbirth" class="w-full" dateFormat="dd-mm-yy"
-                                :showOnFocus="false" showIcon iconDisplay="button"
-                                :class="{'p-invalid': form.errors.dateofbirth}"
-                                placeholder="DD-MM-AAAA" />
+                            <InputMask v-model="rawDate" mask="99-99-9999" placeholder="DD-MM-AAAA"
+                                class="w-full" :class="{'p-invalid': form.errors.dateofbirth}" />
                             <small class="text-red-500">{{ form.errors.dateofbirth }}</small>
                         </div>
 
@@ -68,13 +66,14 @@
 </template>
 
 <script setup>
+import { ref } from 'vue';
 import { Link, useForm } from '@inertiajs/vue3';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import { useTerms } from '@/composables/useTerms.js';
 
 const { terms } = useTerms();
 import InputText from 'primevue/inputtext';
-import DatePicker from 'primevue/datepicker';
+import InputMask from 'primevue/inputmask';
 import MultiSelect from 'primevue/multiselect';
 import Button from 'primevue/button';
 
@@ -82,22 +81,23 @@ const props = defineProps({
     clinics: Array,
 });
 
+const rawDate = ref('');
+
 const form = useForm({
     name:        '',
     rut:         '',
     email:       '',
-    dateofbirth: null,
     clinics:     [],
     derivado_de: '',
 });
 
 const submit = () => {
-    const data = {
-        ...form.data(),
-        dateofbirth: form.dateofbirth
-            ? new Date(form.dateofbirth).toISOString().split('T')[0]
-            : null,
-    };
+    let dateofbirth = null;
+    if (rawDate.value && !rawDate.value.includes('_') && rawDate.value.length === 10) {
+        const [d, m, y] = rawDate.value.split('-');
+        dateofbirth = `${y}-${m}-${d}`;
+    }
+    const data = { ...form.data(), dateofbirth };
     form.transform(() => data).post(route('pacientes.store'));
 };
 </script>

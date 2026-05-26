@@ -33,10 +33,8 @@
 
                         <div>
                             <label class="block text-sm font-medium mb-1">Fecha de nacimiento *</label>
-                            <DatePicker v-model="form.dateofbirth" class="w-full" dateFormat="dd-mm-yy"
-                                :showOnFocus="false" showIcon iconDisplay="button"
-                                :class="{'p-invalid': form.errors.dateofbirth}"
-                                placeholder="DD-MM-AAAA" />
+                            <InputMask v-model="rawDate" mask="99-99-9999" placeholder="DD-MM-AAAA"
+                                class="w-full" :class="{'p-invalid': form.errors.dateofbirth}" />
                             <small class="text-red-500">{{ form.errors.dateofbirth }}</small>
                         </div>
 
@@ -75,13 +73,14 @@
 </template>
 
 <script setup>
+import { ref } from 'vue';
 import { Link, useForm } from '@inertiajs/vue3';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import { useTerms } from '@/composables/useTerms.js';
 
 const { terms } = useTerms();
 import InputText from 'primevue/inputtext';
-import DatePicker from 'primevue/datepicker';
+import InputMask from 'primevue/inputmask';
 import MultiSelect from 'primevue/multiselect';
 import Button from 'primevue/button';
 import Message from 'primevue/message';
@@ -92,21 +91,32 @@ const props = defineProps({
     selectedClinics: Array,
 });
 
+function initRawDate(dateStr) {
+    if (!dateStr) return '';
+    const d = new Date(dateStr);
+    if (isNaN(d.getTime())) return '';
+    const dd = String(d.getUTCDate()).padStart(2, '0');
+    const mm = String(d.getUTCMonth() + 1).padStart(2, '0');
+    const yyyy = d.getUTCFullYear();
+    return `${dd}-${mm}-${yyyy}`;
+}
+
+const rawDate = ref(initRawDate(props.patient.dateofbirth));
+
 const form = useForm({
     name:        props.patient.name,
     email:       props.patient.email,
-    dateofbirth: props.patient.dateofbirth ? new Date(props.patient.dateofbirth) : null,
     clinics:     props.selectedClinics ?? [],
     derivado_de: props.patient.derivado_de ?? '',
 });
 
 const submit = () => {
-    const data = {
-        ...form.data(),
-        dateofbirth: form.dateofbirth
-            ? new Date(form.dateofbirth).toISOString().split('T')[0]
-            : null,
-    };
+    let dateofbirth = null;
+    if (rawDate.value && !rawDate.value.includes('_') && rawDate.value.length === 10) {
+        const [d, m, y] = rawDate.value.split('-');
+        dateofbirth = `${y}-${m}-${d}`;
+    }
+    const data = { ...form.data(), dateofbirth };
     form.transform(() => data).put(route('pacientes.update', props.patient.id));
 };
 </script>
