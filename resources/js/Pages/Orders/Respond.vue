@@ -30,8 +30,8 @@
                 <div class="bg-white rounded-xl border border-gray-100 shadow-sm p-4">
                     <p class="text-xs text-gray-400 mb-1">Prioridad</p>
                     <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold"
-                        :class="order.prioridad === 'Urgente' ? 'bg-red-100 text-red-700' : 'bg-blue-50 text-blue-700'">
-                        <i v-if="order.prioridad === 'Urgente'" class="pi pi-exclamation-circle text-xs" />
+                        :class="order.prioridad === '1 día' || order.prioridad === 'Urgente' ? 'bg-red-100 text-red-700' : order.prioridad === '2 días' ? 'bg-orange-100 text-orange-700' : 'bg-blue-50 text-blue-700'">
+                        <i class="pi pi-clock text-xs" />
                         {{ order.prioridad }}
                     </span>
                     <p class="text-xs text-gray-400 mt-1">Enviada: {{ order.enviada }}</p>

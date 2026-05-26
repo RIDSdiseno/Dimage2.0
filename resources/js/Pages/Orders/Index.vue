@@ -89,11 +89,10 @@
                                     <td class="px-3 py-3 text-gray-500 text-xs max-w-36 truncate">{{ orden.radiologos }}</td>
                                     <td class="px-3 py-3 text-gray-500 text-xs">{{ orden.odontologo }}</td>
                                     <td class="px-3 py-3">
-                                        <span v-if="orden.prioridad === 'Urgente'"
-                                            class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-red-100 text-red-700">
-                                            <i class="pi pi-exclamation-circle text-xs" /> Urgente
+                                        <span :class="prioridadBadgeClass(orden.prioridad)"
+                                            class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold">
+                                            {{ orden.prioridad }}
                                         </span>
-                                        <span v-else class="text-xs text-gray-400">Normal</span>
                                     </td>
                                     <td class="px-3 py-3 text-gray-500 text-xs max-w-48 truncate" :title="orden.tipo_examen">
                                         {{ examListLabel(orden.tipo_examen) }}
@@ -183,6 +182,12 @@ const esRadiologo = computed(() =>
 );
 
 const esRadiologoRestringido = computed(() => esRadiologo.value);
+
+function prioridadBadgeClass(p) {
+    if (p === '1 día' || p === 'Urgente') return 'bg-red-100 text-red-700';
+    if (p === '2 días') return 'bg-orange-100 text-orange-700';
+    return 'bg-gray-100 text-gray-600';
+}
 
 const showMisOrdenesToggle = computed(() => {
     const typeId = user.value?.type_id;

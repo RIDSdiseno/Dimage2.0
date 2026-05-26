@@ -81,14 +81,14 @@
                                 <label class="block text-sm font-medium text-gray-700 mb-1">Prioridad *</label>
                                 <Select
                                     v-model="form.prioridad"
-                                    :options="['Normal', 'Urgente']"
+                                    :options="['1 día', '2 días', '3 días']"
                                     class="w-full"
                                     :class="{'p-invalid': form.errors.prioridad}"
                                 />
                             </div>
 
-                            <!-- Radiólogo -->
-                            <div>
+                            <!-- Radiólogo (solo si tiene permiso) -->
+                            <div v-if="canSelectRadiologo">
                                 <label class="block text-sm font-medium text-gray-700 mb-1">Radiólogo</label>
                                 <Select
                                     v-model="form.radiologo_id"
@@ -163,14 +163,14 @@
                                 <div v-for="col in intraoralesCols" :key="col.group_id">
                                     <ExamCol :col="col" :selected="form.examenes" :examFiles="examFiles"
                                         :examLabel="examLabel" :stripSuffix="stripGroupSuffix"
-                                        @toggle="toggleExam" @files="onFilesSelect" />
+                                        @toggle="toggleExam" @files="onFilesSelect" @piezas="onPiezasSelect" />
                                 </div>
                             </div>
                             <div v-else class="grid grid-cols-1 md:grid-cols-2 gap-6">
                                 <div v-for="col in extraoralesCols" :key="col.group_id">
                                     <ExamCol :col="col" :selected="form.examenes" :examFiles="examFiles"
                                         :examLabel="examLabel" :stripSuffix="(l) => l"
-                                        @toggle="toggleExam" @files="onFilesSelect" />
+                                        @toggle="toggleExam" @files="onFilesSelect" @piezas="onPiezasSelect" />
                                 </div>
                             </div>
                         </div>
@@ -194,7 +194,7 @@
                             icon="pi pi-send"
                             type="button"
                             :loading="form.processing && form.action === 'enviar'"
-                            :disabled="!form.radiologo_id"
+                            :disabled="canSelectRadiologo && !form.radiologo_id"
                             @click="submitAction('enviar')"
                             style="background-color: #3452ff; border-color: #3452ff;"
                         />
@@ -220,8 +220,9 @@ import Textarea from 'primevue/textarea';
 import ExamCol from '@/Components/ExamCol.vue';
 
 const props = defineProps({
-    clinics:   Array,
-    examTypes: Array,
+    clinics:             Array,
+    examTypes:           Array,
+    canSelectRadiologo:  { type: Boolean, default: true },
 });
 
 const form = useForm({
@@ -229,7 +230,7 @@ const form = useForm({
     odontologo_id: null,
     patient_id:    null,
     radiologo_id:  null,
-    prioridad:     'Normal',
+    prioridad:     '2 días',
     diagnostico:   '',
     observaciones: '',
     examenes:      [],
@@ -242,6 +243,7 @@ const radiologos          = ref([]);
 const patientSearch       = ref('');
 const patientSuggestions  = ref([]);
 const examFiles           = reactive({});
+const examPiezas          = reactive({});
 const loadingOdontologos  = ref(false);
 const loadingRadiologos   = ref(false);
 
@@ -295,10 +297,9 @@ const onPatientSelect = (event) => {
     form.patient_id = event.value.id;
 };
 
-// Guardar archivos por tipo de examen
-const onFilesSelect = (examId, event) => {
-    examFiles[examId] = event.files;
-};
+// Guardar archivos y piezas por tipo de examen
+const onFilesSelect  = (examId, event) => { examFiles[examId]  = event.files; };
+const onPiezasSelect = (examId, piezas) => { examPiezas[examId] = piezas; };
 
 // Submit
 const submitAction = (action) => {
@@ -316,9 +317,12 @@ const submitAction = (action) => {
 
     form.examenes.forEach(id => data.append('examenes[]', id));
 
-    // Adjuntar archivos
+    // Adjuntar archivos y piezas por examen
     Object.entries(examFiles).forEach(([examId, files]) => {
         files.forEach(file => data.append(`files_${examId}[]`, file));
+    });
+    Object.entries(examPiezas).forEach(([examId, piezas]) => {
+        piezas.forEach(p => data.append(`piezas_${examId}[]`, p));
     });
 
     router.post(route('ordenes.store'), data, {

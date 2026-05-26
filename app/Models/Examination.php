@@ -9,7 +9,7 @@ class Examination extends Model
     protected $table = 'examinations';
     protected $hidden = ['pivot'];
 
-    protected $fillable = ['name', 'kind_id', 'description', 'group'];
+    protected $fillable = ['name', 'kind_id', 'description', 'group', 'piezas'];
 
     public function orders()
     {

@@ -144,7 +144,7 @@ class OrderController extends Controller
             'clinic_id'     => ['required', 'exists:clinics,id'],
             'diagnostico'   => ['nullable', 'string'],
             'observaciones' => ['nullable', 'string'],
-            'prioridad'     => ['nullable', 'in:Normal,Urgente'],
+            'prioridad'     => ['nullable', 'in:1 día,2 días,3 días,Normal,Urgente'],
             'examenes'      => ['required', 'array', 'min:1'],
             'examenes.*.kind_id' => ['required', 'exists:kinds,id'],
         ]);

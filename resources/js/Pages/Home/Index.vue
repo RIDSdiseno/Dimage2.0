@@ -169,7 +169,7 @@
                             </td>
                             <td class="px-3 py-2 text-center">
                                 <span class="inline-block text-xs font-medium px-2 py-0.5 rounded-full"
-                                    :class="o.prioridad === 'Urgente' ? 'bg-orange-100 text-orange-700' : 'bg-gray-100 text-gray-600'">
+                                    :class="o.prioridad === '1 día' || o.prioridad === 'Urgente' ? 'bg-red-100 text-red-700' : o.prioridad === '2 días' ? 'bg-orange-100 text-orange-700' : 'bg-gray-100 text-gray-600'">
                                     {{ o.prioridad }}
                                 </span>
                             </td>
@@ -208,7 +208,7 @@
                             <td class="px-3 py-2 text-orange-600 font-medium">{{ o.vence }}</td>
                             <td class="px-3 py-2 text-center">
                                 <span class="inline-block text-xs font-medium px-2 py-0.5 rounded-full"
-                                    :class="o.prioridad === 'Urgente' ? 'bg-orange-100 text-orange-700' : 'bg-gray-100 text-gray-600'">
+                                    :class="o.prioridad === '1 día' || o.prioridad === 'Urgente' ? 'bg-red-100 text-red-700' : o.prioridad === '2 días' ? 'bg-orange-100 text-orange-700' : 'bg-gray-100 text-gray-600'">
                                     {{ o.prioridad }}
                                 </span>
                             </td>

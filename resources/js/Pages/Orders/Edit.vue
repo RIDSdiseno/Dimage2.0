@@ -61,13 +61,13 @@
                                 <label class="block text-sm font-medium text-gray-700 mb-1">Prioridad *</label>
                                 <Select
                                     v-model="form.prioridad"
-                                    :options="['Normal', 'Urgente']"
+                                    :options="['1 día', '2 días', '3 días']"
                                     class="w-full"
                                 />
                             </div>
 
-                            <!-- Radiólogo -->
-                            <div>
+                            <!-- Radiólogo (solo si tiene permiso) -->
+                            <div v-if="canSelectRadiologo">
                                 <label class="block text-sm font-medium text-gray-700 mb-1">Radiólogo</label>
                                 <Select
                                     v-model="form.radiologo_id"
@@ -214,7 +214,7 @@
                             icon="pi pi-send"
                             type="button"
                             :loading="submitting && currentAction === 'enviar'"
-                            :disabled="!form.radiologo_id"
+                            :disabled="canSelectRadiologo && !form.radiologo_id"
                             @click="submitAction('enviar')"
                             style="background-color:#3452ff;border-color:#3452ff;"
                         />
@@ -249,10 +249,11 @@ function openLightbox(file) {
 }
 
 const props = defineProps({
-    order:     Object,
-    examenes:  Array,
-    examTypes: Array,
-    clinics:   Array,
+    order:               Object,
+    examenes:            Array,
+    examTypes:           Array,
+    clinics:             Array,
+    canSelectRadiologo:  { type: Boolean, default: true },
 });
 
 // Form state

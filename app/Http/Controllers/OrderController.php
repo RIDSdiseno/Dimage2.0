@@ -225,9 +225,22 @@ class OrderController extends Controller
             ->values();
 
         return Inertia::render('Orders/Create', [
-            'examTypes' => $this->buildExamTabs(),
-            'clinics'   => $clinics,
+            'examTypes'          => $this->buildExamTabs(),
+            'clinics'            => $clinics,
+            'canSelectRadiologo' => $this->canSelectRadiologo($user),
         ]);
+    }
+
+    private function canSelectRadiologo($user): bool
+    {
+        if ($user->hasAnyRole(['admin', 'secretaria', 'holding', 'clinica', 'radiologo', 'contralor'])) {
+            return true;
+        }
+        if ($user->hasAnyRole(['odontologo', 'tecnico'])) {
+            $staff = DB::table('staffs')->where('user_id', $user->id)->first(['puede_seleccionar_radiologo']);
+            return (bool) ($staff->puede_seleccionar_radiologo ?? false);
+        }
+        return false;
     }
 
     public function getPatients(Request $request): JsonResponse
@@ -306,7 +319,7 @@ class OrderController extends Controller
             'odontologo_id'=> ['nullable', 'exists:staffs,id'],
             'radiologo_id' => ['nullable', 'exists:staffs,id'],
             'diagnostico'  => ['required', 'min:3'],
-            'prioridad'    => ['required', 'in:Normal,Urgente'],
+            'prioridad'    => ['required', 'in:1 día,2 días,3 días,Normal,Urgente'],
             'examenes'     => ['required', 'array', 'min:1'],
             'action'       => ['required', 'in:guardar,enviar'],
         ]);
@@ -346,8 +359,15 @@ class OrderController extends Controller
             $fileRows      = [];
 
             foreach ($examenes as $kindId) {
+                $piezasRaw = $request->input("piezas_{$kindId}");
+                $piezasStr = null;
+                if (!empty($piezasRaw)) {
+                    $piezasStr = implode(',', array_map('intval', (array) $piezasRaw));
+                }
+
                 $examinationId = DB::table('examinations')->insertGetId([
                     'kind_id'    => $kindId,
+                    'piezas'     => $piezasStr,
                     'created_at' => now(),
                     'updated_at' => now(),
                 ]);
@@ -442,6 +462,7 @@ class OrderController extends Controller
                 'kinds.descipcion as descripcion',
                 'kinds.group as grupo',
                 'examinations.url_texto',
+                'examinations.piezas',
             ])
             ->get()
             ->map(function ($e) {
@@ -467,6 +488,7 @@ class OrderController extends Controller
                     'descripcion' => $e->descripcion,
                     'grupo'       => (int) $e->grupo,
                     'url_texto'   => $e->url_texto,
+                    'piezas'      => $e->piezas,
                     'archivos'    => $archivos,
                     'archivos_informe' => $archivosInforme,
                     'respuesta'   => $respuesta ? [
@@ -985,9 +1007,10 @@ class OrderController extends Controller
                 'estadoradiologo' => $order->estadoradiologo,
                 'sin_diagnostico' => (bool) $order->sin_diagnostico,
             ],
-            'examenes'  => $examenes,
-            'examTypes' => $examTypes,
-            'clinics'   => $clinics,
+            'examenes'           => $examenes,
+            'examTypes'          => $examTypes,
+            'clinics'            => $clinics,
+            'canSelectRadiologo' => $this->canSelectRadiologo($user),
         ]);
     }
 

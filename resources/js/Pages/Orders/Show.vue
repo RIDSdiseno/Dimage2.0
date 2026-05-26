@@ -24,9 +24,9 @@
                         <i :class="estadoBadgeIcon" class="text-xs" />
                         {{ order.estado.label }}
                     </span>
-                    <span v-if="order.prioridad === 'Urgente'"
-                        class="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-semibold bg-red-100 text-red-700">
-                        <i class="pi pi-exclamation-circle text-xs" /> URGENTE
+                    <span :class="prioridadBadgeClass(order.prioridad)"
+                        class="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-semibold">
+                        <i class="pi pi-clock text-xs" /> {{ order.prioridad }}
                     </span>
                 </div>
                 <!-- Actions -->
@@ -142,7 +142,7 @@
                         <p class="text-gray-600 mt-2 pt-2 border-t border-gray-100">
                             <span class="text-gray-400">Prioridad:</span>
                             <span class="ml-1 font-semibold"
-                                :class="order.prioridad === 'Urgente' ? 'text-red-600' : 'text-gray-700'">
+                                :class="order.prioridad === '1 día' || order.prioridad === 'Urgente' ? 'text-red-600' : order.prioridad === '2 días' ? 'text-orange-600' : 'text-gray-700'">
                                 {{ order.prioridad }}
                             </span>
                         </p>
@@ -358,6 +358,12 @@ function openLightbox(file) {
     lightbox.src  = file.url;
     lightbox.name = file.name || 'Imagen';
     lightbox.open = true;
+}
+
+function prioridadBadgeClass(p) {
+    if (p === '1 día' || p === 'Urgente') return 'bg-red-100 text-red-700';
+    if (p === '2 días') return 'bg-orange-100 text-orange-700';
+    return 'bg-gray-100 text-gray-600';
 }
 
 const estadoBadgeClass = computed(() => {
