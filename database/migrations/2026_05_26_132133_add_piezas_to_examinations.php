@@ -13,7 +13,7 @@ return new class extends Migration
     {
         Schema::table('examinations', function (Blueprint $table) {
             if (! Schema::hasColumn('examinations', 'piezas')) {
-                $table->string('piezas')->nullable()->after('description');
+                $table->string('piezas')->nullable();
             }
         });
     }
