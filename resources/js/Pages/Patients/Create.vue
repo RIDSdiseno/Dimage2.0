@@ -26,11 +26,10 @@
 
                         <div>
                             <label class="block text-sm font-medium mb-1">Fecha de nacimiento *</label>
-                            <DatePicker v-model="form.dateofbirth" class="w-full" dateFormat="dd/mm/yy"
+                            <DatePicker v-model="form.dateofbirth" class="w-full" dateFormat="dd-mm-yy"
                                 :showOnFocus="false" showIcon iconDisplay="button"
                                 :class="{'p-invalid': form.errors.dateofbirth}"
-                                :pt="{ input: { onInput: normalizeDateSep } }"
-                                placeholder="DD/MM/AAAA" />
+                                placeholder="DD-MM-AAAA" />
                             <small class="text-red-500">{{ form.errors.dateofbirth }}</small>
                         </div>
 
@@ -91,13 +90,6 @@ const form = useForm({
     clinics:     [],
     derivado_de: '',
 });
-
-function normalizeDateSep(e) {
-    if (e.target.value.includes('-')) {
-        e.target.value = e.target.value.replace(/-/g, '/');
-        e.target.dispatchEvent(new Event('input', { bubbles: true }));
-    }
-}
 
 const submit = () => {
     const data = {
