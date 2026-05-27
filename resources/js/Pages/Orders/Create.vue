@@ -163,14 +163,16 @@
                                 <div v-for="col in intraoralesCols" :key="col.group_id">
                                     <ExamCol :col="col" :selected="form.examenes" :examFiles="examFiles"
                                         :examLabel="examLabel" :stripSuffix="stripGroupSuffix"
-                                        @toggle="toggleExam" @files="onFilesSelect" @piezas="onPiezasSelect" />
+                                        @toggle="toggleExam" @files="onFilesSelect" @piezas="onPiezasSelect"
+                                        @urltext="onUrlTextChange" />
                                 </div>
                             </div>
                             <div v-else class="grid grid-cols-1 md:grid-cols-2 gap-6">
                                 <div v-for="col in extraoralesCols" :key="col.group_id">
                                     <ExamCol :col="col" :selected="form.examenes" :examFiles="examFiles"
                                         :examLabel="examLabel" :stripSuffix="(l) => l"
-                                        @toggle="toggleExam" @files="onFilesSelect" @piezas="onPiezasSelect" />
+                                        @toggle="toggleExam" @files="onFilesSelect" @piezas="onPiezasSelect"
+                                        @urltext="onUrlTextChange" />
                                 </div>
                             </div>
                         </div>
@@ -244,6 +246,7 @@ const patientSearch       = ref('');
 const patientSuggestions  = ref([]);
 const examFiles           = reactive({});
 const examPiezas          = reactive({});
+const examUrlTexts        = reactive({});
 const loadingOdontologos  = ref(false);
 const loadingRadiologos   = ref(false);
 
@@ -297,9 +300,10 @@ const onPatientSelect = (event) => {
     form.patient_id = event.value.id;
 };
 
-// Guardar archivos y piezas por tipo de examen
-const onFilesSelect  = (examId, event) => { examFiles[examId]  = event.files; };
-const onPiezasSelect = (examId, piezas) => { examPiezas[examId] = piezas; };
+// Guardar archivos, piezas y URL por tipo de examen
+const onFilesSelect   = (examId, event) => { examFiles[examId]    = event.files; };
+const onPiezasSelect  = (examId, piezas) => { examPiezas[examId]  = piezas; };
+const onUrlTextChange = (examId, val)   => { examUrlTexts[examId] = val; };
 
 // Submit
 const submitAction = (action) => {
@@ -317,12 +321,15 @@ const submitAction = (action) => {
 
     form.examenes.forEach(id => data.append('examenes[]', id));
 
-    // Adjuntar archivos y piezas por examen
+    // Adjuntar archivos, piezas y URLs por examen
     Object.entries(examFiles).forEach(([examId, files]) => {
         files.forEach(file => data.append(`files_${examId}[]`, file));
     });
     Object.entries(examPiezas).forEach(([examId, piezas]) => {
         piezas.forEach(p => data.append(`piezas_${examId}[]`, p));
+    });
+    Object.entries(examUrlTexts).forEach(([examId, url]) => {
+        if (url) data.append(`url_${examId}`, url);
     });
 
     router.post(route('ordenes.store'), data, {

@@ -11,10 +11,14 @@
                         {{ examLabel(stripSuffix(exam.label)) }}
                     </label>
                 </div>
+
                 <div v-if="localSelected.includes(exam.id)" class="ml-6 mt-1 mb-2 space-y-2">
-                    <!-- Selector de piezas dentales para exámenes unitarios -->
+
+                    <!-- Tooth chart: unitaria exams -->
                     <div v-if="isUnitaria(exam.label)">
-                        <p class="text-xs font-medium text-gray-500 mb-1">Piezas dentales <span class="text-gray-400">(selecciona una o más)</span></p>
+                        <p class="text-xs font-medium text-gray-500 mb-1">
+                            Piezas dentales <span class="text-gray-400">(selecciona una o más)</span>
+                        </p>
                         <div class="space-y-1">
                             <div class="flex gap-0.5 flex-wrap">
                                 <template v-for="n in toothRow1(exam.label)" :key="n">
@@ -45,12 +49,61 @@
                             Seleccionadas: {{ selectedPiezas[exam.id].join(', ') }}
                         </p>
                     </div>
+
+                    <!-- Sub-option: Estudio para implantes (panorámica) -->
+                    <div v-if="isPanoramica(exam.label)" class="flex items-center gap-2">
+                        <Checkbox
+                            :modelValue="localImplantes[exam.id] || false"
+                            :binary="true"
+                            :inputId="`impl_${exam.id}`"
+                            @update:modelValue="(v) => { localImplantes[exam.id] = v; emitImplantes(exam.id); }"
+                        />
+                        <label :for="`impl_${exam.id}`" class="text-sm font-medium cursor-pointer">
+                            Estudio para implantes
+                        </label>
+                    </div>
+
+                    <!-- Sub-options: Análisis cefalométrico -->
+                    <div v-if="isCefalometrico(exam.label)">
+                        <div v-for="sub in CEFALO_SUBS" :key="sub"
+                            class="flex items-center gap-2 py-1 border-b border-gray-100 last:border-0">
+                            <Checkbox
+                                :modelValue="localSubopts[exam.id] || []"
+                                :value="sub"
+                                :inputId="`sub_${exam.id}_${sub}`"
+                                @update:modelValue="(v) => { localSubopts[exam.id] = v; emitSubopts(exam.id); }"
+                            />
+                            <label :for="`sub_${exam.id}_${sub}`" class="text-sm font-medium cursor-pointer">
+                                {{ sub }}
+                            </label>
+                        </div>
+                    </div>
+
+                    <!-- Imágenes Asociadas separator -->
+                    <div class="flex items-center gap-2 text-xs text-gray-400 pt-1">
+                        <hr class="flex-1 border-gray-200" />
+                        <span><i class="pi pi-images text-xs mr-1" />Imágenes Asociadas</span>
+                        <hr class="flex-1 border-gray-200" />
+                    </div>
+
+                    <!-- File upload -->
                     <FileUpload :name="`files_${exam.id}`" mode="basic" accept="image/*,.dcm,.dicom,.pdf,.zip,.rar"
-                        :multiple="true" chooseLabel="Adjuntar archivos" class="w-full text-xs"
+                        :multiple="true" chooseLabel="Buscar Imagen o Archivo" class="w-full text-xs"
                         @select="(e) => $emit('files', exam.id, e)" />
                     <div v-if="examFiles[exam.id]?.length" class="mt-1 text-xs text-green-600">
                         {{ examFiles[exam.id].length }} archivo(s) seleccionado(s)
                     </div>
+
+                    <!-- URL IMAGEN: cone beam only -->
+                    <div v-if="isConeBeam(exam.label)">
+                        <InputText
+                            :modelValue="localUrlText[exam.id] || ''"
+                            placeholder="URL IMAGEN, ej: http://192.168.0.1/imagen.jpg"
+                            class="w-full text-sm"
+                            @update:modelValue="(v) => { localUrlText[exam.id] = v; $emit('urltext', exam.id, v); }"
+                        />
+                    </div>
+
                 </div>
             </template>
             <p v-if="!col.items?.length" class="text-xs text-gray-400 italic py-2">Sin exámenes en esta categoría.</p>
@@ -62,47 +115,55 @@
 import { computed, reactive } from 'vue';
 import Checkbox from 'primevue/checkbox';
 import FileUpload from 'primevue/fileupload';
+import InputText from 'primevue/inputtext';
 
 const props = defineProps({
-    col:       Object,
-    selected:  Array,
-    examFiles: Object,
-    examLabel: Function,
+    col:         Object,
+    selected:    Array,
+    examFiles:   Object,
+    examLabel:   Function,
     stripSuffix: Function,
 });
 
-const emit = defineEmits(['toggle', 'files', 'piezas']);
+const emit = defineEmits(['toggle', 'files', 'piezas', 'urltext']);
 
-const localSelected = computed({
+const localSelected  = computed({
     get: () => props.selected,
     set: (val) => emit('toggle', val),
 });
 
 const selectedPiezas = reactive({});
+const localImplantes = reactive({});
+const localSubopts   = reactive({});
+const localUrlText   = reactive({});
 
-function isUnitaria(label) {
-    return label.toLowerCase().includes('unitaria');
-}
-function isNino(label) {
-    return label.toLowerCase().includes('niño') || label.toLowerCase().includes('nino');
-}
+const CEFALO_SUBS = [
+    'Análisis Rickets',
+    'Análisis Roth',
+    'Análisis Jaraback',
+    'Análisis Steiner',
+    'Análisis Mcnamara',
+    'Otros',
+];
 
-// FDI notation: upper row (right→left, then left→right)
+function isUnitaria(label)     { return label.toLowerCase().includes('unitaria'); }
+function isPanoramica(label)   { return /panorám|panoram/i.test(label); }
+function isCefalometrico(label){ return /cefalom/i.test(label); }
+function isConeBeam(label)     { return label.toLowerCase().includes('cone beam'); }
+function isNino(label)         { return /niño|nino/i.test(label); }
+
 function toothRow1(label) {
     return isNino(label)
         ? [55, 54, 53, 52, 51, 61, 62, 63, 64, 65]
         : [18, 17, 16, 15, 14, 13, 12, 11, 21, 22, 23, 24, 25, 26, 27, 28];
 }
-// FDI notation: lower row (right→left, then left→right)
 function toothRow2(label) {
     return isNino(label)
         ? [85, 84, 83, 82, 81, 71, 72, 73, 74, 75]
         : [48, 47, 46, 45, 44, 43, 42, 41, 31, 32, 33, 34, 35, 36, 37, 38];
 }
 
-function isPiezaSelected(examId, n) {
-    return selectedPiezas[examId]?.includes(n) ?? false;
-}
+function isPiezaSelected(examId, n) { return selectedPiezas[examId]?.includes(n) ?? false; }
 
 function togglePieza(examId, n) {
     if (!selectedPiezas[examId]) selectedPiezas[examId] = [];
@@ -110,5 +171,15 @@ function togglePieza(examId, n) {
     if (idx >= 0) selectedPiezas[examId].splice(idx, 1);
     else selectedPiezas[examId].push(n);
     emit('piezas', examId, [...selectedPiezas[examId]]);
+}
+
+function emitImplantes(examId) {
+    const val = localImplantes[examId] ? 'implantes' : '';
+    emit('urltext', examId, val);
+}
+
+function emitSubopts(examId) {
+    const val = (localSubopts[examId] || []).join(',');
+    emit('urltext', examId, val);
 }
 </script>

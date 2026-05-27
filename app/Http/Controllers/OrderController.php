@@ -365,9 +365,12 @@ class OrderController extends Controller
                     $piezasStr = implode(',', array_map('intval', (array) $piezasRaw));
                 }
 
+                $urlTexto = $request->input("url_{$kindId}") ?: null;
+
                 $examinationId = DB::table('examinations')->insertGetId([
                     'kind_id'    => $kindId,
                     'piezas'     => $piezasStr,
+                    'url_texto'  => $urlTexto,
                     'created_at' => now(),
                     'updated_at' => now(),
                 ]);

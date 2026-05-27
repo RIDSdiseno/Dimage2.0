@@ -69,11 +69,12 @@ class PatientController extends Controller
     public function store(Request $request)
     {
         $request->validate([
-            'name'        => ['required', 'min:3'],
-            'email'       => ['required', 'email'],
-            'dateofbirth' => ['required', 'date'],
-            'rut'         => ['required'],
-            'clinics'     => ['required', 'array', 'min:1'],
+            'name'         => ['required', 'min:3'],
+            'email'        => ['required', 'email'],
+            'dateofbirth'  => ['required', 'date'],
+            'rut'          => ['required'],
+            'clinics'      => ['required', 'array', 'min:1'],
+            'es_pasaporte' => ['boolean'],
         ]);
 
         // Validar RUT duplicado dentro de los holdings de las clínicas
