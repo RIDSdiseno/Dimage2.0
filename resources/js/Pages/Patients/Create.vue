@@ -45,10 +45,16 @@
 
                         <div class="md:col-span-2">
                             <label class="block text-sm font-medium mb-1">Fecha de Nacimiento *</label>
-                            <div class="flex gap-2">
-                                <InputMask v-model="rawDate" mask="99-99-9999" placeholder="dd-mm-aaaa"
-                                    class="flex-1" :class="{'p-invalid': form.errors.dateofbirth}" />
-                            </div>
+                            <DatePicker
+                                v-model="dateValue"
+                                dateFormat="dd-mm-yy"
+                                showIcon
+                                iconDisplay="input"
+                                placeholder="dd-mm-aaaa"
+                                class="w-full"
+                                :class="{'p-invalid': form.errors.dateofbirth}"
+                                :manualInput="true"
+                            />
                             <small class="text-red-500">{{ form.errors.dateofbirth }}</small>
                         </div>
 
@@ -85,7 +91,7 @@ import { ref, computed, watch } from 'vue';
 import { Link, useForm } from '@inertiajs/vue3';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import InputText from 'primevue/inputtext';
-import InputMask from 'primevue/inputmask';
+import DatePicker from 'primevue/datepicker';
 import MultiSelect from 'primevue/multiselect';
 import Button from 'primevue/button';
 import Checkbox from 'primevue/checkbox';
@@ -94,7 +100,7 @@ const props = defineProps({
     clinics: Array,
 });
 
-const rawDate   = ref('');
+const dateValue  = ref(null);
 const isPassport = ref(false);
 const rutTouched = ref(false);
 
@@ -106,9 +112,8 @@ const form = useForm({
     derivado_de: '',
 });
 
-// Clear rut when switching modes
 watch(isPassport, () => {
-    form.rut     = '';
+    form.rut         = '';
     rutTouched.value = false;
 });
 
@@ -117,11 +122,10 @@ function handleRutInput(event) {
         form.rut = event.target.value;
         return;
     }
-    // Strip dots, spaces and dashes; keep only digits and K
     let clean = event.target.value.replace(/[.\s-]/g, '').replace(/[^0-9kK]/g, '').toUpperCase();
-    clean = clean.slice(0, 9); // max 8 digits + 1 DV
+    clean = clean.slice(0, 9);
     form.rut = clean.length > 1 ? clean.slice(0, -1) + '-' + clean.slice(-1) : clean;
-};
+}
 
 function validateChileanRut(rut) {
     if (!rut) return 'El RUT es requerido.';
@@ -144,20 +148,18 @@ const rutError = computed(() => {
     return validateChileanRut(form.rut);
 });
 
-function touchRut() {
-    rutTouched.value = true;
-}
+function touchRut() { rutTouched.value = true; }
 
 const submit = () => {
     rutTouched.value = true;
-
     if (!isPassport.value && validateChileanRut(form.rut)) return;
 
     let dateofbirth = null;
-    if (rawDate.value && !rawDate.value.includes('_') && rawDate.value.length === 10) {
-        const [d, m, y] = rawDate.value.split('-');
-        dateofbirth = `${y}-${m}-${d}`;
+    if (dateValue.value instanceof Date) {
+        const d = dateValue.value;
+        dateofbirth = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
     }
+
     const data = { ...form.data(), dateofbirth, es_pasaporte: isPassport.value };
     form.transform(() => data).post(route('pacientes.store'));
 };
