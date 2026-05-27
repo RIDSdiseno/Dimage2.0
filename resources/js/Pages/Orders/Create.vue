@@ -185,8 +185,11 @@
                         </div>
                     </div>
 
+                    <!-- Error de archivos faltantes -->
+                    <Message v-if="fileError" severity="error" class="mt-4">{{ fileError }}</Message>
+
                     <!-- Botones de acción -->
-                    <div class="flex justify-end gap-3">
+                    <div class="flex justify-end gap-3 mt-4">
                         <Link :href="route('ordenes.index')">
                             <Button label="Cancelar" severity="secondary" type="button" />
                         </Link>
@@ -226,6 +229,7 @@ import Button from 'primevue/button';
 import Select from 'primevue/select';
 import AutoComplete from 'primevue/autocomplete';
 import Textarea from 'primevue/textarea';
+import Message from 'primevue/message';
 import ExamCol from '@/Components/ExamCol.vue';
 
 const props = defineProps({
@@ -257,6 +261,7 @@ const examUrlTexts        = reactive({});
 const loadingOdontologos  = ref(false);
 const loadingRadiologos   = ref(false);
 const submitting          = ref(false);
+const fileError           = ref(null);
 
 // ── Tabs de examen ─────────────────────────────────────────────────────────
 const activeTab = ref('intraorales');
@@ -316,6 +321,14 @@ const onUrlTextChange = (examId, val)   => { examUrlTexts[examId] = val; };
 // Submit
 const submitAction = (action) => {
     form.action = action;
+    fileError.value = null;
+
+    // Verificar que cada examen seleccionado tenga al menos un archivo
+    const sinArchivo = form.examenes.filter(id => !examFiles[id]?.length);
+    if (sinArchivo.length > 0) {
+        fileError.value = 'Debes adjuntar al menos una imagen o archivo en cada examen seleccionado.';
+        return;
+    }
 
     const data = new FormData();
     data.append('clinic_id',      form.clinic_id);
