@@ -339,12 +339,20 @@ class OrderController extends Controller
             $odontologoId = $user->staff->id;
         }
 
-        DB::transaction(function () use ($request, $enviar, $odontologoId, $examenes): void {
+        // Determinar radiólogo: explícito o auto-asignado al enviar
+        $radiologoId = null;
+        if ($request->filled('radiologo_id')) {
+            $radiologoId = (int) $request->radiologo_id;
+        } elseif ($enviar) {
+            $radiologoId = $this->autoAsignarRadiologo((int) $request->clinic_id, $examenes);
+        }
+
+        DB::transaction(function () use ($request, $enviar, $odontologoId, $examenes, $radiologoId): void {
             $order = Order::create([
                 'patient_id' => $request->patient_id,
                 'clinic_id' => $request->clinic_id,
                 'odontologo_id' => $odontologoId ?: 0,
-                'radiologo_id' => $request->radiologo_id ?: 0,
+                'radiologo_id' => $radiologoId ?: 0,
                 'diagnostico' => $request->diagnostico,
                 'observaciones' => $request->observaciones ?? '',
                 'observaciones_2' => $request->observaciones_2 ?? '',
@@ -420,19 +428,16 @@ class OrderController extends Controller
                 DB::table('files')->insert($fileRows);
             }
 
-            if ($enviar && $request->filled('radiologo_id')) {
+            if ($enviar && $radiologoId) {
                 DB::table('order_staff_exam')->insert([
-                    'order_id' => $order->id,
-                    'staff_id' => $request->radiologo_id,
+                    'order_id'   => $order->id,
+                    'staff_id'   => $radiologoId,
                     'group_exam' => 1,
                     'respondida' => 0,
                 ]);
             }
 
-            $staffIds = array_values(array_filter([
-                $odontologoId,
-                $request->radiologo_id,
-            ]));
+            $staffIds = array_values(array_filter([$odontologoId, $radiologoId]));
             if (!empty($staffIds)) {
                 $orderStaffRows = array_map(fn ($sid) => [
                     'order_id' => $order->id,
@@ -442,8 +447,8 @@ class OrderController extends Controller
             }
         });
 
-        if ($enviar && $request->filled('radiologo_id')) {
-            $this->notificarRadiologo((int) $request->radiologo_id);
+        if ($enviar && $radiologoId) {
+            $this->notificarRadiologo($radiologoId);
         }
 
         return redirect()
@@ -1400,6 +1405,52 @@ class OrderController extends Controller
             'name'      => $zipFile->getClientOriginalName(),
             'file_size' => (int) $zipFile->getSize(),
         ];
+    }
+
+    /**
+     * Elige aleatoriamente un radiólogo de la clínica que pueda informar los exámenes.
+     *
+     * Reglas:
+     *  - Sin entradas en kind_staff → generalista, acepta cualquier tipo de examen.
+     *  - Con entradas en kind_staff → especialista, solo si algún kind coincide con los de la orden.
+     *  - Si ningún especialista coincide → fallback a cualquier radiólogo activo de la clínica.
+     */
+    private function autoAsignarRadiologo(int $clinicId, array $kindIds): ?int
+    {
+        $radiologos = DB::table('staffs')
+            ->join('clinic_staff', 'clinic_staff.staff_id', '=', 'staffs.id')
+            ->where('clinic_staff.clinic_id', $clinicId)
+            ->where('staffs.type_staff', 3)
+            ->where('staffs.active', true)
+            ->pluck('staffs.id')
+            ->toArray();
+
+        if (empty($radiologos)) {
+            return null;
+        }
+
+        $candidates = [];
+        foreach ($radiologos as $staffId) {
+            $assignedKinds = DB::table('kind_staff')
+                ->where('staff_id', $staffId)
+                ->pluck('kind_id')
+                ->toArray();
+
+            if (empty($assignedKinds)) {
+                // Generalista: acepta cualquier orden
+                $candidates[] = $staffId;
+            } elseif (!empty(array_intersect($kindIds, $assignedKinds))) {
+                // Especialista con al menos un tipo coincidente
+                $candidates[] = $staffId;
+            }
+        }
+
+        if (empty($candidates)) {
+            // Fallback: cualquier radiólogo activo de la clínica
+            $candidates = $radiologos;
+        }
+
+        return $candidates[array_rand($candidates)];
     }
 
     /** Resolve the kind.group for a given kind_id (cached per request). */
