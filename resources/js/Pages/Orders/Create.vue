@@ -9,6 +9,13 @@
                 <h1 class="text-2xl font-bold text-gray-800">Nueva Orden Radiográfica</h1>
             </div>
 
+            <!-- Overlay de carga -->
+            <div v-if="submitting"
+                class="fixed inset-0 z-50 flex flex-col items-center justify-center gap-4 bg-white/70 backdrop-blur-sm">
+                <i class="pi pi-spin pi-spinner text-4xl" style="color:#3452ff" />
+                <p class="text-sm font-medium text-gray-700">Guardando orden, por favor espere...</p>
+            </div>
+
             <form @submit.prevent="submit">
                 <div class="space-y-5">
 
@@ -249,6 +256,7 @@ const examPiezas          = reactive({});
 const examUrlTexts        = reactive({});
 const loadingOdontologos  = ref(false);
 const loadingRadiologos   = ref(false);
+const submitting          = ref(false);
 
 // ── Tabs de examen ─────────────────────────────────────────────────────────
 const activeTab = ref('intraorales');
@@ -332,9 +340,11 @@ const submitAction = (action) => {
         if (url) data.append(`url_${examId}`, url);
     });
 
+    submitting.value = true;
     router.post(route('ordenes.store'), data, {
         forceFormData: true,
-        onError: (errors) => { form.errors = errors; },
+        onError:  (errors) => { form.errors = errors; submitting.value = false; },
+        onFinish: ()       => { submitting.value = false; },
     });
 };
 </script>
