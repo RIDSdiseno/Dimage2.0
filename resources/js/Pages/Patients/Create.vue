@@ -21,10 +21,11 @@
                         <div class="md:col-span-2">
                             <label class="block text-sm font-medium mb-1">Rut *</label>
                             <InputText
-                                v-model="form.rut"
+                                :value="form.rut"
                                 class="w-full"
                                 placeholder="Rut"
                                 :class="{'p-invalid': form.errors.rut || rutError}"
+                                @input="handleRutInput"
                                 @blur="touchRut"
                             />
                             <small v-if="form.errors.rut" class="text-red-500">{{ form.errors.rut }}</small>
@@ -110,6 +111,17 @@ watch(isPassport, () => {
     form.rut     = '';
     rutTouched.value = false;
 });
+
+function handleRutInput(event) {
+    if (isPassport.value) {
+        form.rut = event.target.value;
+        return;
+    }
+    // Strip dots, spaces and dashes; keep only digits and K
+    let clean = event.target.value.replace(/[.\s-]/g, '').replace(/[^0-9kK]/g, '').toUpperCase();
+    clean = clean.slice(0, 9); // max 8 digits + 1 DV
+    form.rut = clean.length > 1 ? clean.slice(0, -1) + '-' + clean.slice(-1) : clean;
+};
 
 function validateChileanRut(rut) {
     if (!rut) return 'El RUT es requerido.';
