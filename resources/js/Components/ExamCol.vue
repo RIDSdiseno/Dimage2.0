@@ -15,38 +15,94 @@
                 <div v-if="localSelected.includes(exam.id)" class="ml-6 mt-1 mb-2 space-y-2">
 
                     <!-- Tooth chart: unitaria exams -->
-                    <div v-if="isUnitaria(exam.label)">
-                        <p class="text-xs font-medium text-gray-500 mb-1">
-                            Piezas dentales <span class="text-gray-400">(selecciona una o más)</span>
-                        </p>
-                        <div class="space-y-1">
-                            <div class="flex gap-0.5 flex-wrap">
-                                <template v-for="n in toothRow1(exam.label)" :key="n">
-                                    <button type="button"
-                                        class="w-6 h-6 text-xs rounded border font-mono transition-colors"
-                                        :class="isPiezaSelected(exam.id, n)
-                                            ? 'bg-blue-600 text-white border-blue-600'
-                                            : 'bg-white text-gray-600 border-gray-300 hover:border-blue-400 hover:bg-blue-50'"
-                                        @click.stop="togglePieza(exam.id, n)">
-                                        {{ n }}
-                                    </button>
+                    <div v-if="isUnitaria(exam.label)" class="text-xs">
+
+                        <!-- Dientes Permanentes (exámenes de adultos) -->
+                        <template v-if="!isNino(exam.label)">
+                            <p class="font-semibold text-gray-700 mb-1">Dientes Permanentes</p>
+
+                            <p class="text-gray-500 mb-0.5">Maxilar</p>
+                            <div class="flex items-center flex-wrap gap-x-1 gap-y-1 mb-1">
+                                <template v-for="n in [18,17,16,15,14,13,12,11]" :key="n">
+                                    <label class="flex items-center gap-0.5 cursor-pointer select-none">
+                                        <input type="checkbox" :checked="isPiezaSelected(exam.id, n)"
+                                            @change="togglePieza(exam.id, n)" class="accent-blue-600 cursor-pointer" />
+                                        <span>{{ toDot(n) }}</span>
+                                    </label>
+                                </template>
+                                <span class="text-gray-400 mx-0.5">|</span>
+                                <template v-for="n in [21,22,23,24,25,26,27,28]" :key="n">
+                                    <label class="flex items-center gap-0.5 cursor-pointer select-none">
+                                        <input type="checkbox" :checked="isPiezaSelected(exam.id, n)"
+                                            @change="togglePieza(exam.id, n)" class="accent-blue-600 cursor-pointer" />
+                                        <span>{{ toDot(n) }}</span>
+                                    </label>
                                 </template>
                             </div>
-                            <div class="flex gap-0.5 flex-wrap">
-                                <template v-for="n in toothRow2(exam.label)" :key="n">
-                                    <button type="button"
-                                        class="w-6 h-6 text-xs rounded border font-mono transition-colors"
-                                        :class="isPiezaSelected(exam.id, n)
-                                            ? 'bg-blue-600 text-white border-blue-600'
-                                            : 'bg-white text-gray-600 border-gray-300 hover:border-blue-400 hover:bg-blue-50'"
-                                        @click.stop="togglePieza(exam.id, n)">
-                                        {{ n }}
-                                    </button>
+
+                            <p class="text-gray-500 mb-0.5">Mandíbula</p>
+                            <div class="flex items-center flex-wrap gap-x-1 gap-y-1 mb-2">
+                                <template v-for="n in [48,47,46,45,44,43,42,41]" :key="n">
+                                    <label class="flex items-center gap-0.5 cursor-pointer select-none">
+                                        <input type="checkbox" :checked="isPiezaSelected(exam.id, n)"
+                                            @change="togglePieza(exam.id, n)" class="accent-blue-600 cursor-pointer" />
+                                        <span>{{ toDot(n) }}</span>
+                                    </label>
+                                </template>
+                                <span class="text-gray-400 mx-0.5">|</span>
+                                <template v-for="n in [31,32,33,34,35,36,37,38]" :key="n">
+                                    <label class="flex items-center gap-0.5 cursor-pointer select-none">
+                                        <input type="checkbox" :checked="isPiezaSelected(exam.id, n)"
+                                            @change="togglePieza(exam.id, n)" class="accent-blue-600 cursor-pointer" />
+                                        <span>{{ toDot(n) }}</span>
+                                    </label>
                                 </template>
                             </div>
+                        </template>
+
+                        <!-- Dientes Temporales (siempre visibles en unitaria) -->
+                        <p class="font-semibold text-gray-700 mb-1">Dientes Temporales</p>
+
+                        <p class="text-gray-500 mb-0.5">Maxilar</p>
+                        <div class="flex items-center flex-wrap gap-x-1 gap-y-1 mb-1">
+                            <template v-for="n in [55,54,53,52,51]" :key="n">
+                                <label class="flex items-center gap-0.5 cursor-pointer select-none">
+                                    <input type="checkbox" :checked="isPiezaSelected(exam.id, n)"
+                                        @change="togglePieza(exam.id, n)" class="accent-blue-600 cursor-pointer" />
+                                    <span>{{ toDot(n) }}</span>
+                                </label>
+                            </template>
+                            <span class="text-gray-400 mx-0.5">|</span>
+                            <template v-for="n in [61,62,63,64,65]" :key="n">
+                                <label class="flex items-center gap-0.5 cursor-pointer select-none">
+                                    <input type="checkbox" :checked="isPiezaSelected(exam.id, n)"
+                                        @change="togglePieza(exam.id, n)" class="accent-blue-600 cursor-pointer" />
+                                    <span>{{ toDot(n) }}</span>
+                                </label>
+                            </template>
                         </div>
-                        <p v-if="selectedPiezas[exam.id]?.length" class="text-xs text-blue-600 mt-1">
-                            Seleccionadas: {{ selectedPiezas[exam.id].join(', ') }}
+
+                        <p class="text-gray-500 mb-0.5">Mandíbula</p>
+                        <div class="flex items-center flex-wrap gap-x-1 gap-y-1 mb-1">
+                            <template v-for="n in [85,84,83,82,81]" :key="n">
+                                <label class="flex items-center gap-0.5 cursor-pointer select-none">
+                                    <input type="checkbox" :checked="isPiezaSelected(exam.id, n)"
+                                        @change="togglePieza(exam.id, n)" class="accent-blue-600 cursor-pointer" />
+                                    <span>{{ toDot(n) }}</span>
+                                </label>
+                            </template>
+                            <span class="text-gray-400 mx-0.5">|</span>
+                            <template v-for="n in [71,72,73,74,75]" :key="n">
+                                <label class="flex items-center gap-0.5 cursor-pointer select-none">
+                                    <input type="checkbox" :checked="isPiezaSelected(exam.id, n)"
+                                        @change="togglePieza(exam.id, n)" class="accent-blue-600 cursor-pointer" />
+                                    <span>{{ toDot(n) }}</span>
+                                </label>
+                            </template>
+                        </div>
+
+                        <p v-if="selectedPiezas[exam.id]?.length" class="text-blue-600 mt-1">
+                            Seleccionadas: {{ selectedPiezas[exam.id].map(toDot).join(', ') }}
                         </p>
                     </div>
 
@@ -152,15 +208,9 @@ function isCefalometrico(label){ return /cefalom/i.test(label); }
 function isConeBeam(label)     { return label.toLowerCase().includes('cone beam'); }
 function isNino(label)         { return /niño|nino/i.test(label); }
 
-function toothRow1(label) {
-    return isNino(label)
-        ? [55, 54, 53, 52, 51, 61, 62, 63, 64, 65]
-        : [18, 17, 16, 15, 14, 13, 12, 11, 21, 22, 23, 24, 25, 26, 27, 28];
-}
-function toothRow2(label) {
-    return isNino(label)
-        ? [85, 84, 83, 82, 81, 71, 72, 73, 74, 75]
-        : [48, 47, 46, 45, 44, 43, 42, 41, 31, 32, 33, 34, 35, 36, 37, 38];
+function toDot(n) {
+    const s = String(n);
+    return s[0] + '.' + s[1];
 }
 
 function isPiezaSelected(examId, n) { return selectedPiezas[examId]?.includes(n) ?? false; }
