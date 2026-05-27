@@ -49,11 +49,9 @@
                                 v-model="dateValue"
                                 dateFormat="dd-mm-yy"
                                 showIcon
-                                iconDisplay="input"
                                 placeholder="dd-mm-aaaa"
                                 class="w-full"
                                 :class="{'p-invalid': form.errors.dateofbirth}"
-                                :manualInput="true"
                             />
                             <small class="text-red-500">{{ form.errors.dateofbirth }}</small>
                         </div>
