@@ -1421,7 +1421,6 @@ class OrderController extends Controller
             ->join('clinic_staff', 'clinic_staff.staff_id', '=', 'staffs.id')
             ->where('clinic_staff.clinic_id', $clinicId)
             ->where('staffs.type_staff', 3)
-            ->where('staffs.active', true)
             ->pluck('staffs.id')
             ->toArray();
 
