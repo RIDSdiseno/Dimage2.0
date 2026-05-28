@@ -145,9 +145,20 @@
                     <!-- File upload -->
                     <FileUpload :name="`files_${exam.id}`" mode="basic" accept="image/*,.dcm,.dicom,.pdf,.zip,.rar"
                         :multiple="true" chooseLabel="Buscar Imagen o Archivo" class="w-full text-xs"
-                        @select="(e) => $emit('files', exam.id, e)" />
-                    <div v-if="examFiles[exam.id]?.length" class="mt-1 text-xs text-green-600">
-                        {{ examFiles[exam.id].length }} archivo(s) seleccionado(s)
+                        @select="(e) => addFiles(exam.id, e)" />
+
+                    <!-- Selected files list with delete buttons -->
+                    <div v-if="localFiles[exam.id]?.length" class="mt-2 space-y-1">
+                        <div v-for="(f, idx) in localFiles[exam.id]" :key="idx"
+                            class="flex items-center justify-between bg-gray-50 border border-gray-200 rounded px-2 py-1 text-xs">
+                            <span class="truncate max-w-[80%] text-gray-700">
+                                <i class="pi pi-file text-gray-400 mr-1" />{{ f.name }}
+                            </span>
+                            <button type="button" @click="removeFile(exam.id, idx)"
+                                class="text-red-400 hover:text-red-600 transition ml-1 shrink-0">
+                                <i class="pi pi-times text-xs" />
+                            </button>
+                        </div>
                     </div>
 
                     <!-- URL IMAGEN: cone beam only -->
@@ -192,6 +203,20 @@ const selectedPiezas = reactive({});
 const localImplantes = reactive({});
 const localSubopts   = reactive({});
 const localUrlText   = reactive({});
+const localFiles     = reactive({});
+
+function addFiles(examId, e) {
+    if (!localFiles[examId]) localFiles[examId] = [];
+    for (const f of e.files) {
+        localFiles[examId].push(f);
+    }
+    emit('files', examId, { files: [...localFiles[examId]] });
+}
+
+function removeFile(examId, idx) {
+    localFiles[examId].splice(idx, 1);
+    emit('files', examId, { files: [...localFiles[examId]] });
+}
 
 const CEFALO_SUBS = [
     'Análisis Rickets',

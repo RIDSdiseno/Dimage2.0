@@ -244,5 +244,11 @@ const onPageChange = (e) => {
     fetchOrders();
 };
 
-onMounted(fetchOrders);
+onMounted(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('mis') === '1') {
+        filters.solo_mis = true;
+    }
+    fetchOrders();
+});
 </script>

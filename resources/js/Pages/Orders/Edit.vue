@@ -201,8 +201,11 @@
                         <Link :href="route('ordenes.show', order.id)">
                             <Button label="Cancelar" severity="secondary" type="button" />
                         </Link>
+                        <a :href="route('ordenes.pdf', order.id)" target="_blank">
+                            <Button label="Imprimir" icon="pi pi-print" severity="secondary" type="button" />
+                        </a>
                         <Button
-                            label="Guardar Cambios"
+                            label="Guardar Orden"
                             icon="pi pi-save"
                             severity="secondary"
                             type="button"
@@ -210,7 +213,7 @@
                             @click="submitAction('guardar')"
                         />
                         <Button
-                            label="Guardar y Enviar"
+                            label="Enviar a Informar"
                             icon="pi pi-send"
                             type="button"
                             :loading="submitting && currentAction === 'enviar'"

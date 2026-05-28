@@ -1030,14 +1030,29 @@ class OrderController extends Controller
         }
 
         $request->validate([
-            'prioridad' => ['required', 'in:Normal,Urgente'],
+            'prioridad' => ['required', 'in:1 día,2 días,3 días,Normal,Urgente'],
             'action'    => ['required', 'in:guardar,enviar'],
         ]);
 
         $enviar          = $request->input('action') === 'enviar';
         $yaEstabaEnviada = ! is_null($order->enviada); // capturar ANTES del update
 
-        DB::transaction(function () use ($request, $order, $enviar): void {
+        // Auto-asignar radiólogo al enviar si no hay uno asignado
+        $radiologoIdUpdate = null;
+        if ($enviar) {
+            $existingStaffId = DB::table('order_staff_exam')->where('order_id', $order->id)->value('staff_id');
+            if (! $existingStaffId) {
+                $kindIds = DB::table('examinations')
+                    ->join('examination_order', 'examination_order.examination_id', '=', 'examinations.id')
+                    ->where('examination_order.order_id', $order->id)
+                    ->pluck('examinations.kind_id')
+                    ->map('intval')
+                    ->toArray();
+                $radiologoIdUpdate = $this->autoAsignarRadiologo((int) $order->clinic_id, $kindIds);
+            }
+        }
+
+        DB::transaction(function () use ($request, $order, $enviar, $radiologoIdUpdate): void {
             $order->update([
                 'diagnostico'      => $request->input('diagnostico') ?? $order->diagnostico,
                 'observaciones'    => $request->input('observaciones') ?? '',
@@ -1095,6 +1110,20 @@ class OrderController extends Controller
                 }
             }
 
+            // Insertar radiólogo auto-asignado si aplica
+            if ($radiologoIdUpdate) {
+                DB::table('order_staff_exam')->insert([
+                    'order_id'   => $order->id,
+                    'staff_id'   => $radiologoIdUpdate,
+                    'group_exam' => 1,
+                    'respondida' => 0,
+                ]);
+                DB::table('order_staff')->insertOrIgnore([
+                    'order_id' => $order->id,
+                    'staff_id' => $radiologoIdUpdate,
+                ]);
+            }
+
             // Actualizar radiólogo (solo admin)
             if ($request->filled('radiologo_id') && Auth::user()->type_id === 1) {
                 $rid = (int) $request->input('radiologo_id');
@@ -1108,7 +1137,8 @@ class OrderController extends Controller
         });
 
         if ($enviar && ! $yaEstabaEnviada) {
-            $staffId = DB::table('order_staff_exam')->where('order_id', $order->id)->value('staff_id');
+            $staffId = $radiologoIdUpdate
+                ?? DB::table('order_staff_exam')->where('order_id', $order->id)->value('staff_id');
             if ($staffId) {
                 $this->notificarRadiologo((int) $staffId);
             }
