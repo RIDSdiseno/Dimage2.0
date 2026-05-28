@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Jobs\ProcessCbctZip;
 use App\Mail\OrdenAsignada;
 use App\Models\Clinic;
 use App\Models\Examination;
@@ -353,7 +354,8 @@ class OrderController extends Controller
             $radiologoId = $this->autoAsignarRadiologo((int) $request->clinic_id, $examenes);
         }
 
-        DB::transaction(function () use ($request, $enviar, $odontologoId, $examenes, $radiologoId, $operatorId): void {
+        $cbctJobs = [];
+        DB::transaction(function () use ($request, $enviar, $odontologoId, $examenes, $radiologoId, $operatorId, &$cbctJobs): void {
             $order = Order::create([
                 'patient_id' => $request->patient_id,
                 'clinic_id' => $request->clinic_id,
@@ -431,8 +433,11 @@ class OrderController extends Controller
 
             DB::table('examination_order')->insert($examOrderRows);
 
-            if (!empty($fileRows)) {
-                DB::table('files')->insert($fileRows);
+            foreach ($fileRows as $row) {
+                $fid = DB::table('files')->insertGetId($row);
+                if (($row['ruta_dcm'] ?? null) === 'processing') {
+                    $cbctJobs[] = [$fid, $row['ruta']];
+                }
             }
 
             if ($enviar && $radiologoId) {
@@ -456,6 +461,11 @@ class OrderController extends Controller
 
         if ($enviar && $radiologoId) {
             $this->notificarRadiologo($radiologoId);
+        }
+
+        // Dispatch CBCT extraction jobs after the transaction commits
+        foreach ($cbctJobs as [$fid, $zipPath]) {
+            ProcessCbctZip::dispatch($fid, $this->extractOrderIdFromPath($zipPath), $zipPath)->onQueue('default');
         }
 
         return redirect()
@@ -1385,73 +1395,47 @@ class OrderController extends Controller
     }
 
     /**
-     * Extract DICOM files from a ZIP and upload each to S3 maintaining
-     * the ZIP's internal folder structure under ordenes/{orderId}/.
+     * Upload a CBCT ZIP directly to S3 and dispatch a background job
+     * to extract the DCM slices. Returns immediately so the HTTP request
+     * doesn't time out on large series.
      *
-     * @return array{ruta:string|null,ruta_dcm:string|null,extension:string,name:string,file_size:int}
+     * The file row is created with ruta_dcm='processing'; the job updates
+     * it to the real series prefix once extraction completes.
+     *
+     * @return array{ruta:string,ruta_dcm:string,extension:string,name:string,file_size:int}
      */
     private function extractCbctZip(
         \Illuminate\Http\UploadedFile $zipFile,
         int $orderId
     ): array {
-        $fallback = function () use ($zipFile, $orderId) {
-            $path = $zipFile->store("ordenes/{$orderId}", 's3');
-            return [
-                'ruta'      => $path,
-                'ruta_dcm'  => null,
-                'extension' => 'zip',
-                'name'      => $zipFile->getClientOriginalName(),
-                'file_size' => (int) $zipFile->getSize(),
-            ];
-        };
-
-        $za = new \ZipArchive();
-        if ($za->open($zipFile->getRealPath()) !== true) {
-            return $fallback();
-        }
-
-        $firstDcmS3  = null;
-        $seriePrefix = null;
-
-        for ($i = 0; $i < $za->numFiles; $i++) {
-            $entry = $za->getNameIndex($i);
-            if (!$entry || str_ends_with($entry, '/')) {
-                continue;
-            }
-
-            $entryExt = strtolower(pathinfo($entry, PATHINFO_EXTENSION));
-            if (!in_array($entryExt, ['dcm', 'dicom'], true)) {
-                continue;
-            }
-
-            $content = $za->getFromIndex($i);
-            if ($content === false) {
-                continue;
-            }
-
-            $s3Path = "ordenes/{$orderId}/{$entry}";
-            Storage::disk('s3')->put($s3Path, $content);
-
-            if ($firstDcmS3 === null) {
-                $firstDcmS3  = $s3Path;
-                $dir         = dirname($entry);
-                $seriePrefix = "ordenes/{$orderId}/" . ($dir === '.' ? '' : rtrim($dir, '/') . '/');
-            }
-        }
-
-        $za->close();
-
-        if ($firstDcmS3 === null) {
-            return $fallback();
-        }
+        $zipPath = $zipFile->store("ordenes/{$orderId}", 's3');
 
         return [
-            'ruta'      => $firstDcmS3,
-            'ruta_dcm'  => $seriePrefix,
-            'extension' => 'dcm',
+            'ruta'      => $zipPath,
+            'ruta_dcm'  => 'processing', // job will update this
+            'extension' => 'zip',
             'name'      => $zipFile->getClientOriginalName(),
             'file_size' => (int) $zipFile->getSize(),
         ];
+    }
+
+    /**
+     * Dispatch the CBCT extraction job once the file row has been inserted.
+     * Called by store() and update() after DB::table('files')->insert().
+     */
+    public function dispatchCbctJobIfNeeded(array $fileRow, int $fileId): void
+    {
+        if (($fileRow['ruta_dcm'] ?? null) === 'processing') {
+            ProcessCbctZip::dispatch($fileId, $this->extractOrderIdFromPath($fileRow['ruta']), $fileRow['ruta'])
+                ->onQueue('default');
+        }
+    }
+
+    private function extractOrderIdFromPath(string $ruta): int
+    {
+        // path format: ordenes/{orderId}/filename.zip
+        $parts = explode('/', $ruta);
+        return (int) ($parts[1] ?? 0);
     }
 
     /**

@@ -40,6 +40,15 @@
             </a>
         </template>
 
+        <!-- ZIP CBCT en cola (procesando en background) -->
+        <template v-else-if="isProcessing">
+            <div style="display:flex; flex-direction:column; align-items:center; justify-content:center; width:100%; height:100%; background:#0b2a4a;">
+                <i class="pi pi-spin pi-spinner" style="font-size:2.5rem; color:#60a5fa;" />
+                <span style="font-size:10px; margin-top:5px; color:#93c5fd; font-weight:700; letter-spacing:0.08em;">CBCT</span>
+                <span style="font-size:10px; margin-top:3px; color:#60a5fa; text-align:center; padding:0 6px;">Procesando...</span>
+            </div>
+        </template>
+
         <!-- ZIP CBCT antiguo → procesar para visor o descargar -->
         <template v-else-if="isZip && showDicom">
             <div style="display:flex; flex-direction:column; align-items:center; justify-content:center; width:100%; height:100%; background:#0b2a4a; position:relative;">
@@ -125,10 +134,11 @@ const imgFailed  = ref(false);
 const extracting = ref(false);
 const extractMsg = ref('');
 
-const ext       = computed(() => (props.file.extension || '').toLowerCase());
-const isPdf     = computed(() => ext.value === 'pdf');
-const isDcm     = computed(() => ext.value === 'dcm' || ext.value === 'dicom');
-const isZip     = computed(() => ext.value === 'zip');
+const ext         = computed(() => (props.file.extension || '').toLowerCase());
+const isPdf       = computed(() => ext.value === 'pdf');
+const isDcm       = computed(() => ext.value === 'dcm' || ext.value === 'dicom');
+const isZip       = computed(() => ext.value === 'zip');
+const isProcessing = computed(() => isZip.value && props.file.ruta_dcm === 'processing');
 const isCbctSerie = computed(() => isDcm.value && !!props.file.ruta_dcm);
 const serveUrl  = computed(() => route('archivos.serve', props.file.id));
 const fileSrc   = computed(() => props.file.url || serveUrl.value);
