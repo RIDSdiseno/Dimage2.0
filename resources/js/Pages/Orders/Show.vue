@@ -31,7 +31,7 @@
                 </div>
                 <!-- Actions -->
                 <div class="flex items-center gap-2">
-                    <Link v-if="order.estadoradiologo != 1 && !esRadiologo" :href="route('ordenes.edit', order.id)">
+                    <Link v-if="canEdit" :href="route('ordenes.edit', order.id)">
                         <Button label="Editar" icon="pi pi-pencil" size="small" severity="secondary" />
                     </Link>
                     <a :href="route('ordenes.zip', order.id)">
@@ -331,6 +331,7 @@ const props = defineProps({
     correcciones:   Array,
     examenes:       Array,
     puedeResponder: Boolean,
+    canEdit:        Boolean,
     esAdmin:        Boolean,
     esRadiologo:    Boolean,
 });

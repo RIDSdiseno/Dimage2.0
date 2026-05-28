@@ -61,7 +61,7 @@
                                 <label class="block text-sm font-medium text-gray-700 mb-1">Prioridad *</label>
                                 <Select
                                     v-model="form.prioridad"
-                                    :options="['1 día', '2 días', '3 días']"
+                                    :options="['1 día', '2 días', '3 días', 'Normal', 'Urgente']"
                                     class="w-full"
                                 />
                             </div>

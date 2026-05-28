@@ -568,9 +568,13 @@ class OrderController extends Controller
             'label' => 'Desconocido', 'color' => 'secondary',
         ];
 
+        $esRadiologoAsignado = $user->hasRole('radiologo') && $radiologos->contains('id', $user->staff?->id);
         $puedeResponder = $user->hasAnyRole(['radiologo', 'admin', 'secretaria'])
-            && (int) $order->estadoradiologo === 0
-            && ($user->hasAnyRole(['admin', 'secretaria']) || $radiologos->contains('id', $user->staff?->id));
+            && (
+                (int) $order->estadoradiologo === 0 ||
+                ($esRadiologoAsignado && (int) $order->estadoradiologo === 1)
+            )
+            && ($user->hasAnyRole(['admin', 'secretaria']) || $esRadiologoAsignado);
 
         return Inertia::render('Orders/Show', [
             'order' => [
@@ -603,6 +607,7 @@ class OrderController extends Controller
             'correcciones'   => $correcciones,
             'examenes'       => $examenes,
             'puedeResponder' => $puedeResponder,
+            'canEdit'        => (int) $order->estadoradiologo !== 1 && $this->operadorPuedeEditar($order, $user),
             'esAdmin'        => $user->type_id === 1 || $user->hasRole('admin'),
             'esRadiologo'    => $user->type_id === 5 || $user->hasRole('radiologo'),
         ]);
@@ -618,7 +623,7 @@ class OrderController extends Controller
             return redirect()->route('ordenes.show', $order)->with('error', 'Sin permiso para responder órdenes.');
         }
 
-        if ((int) $order->estadoradiologo === 1) {
+        if ((int) $order->estadoradiologo === 1 && !$user->hasRole('radiologo')) {
             return redirect()->route('ordenes.show', $order)->with('error', 'La orden ya fue respondida.');
         }
 
@@ -989,6 +994,21 @@ class OrderController extends Controller
 
     // ── Editar orden ──────────────────────────────────────────────────────
 
+    private function operadorPuedeEditar(Order $order, $user): bool
+    {
+        // Radiólogos nunca editan la orden base
+        if ($user->hasRole('radiologo')) {
+            return false;
+        }
+        if (!$user->hasAnyRole(['tecnico', 'odontologo'])) {
+            return true; // admin, secretaria, clínica, etc. no restringidos aquí
+        }
+        $estado = (int) $order->estadoradiologo;
+        // Solo puede editar si es borrador nunca enviado (estado=4 + enviada nula)
+        // o si el radiólogo la mandó a corrección (estado=2)
+        return $estado === 2 || ($estado === 4 && is_null($order->enviada));
+    }
+
     public function edit(Order $order): Response|RedirectResponse
     {
         if ((int) $order->estadoradiologo === 1) {
@@ -997,6 +1017,11 @@ class OrderController extends Controller
         }
 
         $user = Auth::user();
+
+        if (!$this->operadorPuedeEditar($order, $user)) {
+            return redirect()->route('ordenes.show', $order)
+                ->with('error', 'No puedes editar una orden ya enviada.');
+        }
 
         $examTypes = $this->buildExamTabs();
 
@@ -1056,6 +1081,12 @@ class OrderController extends Controller
                 ->with('error', 'No se puede editar una orden ya respondida.');
         }
 
+        $user = Auth::user();
+        if (!$this->operadorPuedeEditar($order, $user)) {
+            return redirect()->route('ordenes.show', $order)
+                ->with('error', 'No puedes editar una orden ya enviada.');
+        }
+
         $request->validate([
             'prioridad' => ['required', 'in:1 día,2 días,3 días,Normal,Urgente'],
             'action'    => ['required', 'in:guardar,enviar'],
@@ -1085,8 +1116,8 @@ class OrderController extends Controller
                 'observaciones'    => $request->input('observaciones') ?? '',
                 'prioridad'        => $request->input('prioridad'),
                 'sin_diagnostico'  => $request->boolean('sin_diagnostico') ? 1 : 0,
-                'estadoradiologo'  => $enviar ? 0 : 4,
-                'estadoodontologo' => $enviar ? 0 : 1,
+                'estadoradiologo'  => $enviar ? 0 : ($yaEstabaEnviada ? 0 : 4),
+                'estadoodontologo' => $enviar ? 0 : ($yaEstabaEnviada ? 0 : 1),
                 'enviada'          => $enviar && !$order->enviada ? now() : $order->enviada,
             ]);
 

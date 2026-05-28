@@ -105,7 +105,7 @@
                                             <Link :href="route('ordenes.show', orden.id)">
                                                 <Button icon="pi pi-eye" size="small" text v-tooltip.top="'Ver'" />
                                             </Link>
-                                            <Link v-if="!esRadiologo && orden.estado.color !== 'success'"
+                                            <Link v-if="canEditOrden(orden)"
                                                 :href="route('ordenes.edit', orden.id)">
                                                 <Button icon="pi pi-pencil" size="small" text severity="secondary"
                                                     v-tooltip.top="'Editar'" />
@@ -180,6 +180,20 @@ const user = computed(() => page.props.auth?.user);
 const esRadiologo = computed(() =>
     user.value?.roles?.includes('radiologo') || user.value?.type_id === 5
 );
+
+const esOperador = computed(() =>
+    [6, 11].includes(user.value?.type_id) ||
+    ['tecnico', 'odontologo'].some(r => user.value?.roles?.includes(r))
+);
+
+function canEditOrden(orden) {
+    if (esRadiologo.value) return false;
+    if (orden.estado.color === 'success') return false;
+    if (!esOperador.value) return true;
+    // Operadores: solo borrador nunca enviado (secondary + sin fecha) o corrección (danger)
+    return orden.estado.color === 'danger' ||
+        (orden.estado.color === 'secondary' && (!orden.enviada || orden.enviada === '-'));
+}
 
 const esRadiologoRestringido = computed(() => esRadiologo.value);
 

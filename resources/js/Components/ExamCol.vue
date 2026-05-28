@@ -133,6 +133,15 @@
                                 {{ sub }}
                             </label>
                         </div>
+                        <!-- Campo libre cuando se selecciona "Otros" -->
+                        <div v-if="(localSubopts[exam.id] || []).includes('Otros')" class="mt-2">
+                            <InputText
+                                :modelValue="localOtrosText[exam.id] || ''"
+                                placeholder="Especifique el tipo de análisis..."
+                                class="w-full text-sm"
+                                @input="(e) => { localOtrosText[exam.id] = e.target.value; emitSubopts(exam.id); }"
+                            />
+                        </div>
                     </div>
 
                     <!-- Imágenes Asociadas separator -->
@@ -199,11 +208,12 @@ const localSelected  = computed({
     set: (val) => emit('toggle', val),
 });
 
-const selectedPiezas = reactive({});
-const localImplantes = reactive({});
-const localSubopts   = reactive({});
-const localUrlText   = reactive({});
-const localFiles     = reactive({});
+const selectedPiezas  = reactive({});
+const localImplantes  = reactive({});
+const localSubopts    = reactive({});
+const localOtrosText  = reactive({});
+const localUrlText    = reactive({});
+const localFiles      = reactive({});
 
 function addFiles(examId, e) {
     if (!localFiles[examId]) localFiles[examId] = [];
@@ -254,7 +264,10 @@ function emitImplantes(examId) {
 }
 
 function emitSubopts(examId) {
-    const val = (localSubopts[examId] || []).join(',');
-    emit('urltext', examId, val);
+    const parts = (localSubopts[examId] || []).map(s => {
+        if (s === 'Otros' && localOtrosText[examId]) return `Otros: ${localOtrosText[examId]}`;
+        return s;
+    });
+    emit('urltext', examId, parts.join(','));
 }
 </script>
