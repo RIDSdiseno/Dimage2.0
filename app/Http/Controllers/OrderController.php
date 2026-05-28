@@ -650,13 +650,21 @@ class OrderController extends Controller
                         return array_merge((array) $f, ['url' => $this->signedUrl($f->ruta)]);
                     });
 
+                $respuestaArr = $ans ? (array) $ans : null;
+                if ($respuestaArr && $e->kind_id == self::PANORAMICA_KIND_ID && !empty($ans->content)) {
+                    $contentData = json_decode($ans->content, true) ?? [];
+                    $respuestaArr['informe_examen']    = $contentData['examen']    ?? '';
+                    $respuestaArr['informe_libre']     = $contentData['informe']   ?? '';
+                    $respuestaArr['informe_impresion'] = $contentData['impresion'] ?? '';
+                }
+
                 return [
                     'id'          => $e->examination_id,
                     'kind_id'     => $e->kind_id,
                     'descripcion' => $e->descripcion,
                     'grupo'       => $e->grupo,
                     'archivos'    => $archivos,
-                    'respuesta'   => $ans ? (array) $ans : null,
+                    'respuesta'   => $respuestaArr,
                 ];
             });
 
@@ -716,15 +724,8 @@ class OrderController extends Controller
         DB::transaction(function () use ($request, $order, $user, $soloAdjunto, $action): void {
             foreach ($request->respuestas as $r) {
                 $examinationId = (int) $r['id'];
-                $examRow = DB::table('examinations')
-                    ->join('kinds', 'kinds.id', '=', 'examinations.kind_id')
-                    ->where('examinations.id', $examinationId)
-                    ->select('examinations.kind_id', 'kinds.group as grupo')
-                    ->first();
-                $kindId       = $examRow ? (int) $examRow->kind_id : null;
-                $grupo        = $examRow ? (int) $examRow->grupo : 0;
-                $isPanoramica = ($kindId == self::PANORAMICA_KIND_ID);
-                $isConeBeam   = ($grupo === 4 && !$isPanoramica);
+                $kindId        = (int) DB::table('examinations')->where('id', $examinationId)->value('kind_id');
+                $isPanoramica  = ($kindId === self::PANORAMICA_KIND_ID);
 
                 if ($isPanoramica) {
                     $answerData = ['solo_adjunto' => $soloAdjunto];
@@ -734,16 +735,16 @@ class OrderController extends Controller
                     foreach (self::PANORAMICA_DIENTES as $d) {
                         $answerData["diente_{$d}"] = $r["diente_{$d}"] ?? null;
                     }
-                } elseif ($isConeBeam) {
+                    $answerData['content'] = json_encode([
+                        'examen'    => $r['informe_examen']    ?? '',
+                        'informe'   => $r['informe_libre']     ?? '',
+                        'impresion' => $r['informe_impresion'] ?? '',
+                    ]);
+                } else {
                     $answerData = [
                         'campo_1'      => $r['campo_1'] ?? '',
                         'campo_2'      => $r['campo_2'] ?? '',
                         'campo_3'      => $r['campo_3'] ?? '',
-                        'solo_adjunto' => $soloAdjunto,
-                    ];
-                } else {
-                    $answerData = [
-                        'campo_1'      => $r['texto'] ?? '',
                         'solo_adjunto' => $soloAdjunto,
                     ];
                 }

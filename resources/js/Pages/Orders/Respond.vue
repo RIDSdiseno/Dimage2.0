@@ -144,6 +144,39 @@
 
                             <!-- ═══ PANORÁMICA form ═══ -->
                             <template v-if="ex.kind_id === PANORAMICA_KIND_ID">
+                                <!-- Toggle + 3 campos de informe -->
+                                <div class="mb-5 space-y-3">
+                                    <button type="button"
+                                        @click="showCampos[idx] = !showCampos[idx]"
+                                        class="flex items-center gap-2 px-4 py-2 rounded-lg border text-sm font-medium transition-colors"
+                                        :class="showCampos[idx]
+                                            ? 'border-blue-500 bg-blue-50 text-blue-700'
+                                            : 'border-gray-200 bg-white text-gray-600 hover:border-gray-300'">
+                                        <i :class="showCampos[idx] ? 'pi pi-eye-slash' : 'pi pi-eye'" class="text-xs" />
+                                        Mostrar campos para informar
+                                    </button>
+                                    <template v-if="showCampos[idx]">
+                                        <div>
+                                            <label class="block text-sm font-medium text-gray-700 mb-1.5">Examen</label>
+                                            <Textarea v-model="respuestas[idx].informe_examen"
+                                                placeholder="Descripción del examen..."
+                                                rows="3" class="w-full" autoResize />
+                                        </div>
+                                        <div>
+                                            <label class="block text-sm font-medium text-gray-700 mb-1.5">Informe</label>
+                                            <Textarea v-model="respuestas[idx].informe_libre"
+                                                placeholder="Informe radiológico..."
+                                                rows="4" class="w-full" autoResize />
+                                        </div>
+                                        <div>
+                                            <label class="block text-sm font-medium text-gray-700 mb-1.5">Impresión Diagnóstica</label>
+                                            <Textarea v-model="respuestas[idx].informe_impresion"
+                                                placeholder="Impresión diagnóstica..."
+                                                rows="3" class="w-full" autoResize />
+                                        </div>
+                                    </template>
+                                </div>
+
                                 <div class="space-y-6">
 
                                     <!-- Maxilar -->
@@ -224,8 +257,8 @@
                                 </div>
                             </template>
 
-                            <!-- ═══ Cone Beam form ═══ -->
-                            <template v-else-if="isConeBeam(ex)">
+                            <!-- ═══ All other exam types ═══ -->
+                            <template v-else>
                                 <div class="space-y-3">
                                     <button type="button"
                                         @click="showCampos[idx] = !showCampos[idx]"
@@ -239,16 +272,10 @@
 
                                     <template v-if="showCampos[idx]">
                                         <div>
-                                            <label class="block text-sm font-medium text-gray-700 mb-1.5">
-                                                Examen
-                                                <span v-if="!soloAdjunto" class="text-red-500">*</span>
-                                                <span v-else class="text-gray-400 font-normal">(opcional)</span>
-                                            </label>
+                                            <label class="block text-sm font-medium text-gray-700 mb-1.5">Examen</label>
                                             <Textarea v-model="respuestas[idx].campo_1"
                                                 placeholder="Descripción del examen..."
-                                                rows="3" class="w-full"
-                                                :class="{'p-invalid': !!respuestaErrors[idx]}"
-                                                autoResize />
+                                                rows="3" class="w-full" autoResize />
                                         </div>
                                         <div>
                                             <label class="block text-sm font-medium text-gray-700 mb-1.5">Informe</label>
@@ -264,28 +291,6 @@
                                         </div>
                                         <small v-if="respuestaErrors[idx]" class="text-red-500">{{ respuestaErrors[idx] }}</small>
                                     </template>
-                                </div>
-                            </template>
-
-                            <!-- ═══ Simple textarea for other exam types ═══ -->
-                            <template v-else>
-                                <div>
-                                    <label class="block text-sm font-medium text-gray-700 mb-1.5">
-                                        Informe radiológico
-                                        <span v-if="!soloAdjunto" class="text-red-500">*</span>
-                                        <span v-else class="text-gray-400 font-normal">(opcional)</span>
-                                    </label>
-                                    <Textarea
-                                        v-model="respuestas[idx].texto"
-                                        :placeholder="soloAdjunto
-                                            ? `Informe para ${examLabel(ex.descripcion)} (opcional)...`
-                                            : `Ingrese el informe para ${examLabel(ex.descripcion)}...`"
-                                        rows="5"
-                                        class="w-full"
-                                        :class="{'p-invalid': !!respuestaErrors[idx]}"
-                                        autoResize
-                                    />
-                                    <small v-if="respuestaErrors[idx]" class="text-red-500">{{ respuestaErrors[idx] }}</small>
                                 </div>
                             </template>
 
@@ -415,13 +420,13 @@ const submitting        = ref(false);
 const currentAction     = ref('');
 const form              = reactive({ errors: {} });
 
-function isConeBeam(ex) { return parseInt(ex?.grupo ?? 0) === 4; }
-
-// Auto-open campos for cone beam exams that already have answers
+// Auto-open campos for exams that already have answers saved
 const showCampos = reactive(
     props.examenes.map(ex => {
-        if (!isConeBeam(ex)) return false;
         const r = ex.respuesta ?? {};
+        if (ex.kind_id === PANORAMICA_KIND_ID) {
+            return !!(r.informe_examen || r.informe_libre || r.informe_impresion);
+        }
         return !!(r.campo_1 || r.campo_2 || r.campo_3);
     })
 );
@@ -430,12 +435,15 @@ const showCampos = reactive(
 const respuestas = reactive(
     props.examenes.map(ex => {
         const r   = ex.respuesta ?? {};
-        const obj = { id: ex.id, kind_id: ex.kind_id, texto: r.campo_1 ?? '' };
+        const obj = { id: ex.id, kind_id: ex.kind_id };
 
         if (ex.kind_id === PANORAMICA_KIND_ID) {
             for (let i = 1; i <= 8; i++) obj[`campo_${i}`] = r[`campo_${i}`] ?? '';
             ALL_DIENTES.forEach(d => { obj[`diente_${d}`] = r[`diente_${d}`] ?? ''; });
-        } else if (isConeBeam(ex)) {
+            obj.informe_examen    = r.informe_examen    ?? '';
+            obj.informe_libre     = r.informe_libre     ?? '';
+            obj.informe_impresion = r.informe_impresion ?? '';
+        } else {
             obj.campo_1 = r.campo_1 ?? '';
             obj.campo_2 = r.campo_2 ?? '';
             obj.campo_3 = r.campo_3 ?? '';
@@ -486,21 +494,8 @@ function validate(action) {
     if (action === 'correccion') {
         return !!correccionMensaje.value.trim();
     }
-    let ok = true;
-    respuestas.forEach((r, i) => {
-        const ex = props.examenes[i];
-        if (r.kind_id === PANORAMICA_KIND_ID || isConeBeam(ex)) {
-            respuestaErrors[i] = '';
-            return;
-        }
-        if (!r.texto || r.texto.trim().length < 5) {
-            respuestaErrors[i] = 'El informe debe tener al menos 5 caracteres.';
-            ok = false;
-        } else {
-            respuestaErrors[i] = '';
-        }
-    });
-    return ok;
+    respuestas.forEach((_, i) => { respuestaErrors[i] = ''; });
+    return true;
 }
 
 function doSubmit(action) {
@@ -528,12 +523,13 @@ function doSubmit(action) {
             ALL_DIENTES.forEach(d => {
                 data.append(`respuestas[${i}][diente_${d}]`, r[`diente_${d}`] ?? '');
             });
-        } else if (isConeBeam(props.examenes[i])) {
+            data.append(`respuestas[${i}][informe_examen]`,    r.informe_examen    ?? '');
+            data.append(`respuestas[${i}][informe_libre]`,     r.informe_libre     ?? '');
+            data.append(`respuestas[${i}][informe_impresion]`, r.informe_impresion ?? '');
+        } else {
             data.append(`respuestas[${i}][campo_1]`, r.campo_1 ?? '');
             data.append(`respuestas[${i}][campo_2]`, r.campo_2 ?? '');
             data.append(`respuestas[${i}][campo_3]`, r.campo_3 ?? '');
-        } else {
-            data.append(`respuestas[${i}][texto]`, r.texto ?? '');
         }
 
         uploadedFiles[i]?.forEach(file => {
