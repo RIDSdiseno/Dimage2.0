@@ -46,6 +46,33 @@ class FileController extends Controller
     /**
      * Stream a file directly from S3 so the browser can display it inline.
      */
+    public function download(int $id): StreamedResponse
+    {
+        $file = DB::table('files')->where('id', $id)->first(['ruta', 'name', 'extension']);
+        abort_if(!$file || !$file->ruta || $file->ruta === '0', 404);
+
+        $ext  = strtolower($file->extension ?? pathinfo($file->ruta, PATHINFO_EXTENSION));
+        $mime = $this->mime($ext);
+        $name = $file->name ?: basename($file->ruta);
+
+        try {
+            $stream = Storage::disk('s3')->readStream($file->ruta);
+        } catch (\Throwable) {
+            abort(404);
+        }
+
+        abort_if(!is_resource($stream), 404);
+
+        return response()->stream(function () use ($stream) {
+            fpassthru($stream);
+            if (is_resource($stream)) fclose($stream);
+        }, 200, [
+            'Content-Type'        => $mime,
+            'Content-Disposition' => 'attachment; filename="' . rawurlencode($name) . '"',
+            'Cache-Control'       => 'no-cache',
+        ]);
+    }
+
     public function serve(int $id, string $filename = ''): StreamedResponse
     {
         $file = DB::table('files')->where('id', $id)->first(['ruta', 'name', 'extension']);

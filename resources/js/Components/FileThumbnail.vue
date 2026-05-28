@@ -5,13 +5,20 @@
         <!-- PDF: icon card -->
         <template v-if="isPdf">
             <a :href="fileSrc" target="_blank"
-                style="display:flex; flex-direction:column; align-items:center; justify-content:center; width:100%; height:100%;"
+                style="display:flex; flex-direction:column; align-items:center; justify-content:center; width:100%; height:calc(100% - 28px);"
                 class="hover:bg-red-50 transition-colors no-underline">
                 <i class="pi pi-file-pdf" style="font-size:3rem; color:#e3342f;" />
                 <span style="font-size:11px; margin-top:6px; padding:0 6px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:130px; color:#6b7280; text-align:center;">
                     {{ file.name || 'PDF' }}
                 </span>
             </a>
+            <div style="position:absolute; bottom:0; left:0; right:0; display:flex; justify-content:flex-end; padding:4px; background:rgba(0,0,0,0.35);">
+                <a :href="downloadUrl" title="Descargar"
+                    style="display:flex; align-items:center; justify-content:center; width:26px; height:26px; border-radius:5px; background:rgba(255,255,255,0.15); color:#fff; text-decoration:none;"
+                    @click.stop>
+                    <i class="pi pi-download" style="font-size:11px;" />
+                </a>
+            </div>
         </template>
 
         <!-- DCM (individual o serie CBCT) → toda la tarjeta es clickeable para abrir el visor -->
@@ -95,6 +102,12 @@
             <!-- Botones siempre visibles en la parte inferior -->
             <div v-if="!imgFailed"
                 style="position:absolute; bottom:0; left:0; right:0; display:flex; justify-content:flex-end; gap:4px; padding:5px; background:rgba(0,0,0,0.45);">
+                <!-- Descargar -->
+                <a :href="downloadUrl" title="Descargar"
+                    style="display:flex; align-items:center; justify-content:center; width:26px; height:26px; border-radius:5px; background:rgba(255,255,255,0.15); color:#fff; text-decoration:none;"
+                    @click.stop>
+                    <i class="pi pi-download" style="font-size:11px;" />
+                </a>
                 <!-- Herramientas: abre el visor con panel de herramientas -->
                 <button
                     @click.stop="$emit('lightbox', { ...file, url: fileSrc })"
@@ -140,8 +153,9 @@ const isDcm       = computed(() => ext.value === 'dcm' || ext.value === 'dicom')
 const isZip       = computed(() => ext.value === 'zip');
 const isProcessing = computed(() => isZip.value && props.file.ruta_dcm === 'processing');
 const isCbctSerie = computed(() => isDcm.value && !!props.file.ruta_dcm);
-const serveUrl  = computed(() => route('archivos.serve', props.file.id));
-const fileSrc   = computed(() => props.file.url || serveUrl.value);
+const serveUrl    = computed(() => route('archivos.serve', props.file.id));
+const downloadUrl = computed(() => route('archivos.download', props.file.id));
+const fileSrc     = computed(() => props.file.url || serveUrl.value);
 
 async function processZip() {
     extracting.value = true;

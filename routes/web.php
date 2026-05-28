@@ -56,6 +56,7 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/archivos/{id}/serie/info',      [FileController::class, 'serieInfo'])->name('archivos.serie');
     Route::get('/archivos/{id}/slice/{index}',   [FileController::class, 'serveSlice'])->name('archivos.slice');
     Route::get('/archivos/{id}/dcm/{filename}',  [FileController::class, 'serveDcm'])->name('archivos.dcm');
+    Route::get('/archivos/{id}/download',        [FileController::class, 'download'])->name('archivos.download');
     Route::get('/archivos/{id}/{filename}',      [FileController::class, 'serve'])->name('archivos.serve_named');
     Route::post('/archivos/{id}/extraer',        [FileController::class, 'extractSerie'])->name('archivos.extraer');
     Route::delete('/archivos/{id}',              [FileController::class, 'destroy'])->name('archivos.destroy');

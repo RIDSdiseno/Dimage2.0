@@ -133,10 +133,14 @@
                                             </div>
                                         </template>
 
-                                        <!-- Filename footer -->
-                                        <p class="px-2 py-1 text-xs text-gray-500 truncate w-36 border-t border-gray-100">
-                                            {{ f.name || 'Archivo' }}
-                                        </p>
+                                        <!-- Filename footer + download -->
+                                        <div class="flex items-center justify-between px-2 py-1 border-t border-gray-100 w-36">
+                                            <span class="text-xs text-gray-500 truncate max-w-[100px]">{{ f.name || 'Archivo' }}</span>
+                                            <a :href="route('archivos.download', f.id)" title="Descargar" @click.stop
+                                                class="text-gray-400 hover:text-blue-600 transition-colors flex-shrink-0 ml-1">
+                                                <i class="pi pi-download text-xs" />
+                                            </a>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
