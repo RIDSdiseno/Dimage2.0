@@ -9,7 +9,7 @@ class Order extends Model
     protected $table = 'orders';
 
     protected $fillable = [
-        'patient_id', 'clinic_id', 'odontologo_id', 'radiologo_id',
+        'patient_id', 'clinic_id', 'odontologo_id', 'radiologo_id', 'operator_id',
         'diagnostico', 'observaciones', 'observaciones_2', 'prioridad',
         'estadoradiologo', 'estadoodontologo', 'enviada', 'respondida',
         'sin_diagnostico', 'trx_number', 'radiologo_explicito',

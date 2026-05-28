@@ -295,7 +295,12 @@ const NavItem = defineComponent({
 const NavSub = defineComponent({
     props: { href: String, label: String },
     setup(props) {
-        const active = window.location.pathname === props.href;
+        const hrefParts = (props.href || '').split('?');
+        const hrefPath   = hrefParts[0];
+        const hrefSearch = hrefParts[1] ? '?' + hrefParts[1] : '';
+        const active = hrefSearch
+            ? window.location.pathname === hrefPath && window.location.search === hrefSearch
+            : window.location.pathname === hrefPath && !window.location.search;
         return () => h('a', {
             href: props.href,
             class: [
