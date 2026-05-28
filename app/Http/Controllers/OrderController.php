@@ -339,6 +339,12 @@ class OrderController extends Controller
             $odontologoId = $user->staff->id;
         }
 
+        // Guardar el staff_id del operador/técnico que crea la orden
+        $operatorId = null;
+        if ($user->hasAnyRole(['tecnico', 'odontologo']) && $user->staff) {
+            $operatorId = $user->staff->id;
+        }
+
         // Determinar radiólogo: explícito o auto-asignado al enviar
         $radiologoId = null;
         if ($request->filled('radiologo_id')) {
@@ -347,12 +353,13 @@ class OrderController extends Controller
             $radiologoId = $this->autoAsignarRadiologo((int) $request->clinic_id, $examenes);
         }
 
-        DB::transaction(function () use ($request, $enviar, $odontologoId, $examenes, $radiologoId): void {
+        DB::transaction(function () use ($request, $enviar, $odontologoId, $examenes, $radiologoId, $operatorId): void {
             $order = Order::create([
                 'patient_id' => $request->patient_id,
                 'clinic_id' => $request->clinic_id,
                 'odontologo_id' => $odontologoId ?: 0,
                 'radiologo_id' => $radiologoId ?: 0,
+                'operator_id' => $operatorId,
                 'diagnostico' => $request->diagnostico,
                 'observaciones' => $request->observaciones ?? '',
                 'observaciones_2' => $request->observaciones_2 ?? '',
@@ -874,8 +881,18 @@ class OrderController extends Controller
             return;
         }
 
-        // Odontólogo / Técnico → solo órdenes donde es el odontólogo asignado directamente
-        if ($user->hasAnyRole(['odontologo', 'tecnico']) && $user->staff) {
+        // Técnico/Operador → órdenes que crearon (operator_id) o donde están como odontólogo
+        if ($user->hasRole('tecnico') && $user->staff) {
+            $staffId = $user->staff->id;
+            $query->where(function ($q) use ($staffId) {
+                $q->where('orders.operator_id', $staffId)
+                  ->orWhere('orders.odontologo_id', $staffId);
+            });
+            return;
+        }
+
+        // Odontólogo → solo órdenes donde es el odontólogo asignado
+        if ($user->hasRole('odontologo') && $user->staff) {
             $query->where('orders.odontologo_id', $user->staff->id);
             return;
         }
