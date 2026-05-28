@@ -716,8 +716,15 @@ class OrderController extends Controller
         DB::transaction(function () use ($request, $order, $user, $soloAdjunto, $action): void {
             foreach ($request->respuestas as $r) {
                 $examinationId = (int) $r['id'];
-                $kindId = DB::table('examinations')->where('id', $examinationId)->value('kind_id');
+                $examRow = DB::table('examinations')
+                    ->join('kinds', 'kinds.id', '=', 'examinations.kind_id')
+                    ->where('examinations.id', $examinationId)
+                    ->select('examinations.kind_id', 'kinds.group as grupo')
+                    ->first();
+                $kindId       = $examRow ? (int) $examRow->kind_id : null;
+                $grupo        = $examRow ? (int) $examRow->grupo : 0;
                 $isPanoramica = ($kindId == self::PANORAMICA_KIND_ID);
+                $isConeBeam   = ($grupo === 4 && !$isPanoramica);
 
                 if ($isPanoramica) {
                     $answerData = ['solo_adjunto' => $soloAdjunto];
@@ -727,6 +734,13 @@ class OrderController extends Controller
                     foreach (self::PANORAMICA_DIENTES as $d) {
                         $answerData["diente_{$d}"] = $r["diente_{$d}"] ?? null;
                     }
+                } elseif ($isConeBeam) {
+                    $answerData = [
+                        'campo_1'      => $r['campo_1'] ?? '',
+                        'campo_2'      => $r['campo_2'] ?? '',
+                        'campo_3'      => $r['campo_3'] ?? '',
+                        'solo_adjunto' => $soloAdjunto,
+                    ];
                 } else {
                     $answerData = [
                         'campo_1'      => $r['texto'] ?? '',
