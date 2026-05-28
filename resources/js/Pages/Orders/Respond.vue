@@ -415,7 +415,7 @@ const submitting        = ref(false);
 const currentAction     = ref('');
 const form              = reactive({ errors: {} });
 
-function isConeBeam(ex) { return (ex?.grupo ?? 0) === 4; }
+function isConeBeam(ex) { return parseInt(ex?.grupo ?? 0) === 4; }
 
 // Auto-open campos for cone beam exams that already have answers
 const showCampos = reactive(
