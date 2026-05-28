@@ -144,8 +144,7 @@
 
                             <!-- ═══ PANORÁMICA form ═══ -->
                             <template v-if="ex.kind_id === PANORAMICA_KIND_ID">
-                                <!-- Toggle + 3 campos de informe -->
-                                <div class="mb-5 space-y-3">
+                                <div class="space-y-3">
                                     <button type="button"
                                         @click="showCampos[idx] = !showCampos[idx]"
                                         class="flex items-center gap-2 px-4 py-2 rounded-lg border text-sm font-medium transition-colors"
@@ -174,10 +173,8 @@
                                                 placeholder="Impresión diagnóstica..."
                                                 rows="3" class="w-full" autoResize />
                                         </div>
-                                    </template>
-                                </div>
 
-                                <div class="space-y-6">
+                                        <div class="space-y-6">
 
                                     <!-- Maxilar -->
                                     <div class="border border-blue-100 rounded-xl overflow-hidden">
@@ -254,6 +251,8 @@
                                             </div>
                                         </div>
                                     </div>
+                                        </div>
+                                    </template>
                                 </div>
                             </template>
 
