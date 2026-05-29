@@ -299,9 +299,9 @@ const newExamUrlTexts    = reactive({});   // urltexto para nuevos exámenes
 const submitting         = ref(false);
 const currentAction      = ref('');
 
-// Kind IDs already in this order
-const existingKindIds = props.examenes.map(e => e.kind_id);
-const yaExiste = (kindId) => existingKindIds.includes(kindId);
+// Kind IDs already in this order — computed so it updates reactively when props change
+const existingKindIds = computed(() => props.examenes.map(e => e.kind_id));
+const yaExiste = (kindId) => existingKindIds.value.includes(kindId);
 const isSelected = (id) => nuevosExamenes.value.includes(id);
 
 // ── Tabs de examen ────────────────────────────────────────────────────────
