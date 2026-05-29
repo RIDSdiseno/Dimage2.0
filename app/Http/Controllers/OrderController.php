@@ -172,7 +172,7 @@ class OrderController extends Controller
                 'respondida' => $o->respondida   ? Carbon::parse($o->respondida)->format('d/m/Y')  : '-',
                 'estado'     => self::ESTADOS[(int) $o->estadoradiologo] ?? ['label' => 'Desconocido', 'color' => 'secondary'],
                 'prioridad'  => $o->prioridad,
-                'es_mia'     => $currentStaffId && (int) $o->operator_id === (int) $currentStaffId,
+                'es_mia'     => $currentStaffId && !is_null($o->operator_id ?? null) && (int) $o->operator_id === (int) $currentStaffId,
             ];
         });
 
@@ -1028,12 +1028,16 @@ class OrderController extends Controller
         if (!$user->hasAnyRole(['tecnico', 'odontologo'])) return true; // admin/secretaria sin restricción
 
         $estado = (int) $order->estadoradiologo;
-        $estadoValido = $estado === 2 || ($estado === 4 && is_null($order->enviada));
-        if (!$estadoValido) return false;
+        if (!($estado === 2 || ($estado === 4 && is_null($order->enviada)))) return false;
 
-        // Solo puede editar si fue quien creó la orden
         $staffId = $user->staff?->id;
-        return $staffId && (int) $order->operator_id === (int) $staffId;
+        if (!$staffId) return false;
+
+        // Órdenes antiguas sin operator_id: cualquier operador válido puede editar
+        if (is_null($order->operator_id)) return true;
+
+        // Órdenes nuevas: solo el creador puede editar
+        return (int) $order->operator_id === (int) $staffId;
     }
 
     public function edit(Order $order): Response|RedirectResponse
