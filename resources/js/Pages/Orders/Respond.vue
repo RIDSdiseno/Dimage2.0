@@ -536,7 +536,8 @@ function permMandibForExam(ex)  { const t = getTeethForExam(ex); return PERM_MAN
 function tempMaxilarForExam(ex) { const t = getTeethForExam(ex); return TEMP_MAXILAR.filter(n => t.includes(n)); }
 function tempMandibForExam(ex)  { const t = getTeethForExam(ex); return TEMP_MANDIBULA.filter(n => t.includes(n)); }
 
-// Auto-open campos for exams that already have answers saved
+// showCampos: panorámica opens only when it has answers; tooth-based exams
+// open when they have answers; all other exams open by default (like legacy).
 const showCampos = reactive(
     props.examenes.map(ex => {
         const r = ex.respuesta ?? {};
@@ -547,7 +548,7 @@ const showCampos = reactive(
         if (teeth.length > 0) {
             return teeth.some(p => !!r[`diente_${p}`]) || !!r.campo_1;
         }
-        return !!(r.campo_1 || r.campo_2 || r.campo_3);
+        return true; // open by default for standard exams (cefalométrico, cone beam, etc.)
     })
 );
 
