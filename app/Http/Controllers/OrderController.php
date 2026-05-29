@@ -327,16 +327,19 @@ class OrderController extends Controller
     public function store(Request $request): RedirectResponse
     {
         $this->guardRadiologoCrear();
-        $request->validate([
+        $rules = [
             'patient_id'   => ['required', 'exists:patients,id'],
             'clinic_id'    => ['required', 'exists:clinics,id'],
             'odontologo_id'=> ['nullable', 'exists:staffs,id'],
             'radiologo_id' => ['nullable', 'exists:staffs,id'],
-            'diagnostico'  => ['required', 'min:3'],
             'prioridad'    => ['required', 'in:1 día,2 días,3 días,Normal,Urgente'],
             'examenes'     => ['required', 'array', 'min:1'],
             'action'       => ['required', 'in:guardar,enviar'],
-        ]);
+        ];
+        if (!$request->boolean('sin_diagnostico')) {
+            $rules['diagnostico'] = ['required', 'min:3'];
+        }
+        $request->validate($rules);
 
         // Validate all exam IDs in one query instead of N queries
         $examenes = array_unique(array_map('intval', (array) $request->examenes));
@@ -382,7 +385,7 @@ class OrderController extends Controller
                 'estadoradiologo' => $enviar ? 0 : 4,
                 'estadoodontologo' => $enviar ? 0 : 1,
                 'enviada' => $enviar ? now() : null,
-                'sin_diagnostico' => 0,
+                'sin_diagnostico' => $request->boolean('sin_diagnostico') ? 1 : 0,
             ]);
 
             $examOrderRows = [];

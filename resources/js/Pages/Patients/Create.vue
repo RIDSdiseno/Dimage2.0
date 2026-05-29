@@ -56,6 +56,11 @@
                             <small class="text-red-500">{{ form.errors.dateofbirth }}</small>
                         </div>
 
+                        <div v-if="puedeDerivacion" class="md:col-span-2">
+                            <label class="block text-sm font-medium mb-1">Paciente derivado de</label>
+                            <InputText v-model="form.derivado_de" placeholder="Clínica o médico derivador" class="w-full" />
+                        </div>
+
                         <div class="md:col-span-2">
                             <label class="block text-sm font-medium mb-1">Pertenece a: *</label>
                             <MultiSelect
@@ -86,7 +91,7 @@
 
 <script setup>
 import { ref, computed, watch } from 'vue';
-import { Link, useForm } from '@inertiajs/vue3';
+import { Link, useForm, usePage } from '@inertiajs/vue3';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import InputText from 'primevue/inputtext';
 import DatePicker from 'primevue/datepicker';
@@ -97,6 +102,9 @@ import Checkbox from 'primevue/checkbox';
 const props = defineProps({
     clinics: Array,
 });
+
+const page = usePage();
+const puedeDerivacion = computed(() => !!page.props.auth?.user?.puede_derivacion_clinica);
 
 const dateValue  = ref(null);
 const isPassport = ref(false);

@@ -119,8 +119,16 @@
                             <i class="pi pi-file-edit mr-2" />Diagnóstico Clínico
                         </h2>
                         <div class="space-y-4">
-                            <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-1">Diagnóstico *</label>
+                            <div v-if="canSinDiagnostico" class="flex items-center gap-2">
+                                <Checkbox v-model="form.sin_diagnostico" inputId="sin_diag_create" :binary="true" />
+                                <label for="sin_diag_create" class="text-sm text-gray-600 cursor-pointer select-none">
+                                    Examen sin diagnóstico clínico
+                                </label>
+                            </div>
+                            <div v-if="!form.sin_diagnostico">
+                                <label class="block text-sm font-medium text-gray-700 mb-1">
+                                    Diagnóstico <span v-if="!form.sin_diagnostico" class="text-red-500">*</span>
+                                </label>
                                 <Textarea
                                     v-model="form.diagnostico"
                                     rows="3"
@@ -220,17 +228,21 @@
 
 <script setup>
 import { ref, reactive, computed } from 'vue';
-import { Link, useForm, router } from '@inertiajs/vue3';
+import { Link, useForm, router, usePage } from '@inertiajs/vue3';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import { useTerms } from '@/composables/useTerms.js';
 
 const { terms, examLabel } = useTerms();
 import Button from 'primevue/button';
 import Select from 'primevue/select';
+import Checkbox from 'primevue/checkbox';
 import AutoComplete from 'primevue/autocomplete';
 import Textarea from 'primevue/textarea';
 import Message from 'primevue/message';
 import ExamCol from '@/Components/ExamCol.vue';
+
+const page = usePage();
+const canSinDiagnostico = computed(() => !!page.props.auth?.user?.puede_sin_diagnostico);
 
 const props = defineProps({
     clinics:                  Array,
@@ -240,15 +252,16 @@ const props = defineProps({
 });
 
 const form = useForm({
-    clinic_id:     null,
-    odontologo_id: null,
-    patient_id:    props.pacientePreseleccionado?.id ?? null,
-    radiologo_id:  null,
-    prioridad:     '2 días',
-    diagnostico:   '',
-    observaciones: '',
-    examenes:      [],
-    action:        'guardar',
+    clinic_id:       null,
+    odontologo_id:   null,
+    patient_id:      props.pacientePreseleccionado?.id ?? null,
+    radiologo_id:    null,
+    prioridad:       '2 días',
+    diagnostico:     '',
+    observaciones:   '',
+    sin_diagnostico: false,
+    examenes:        [],
+    action:          'guardar',
 });
 
 // Estado auxiliar
@@ -341,10 +354,11 @@ const submitAction = (action) => {
     data.append('clinic_id',      form.clinic_id);
     data.append('odontologo_id',  form.odontologo_id);
     data.append('patient_id',     form.patient_id);
-    data.append('prioridad',      form.prioridad);
-    data.append('diagnostico',    form.diagnostico);
-    data.append('observaciones',  form.observaciones);
-    data.append('action',         action);
+    data.append('prioridad',        form.prioridad);
+    data.append('diagnostico',      form.sin_diagnostico ? '' : form.diagnostico);
+    data.append('observaciones',    form.observaciones);
+    data.append('sin_diagnostico',  form.sin_diagnostico ? '1' : '0');
+    data.append('action',           action);
     if (form.radiologo_id) data.append('radiologo_id', form.radiologo_id);
 
     form.examenes.forEach(id => data.append('examenes[]', id));

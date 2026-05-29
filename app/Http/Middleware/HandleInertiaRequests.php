@@ -23,14 +23,20 @@ class HandleInertiaRequests extends Middleware
             'auth' => [
                 'user' => $request->user() ? (function () use ($request) {
                     $u     = $request->user();
-                    $staff = DB::table('staffs')->where('user_id', $u->id)->first(['puede_ver_menu_busqueda']);
+                    $staff = DB::table('staffs')->where('user_id', $u->id)->first([
+                        'puede_ver_menu_busqueda',
+                        'puede_sin_diagnostico',
+                        'puede_derivacion_clinica',
+                    ]);
                     return [
-                        'id'                 => $u->id,
-                        'name'               => $u->name,
-                        'email'              => $u->email,
-                        'type_id'            => $u->type_id,
-                        'roles'              => $u->getRoleNames(),
-                        'puede_ver_busqueda' => (bool) ($staff->puede_ver_menu_busqueda ?? false),
+                        'id'                      => $u->id,
+                        'name'                    => $u->name,
+                        'email'                   => $u->email,
+                        'type_id'                 => $u->type_id,
+                        'roles'                   => $u->getRoleNames(),
+                        'puede_ver_busqueda'      => (bool) ($staff->puede_ver_menu_busqueda   ?? false),
+                        'puede_sin_diagnostico'   => (bool) ($staff->puede_sin_diagnostico     ?? false),
+                        'puede_derivacion_clinica'=> (bool) ($staff->puede_derivacion_clinica  ?? false),
                     ];
                 })() : null,
             ],
