@@ -378,7 +378,7 @@ function eliminarArchivo(id) {
 
 function eliminarExamen(examenId) {
     if (!confirm('¿Eliminar este examen y todos sus archivos? Esta acción no se puede deshacer.')) return;
-    router.delete(route('ordenes.examenes.destroy', { order: props.order.id, examinationId: examenId }), {
+    router.delete(route('ordenes.examenes.destroy', { order: props.order.id, examination: examenId }), {
         preserveScroll: true,
     });
 }

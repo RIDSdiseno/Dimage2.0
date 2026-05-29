@@ -91,7 +91,7 @@ Route::middleware(['auth'])->group(function () {
     Route::middleware('role:1,2,4,6,11')->group(function () {
         Route::get('/ordenes/{order}/editar',                         [OrderController::class, 'edit'])->name('ordenes.edit');
         Route::post('/ordenes/{order}',                               [OrderController::class, 'update'])->name('ordenes.update');
-        Route::delete('/ordenes/{order}/examenes/{examinationId}',    [OrderController::class, 'deleteExamen'])->name('ordenes.examenes.destroy');
+        Route::delete('/ordenes/{order}/examenes/{examination}',       [OrderController::class, 'deleteExamen'])->name('ordenes.examenes.destroy');
     });
 
     // Órdenes - ver/descargar por ID: todos los autenticados
