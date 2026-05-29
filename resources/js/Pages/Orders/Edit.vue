@@ -223,7 +223,6 @@
                             icon="pi pi-send"
                             type="button"
                             :loading="submitting && currentAction === 'enviar'"
-                            :disabled="canSelectRadiologo && !form.radiologo_id"
                             @click="submitAction('enviar')"
                             style="background-color:#3452ff;border-color:#3452ff;"
                         />

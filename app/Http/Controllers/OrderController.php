@@ -93,6 +93,8 @@ class OrderController extends Controller
         $perPage = (int) $request->get('per_page', 15);
         $perPage = $perPage > 0 ? min($perPage, 100) : 15;
 
+        $currentStaffId = DB::table('staffs')->where('user_id', $user->id)->value('id');
+
         $query = Order::query()
             ->select([
                 'orders.id',
@@ -102,6 +104,7 @@ class OrderController extends Controller
                 'orders.estadoradiologo',
                 'orders.estadoodontologo',
                 'orders.prioridad',
+                'orders.operator_id',
                 'patients.name as paciente',
                 'patients.rut as rut',
                 'uc.name as clinica',
@@ -155,20 +158,21 @@ class OrderController extends Controller
             ->orderByDesc('orders.created_at')
             ->paginate($perPage, ['*'], 'page', $page);
 
-        $items = collect($orders->items())->map(function ($o) {
+        $items = collect($orders->items())->map(function ($o) use ($currentStaffId) {
             return [
-                'id' => $o->id,
-                'paciente' => $o->paciente,
-                'rut' => $o->rut,
-                'clinica' => $o->clinica,
+                'id'         => $o->id,
+                'paciente'   => $o->paciente,
+                'rut'        => $o->rut,
+                'clinica'    => $o->clinica,
                 'odontologo' => $o->odontologo ?: '-',
                 'radiologos' => $o->radiologos ?: '-',
-                'tipo_examen' => $o->tipo_examen ?: '-',
-                'created_at' => $o->created_at ? Carbon::parse($o->created_at)->format('d/m/Y') : '-',
-                'enviada' => $o->enviada ? Carbon::parse($o->enviada)->format('d/m/Y') : '-',
-                'respondida' => $o->respondida ? Carbon::parse($o->respondida)->format('d/m/Y') : '-',
-                'estado' => self::ESTADOS[(int) $o->estadoradiologo] ?? ['label' => 'Desconocido', 'color' => 'secondary'],
-                'prioridad' => $o->prioridad,
+                'tipo_examen'=> $o->tipo_examen ?: '-',
+                'created_at' => $o->created_at  ? Carbon::parse($o->created_at)->format('d/m/Y')  : '-',
+                'enviada'    => $o->enviada      ? Carbon::parse($o->enviada)->format('d/m/Y')      : '-',
+                'respondida' => $o->respondida   ? Carbon::parse($o->respondida)->format('d/m/Y')  : '-',
+                'estado'     => self::ESTADOS[(int) $o->estadoradiologo] ?? ['label' => 'Desconocido', 'color' => 'secondary'],
+                'prioridad'  => $o->prioridad,
+                'es_mia'     => $currentStaffId && (int) $o->operator_id === (int) $currentStaffId,
             ];
         });
 
@@ -1020,17 +1024,16 @@ class OrderController extends Controller
 
     private function operadorPuedeEditar(Order $order, $user): bool
     {
-        // Radiólogos nunca editan la orden base
-        if ($user->hasRole('radiologo')) {
-            return false;
-        }
-        if (!$user->hasAnyRole(['tecnico', 'odontologo'])) {
-            return true; // admin, secretaria, clínica, etc. no restringidos aquí
-        }
+        if ($user->hasRole('radiologo')) return false;
+        if (!$user->hasAnyRole(['tecnico', 'odontologo'])) return true; // admin/secretaria sin restricción
+
         $estado = (int) $order->estadoradiologo;
-        // Solo puede editar si es borrador nunca enviado (estado=4 + enviada nula)
-        // o si el radiólogo la mandó a corrección (estado=2)
-        return $estado === 2 || ($estado === 4 && is_null($order->enviada));
+        $estadoValido = $estado === 2 || ($estado === 4 && is_null($order->enviada));
+        if (!$estadoValido) return false;
+
+        // Solo puede editar si fue quien creó la orden
+        $staffId = $user->staff?->id;
+        return $staffId && (int) $order->operator_id === (int) $staffId;
     }
 
     public function edit(Order $order): Response|RedirectResponse

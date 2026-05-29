@@ -190,7 +190,8 @@ function canEditOrden(orden) {
     if (esRadiologo.value) return false;
     if (orden.estado.color === 'success') return false;
     if (!esOperador.value) return true;
-    // Operadores: solo borrador nunca enviado (secondary + sin fecha) o corrección (danger)
+    // Operadores: solo pueden editar sus propias órdenes en borrador o corrección
+    if (!orden.es_mia) return false;
     return orden.estado.color === 'danger' ||
         (orden.estado.color === 'secondary' && (!orden.enviada || orden.enviada === '-'));
 }
