@@ -744,10 +744,17 @@ class OrderController extends Controller
         DB::transaction(function () use ($request, $order, $user, $soloAdjunto, $action): void {
             foreach ($request->respuestas as $r) {
                 $examinationId = (int) $r['id'];
-                $examRow       = DB::table('examinations')->where('id', $examinationId)->first(['kind_id', 'piezas']);
+                $examRow = DB::table('examinations')
+                    ->join('kinds', 'kinds.id', '=', 'examinations.kind_id')
+                    ->where('examinations.id', $examinationId)
+                    ->select('examinations.kind_id', 'examinations.piezas', 'kinds.descipcion as descripcion')
+                    ->first();
                 $kindId        = $examRow ? (int) $examRow->kind_id : null;
                 $piezasStr     = $examRow->piezas ?? '';
+                $descripcion   = strtolower($examRow->descripcion ?? '');
                 $isPanoramica  = ($kindId === self::PANORAMICA_KIND_ID);
+                $isRetroTotal  = str_contains($descripcion, 'retroalveolar') && str_contains($descripcion, 'total');
+                $isNinoExam    = preg_match('/ni[ñn]/u', $descripcion) > 0;
 
                 if ($isPanoramica) {
                     $answerData = ['solo_adjunto' => $soloAdjunto];
@@ -762,10 +769,18 @@ class OrderController extends Controller
                         'informe'   => $r['informe_libre']     ?? '',
                         'impresion' => $r['informe_impresion'] ?? '',
                     ]);
-                } elseif (!empty($piezasStr)) {
-                    // Unitaria con piezas: guardar campo_1 general + diente_N por pieza
+                } elseif (!empty($piezasStr) || $isRetroTotal) {
+                    // Unitaria con piezas o Retroalveolar Total: guardar campo_1 + diente_N
+                    if (!empty($piezasStr)) {
+                        $teeth = array_filter(array_map('intval', explode(',', $piezasStr)));
+                    } else {
+                        $perm = [11,12,13,14,15,16,17,18,21,22,23,24,25,26,27,28,
+                                 31,32,33,34,35,36,37,38,41,42,43,44,45,46,47,48];
+                        $temp = [51,52,53,54,55,61,62,63,64,65,71,72,73,74,75,81,82,83,84,85];
+                        $teeth = $isNinoExam ? array_merge($perm, $temp) : $perm;
+                    }
                     $answerData = ['campo_1' => $r['campo_1'] ?? '', 'solo_adjunto' => $soloAdjunto];
-                    foreach (array_filter(array_map('intval', explode(',', $piezasStr))) as $p) {
+                    foreach ($teeth as $p) {
                         $answerData["diente_{$p}"] = $r["diente_{$p}"] ?? null;
                     }
                 } else {

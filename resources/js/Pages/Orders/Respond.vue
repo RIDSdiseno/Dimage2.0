@@ -263,13 +263,13 @@
                             <!-- ═══ All other exam types ═══ -->
                             <template v-else>
                                 <div class="space-y-3">
-                                    <!-- Contexto: piezas seleccionadas por el operador -->
-                                    <div v-if="ex.piezas" class="text-xs bg-blue-50 border border-blue-100 rounded-lg p-3">
+                                    <!-- Contexto: piezas seleccionadas (unitaria) -->
+                                    <div v-if="ex.piezas && !isRetroTotal(ex)" class="text-xs bg-blue-50 border border-blue-100 rounded-lg p-3">
                                         <p class="font-semibold text-blue-700 mb-1">Piezas seleccionadas:</p>
                                         <p class="text-blue-600">{{ parsePiezas(ex.piezas).map(fmtD).join(' · ') }}</p>
                                     </div>
 
-                                    <!-- Contexto: análisis solicitado (cefalométrico u otro url_texto) -->
+                                    <!-- Contexto: análisis solicitado (cefalométrico) -->
                                     <div v-if="ex.url_texto && !isConeBeam(ex)" class="text-xs bg-amber-50 border border-amber-100 rounded-lg p-3">
                                         <p class="font-semibold text-amber-700 mb-1">Análisis solicitado:</p>
                                         <p class="text-amber-600">{{ ex.url_texto }}</p>
@@ -286,16 +286,68 @@
                                     </button>
 
                                     <template v-if="showCampos[idx]">
-                                        <!-- Campos por pieza (unitaria) -->
-                                        <template v-if="ex.piezas">
-                                            <div v-for="p in parsePiezas(ex.piezas)" :key="p">
-                                                <label class="block text-sm font-medium text-gray-700 mb-1.5">
-                                                    Diente {{ fmtD(p) }}
-                                                </label>
-                                                <Textarea v-model="respuestas[idx][`diente_${p}`]"
-                                                    :placeholder="`Diagnóstico diente ${fmtD(p)}...`"
-                                                    rows="2" class="w-full" autoResize />
-                                            </div>
+                                        <!-- Campos por pieza con secciones (unitaria o total) -->
+                                        <template v-if="getTeethForExam(ex).length > 0">
+
+                                            <!-- Dientes Permanentes -->
+                                            <template v-if="permMaxilarForExam(ex).length || permMandibForExam(ex).length">
+                                                <p class="text-sm font-semibold text-gray-700 mt-2">Dientes Permanentes</p>
+
+                                                <div v-if="permMaxilarForExam(ex).length">
+                                                    <p class="text-xs font-medium text-gray-500 mb-1">Maxilar</p>
+                                                    <div class="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                                                        <div v-for="p in permMaxilarForExam(ex)" :key="p">
+                                                            <label class="block text-xs text-gray-500 mb-0.5">Diente {{ fmtD(p) }}</label>
+                                                            <Textarea v-model="respuestas[idx][`diente_${p}`]"
+                                                                :placeholder="`Dx ${fmtD(p)}`"
+                                                                rows="2" class="w-full text-xs" autoResize />
+                                                        </div>
+                                                    </div>
+                                                </div>
+
+                                                <div v-if="permMandibForExam(ex).length">
+                                                    <p class="text-xs font-medium text-gray-500 mb-1">Mandíbula</p>
+                                                    <div class="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                                                        <div v-for="p in permMandibForExam(ex)" :key="p">
+                                                            <label class="block text-xs text-gray-500 mb-0.5">Diente {{ fmtD(p) }}</label>
+                                                            <Textarea v-model="respuestas[idx][`diente_${p}`]"
+                                                                :placeholder="`Dx ${fmtD(p)}`"
+                                                                rows="2" class="w-full text-xs" autoResize />
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </template>
+
+                                            <!-- Dientes Temporales (niño) -->
+                                            <template v-if="tempMaxilarForExam(ex).length || tempMandibForExam(ex).length">
+                                                <p class="text-sm font-semibold text-gray-700 mt-2">Dientes Temporales</p>
+
+                                                <div v-if="tempMaxilarForExam(ex).length">
+                                                    <p class="text-xs font-medium text-gray-500 mb-1">Maxilar</p>
+                                                    <div class="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                                                        <div v-for="p in tempMaxilarForExam(ex)" :key="p">
+                                                            <label class="block text-xs text-gray-500 mb-0.5">Diente {{ fmtD(p) }}</label>
+                                                            <Textarea v-model="respuestas[idx][`diente_${p}`]"
+                                                                :placeholder="`Dx ${fmtD(p)}`"
+                                                                rows="2" class="w-full text-xs" autoResize />
+                                                        </div>
+                                                    </div>
+                                                </div>
+
+                                                <div v-if="tempMandibForExam(ex).length">
+                                                    <p class="text-xs font-medium text-gray-500 mb-1">Mandíbula</p>
+                                                    <div class="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                                                        <div v-for="p in tempMandibForExam(ex)" :key="p">
+                                                            <label class="block text-xs text-gray-500 mb-0.5">Diente {{ fmtD(p) }}</label>
+                                                            <Textarea v-model="respuestas[idx][`diente_${p}`]"
+                                                                :placeholder="`Dx ${fmtD(p)}`"
+                                                                rows="2" class="w-full text-xs" autoResize />
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </template>
+
+                                            <!-- Observaciones generales -->
                                             <div>
                                                 <label class="block text-sm font-medium text-gray-700 mb-1.5">Observaciones generales</label>
                                                 <Textarea v-model="respuestas[idx].campo_1"
@@ -460,8 +512,23 @@ function parsePiezas(str) {
     if (!str) return [];
     return str.split(',').map(s => parseInt(s.trim())).filter(Boolean);
 }
-function isConeBeam(ex) { return parseInt(ex?.grupo ?? 0) === 4; }
+function isConeBeam(ex)      { return parseInt(ex?.grupo ?? 0) === 4; }
 function isCefalometrico(ex) { return /cefalom/i.test(ex?.descripcion ?? ''); }
+function isRetroTotal(ex)    { return /retroalveolar/i.test(ex?.descripcion ?? '') && /total/i.test(ex?.descripcion ?? ''); }
+function isNinoExam(ex)      { return /ni[ñn]/i.test(ex?.descripcion ?? ''); }
+
+function getTeethForExam(ex) {
+    if (ex?.piezas) return parsePiezas(ex.piezas);
+    if (isRetroTotal(ex)) {
+        const perm = [...PERM_MAXILAR, ...PERM_MANDIBULA];
+        return isNinoExam(ex) ? [...perm, ...TEMP_MAXILAR, ...TEMP_MANDIBULA] : perm;
+    }
+    return [];
+}
+function permMaxilarForExam(ex) { const t = getTeethForExam(ex); return PERM_MAXILAR.filter(n => t.includes(n)); }
+function permMandibForExam(ex)  { const t = getTeethForExam(ex); return PERM_MANDIBULA.filter(n => t.includes(n)); }
+function tempMaxilarForExam(ex) { const t = getTeethForExam(ex); return TEMP_MAXILAR.filter(n => t.includes(n)); }
+function tempMandibForExam(ex)  { const t = getTeethForExam(ex); return TEMP_MANDIBULA.filter(n => t.includes(n)); }
 
 // Auto-open campos for exams that already have answers saved
 const showCampos = reactive(
@@ -470,9 +537,9 @@ const showCampos = reactive(
         if (ex.kind_id === PANORAMICA_KIND_ID) {
             return !!(r.informe_examen || r.informe_libre || r.informe_impresion);
         }
-        if (ex.piezas) {
-            const piezas = parsePiezas(ex.piezas);
-            return piezas.some(p => !!r[`diente_${p}`]) || !!r.campo_1;
+        const teeth = getTeethForExam(ex);
+        if (teeth.length > 0) {
+            return teeth.some(p => !!r[`diente_${p}`]) || !!r.campo_1;
         }
         return !!(r.campo_1 || r.campo_2 || r.campo_3);
     })
@@ -490,13 +557,16 @@ const respuestas = reactive(
             obj.informe_examen    = r.informe_examen    ?? '';
             obj.informe_libre     = r.informe_libre     ?? '';
             obj.informe_impresion = r.informe_impresion ?? '';
-        } else if (ex.piezas) {
-            obj.campo_1 = r.campo_1 ?? '';
-            parsePiezas(ex.piezas).forEach(p => { obj[`diente_${p}`] = r[`diente_${p}`] ?? ''; });
         } else {
-            obj.campo_1 = r.campo_1 ?? '';
-            obj.campo_2 = r.campo_2 ?? '';
-            obj.campo_3 = r.campo_3 ?? '';
+            const teeth = getTeethForExam(ex);
+            if (teeth.length > 0) {
+                obj.campo_1 = r.campo_1 ?? '';
+                teeth.forEach(p => { obj[`diente_${p}`] = r[`diente_${p}`] ?? ''; });
+            } else {
+                obj.campo_1 = r.campo_1 ?? '';
+                obj.campo_2 = r.campo_2 ?? '';
+                obj.campo_3 = r.campo_3 ?? '';
+            }
         }
 
         return obj;
@@ -576,15 +646,16 @@ function doSubmit(action) {
             data.append(`respuestas[${i}][informe_examen]`,    r.informe_examen    ?? '');
             data.append(`respuestas[${i}][informe_libre]`,     r.informe_libre     ?? '');
             data.append(`respuestas[${i}][informe_impresion]`, r.informe_impresion ?? '');
-        } else if (props.examenes[i].piezas) {
-            data.append(`respuestas[${i}][campo_1]`, r.campo_1 ?? '');
-            parsePiezas(props.examenes[i].piezas).forEach(p => {
-                data.append(`respuestas[${i}][diente_${p}]`, r[`diente_${p}`] ?? '');
-            });
         } else {
-            data.append(`respuestas[${i}][campo_1]`, r.campo_1 ?? '');
-            data.append(`respuestas[${i}][campo_2]`, r.campo_2 ?? '');
-            data.append(`respuestas[${i}][campo_3]`, r.campo_3 ?? '');
+            const teeth = getTeethForExam(props.examenes[i]);
+            if (teeth.length > 0) {
+                data.append(`respuestas[${i}][campo_1]`, r.campo_1 ?? '');
+                teeth.forEach(p => data.append(`respuestas[${i}][diente_${p}]`, r[`diente_${p}`] ?? ''));
+            } else {
+                data.append(`respuestas[${i}][campo_1]`, r.campo_1 ?? '');
+                data.append(`respuestas[${i}][campo_2]`, r.campo_2 ?? '');
+                data.append(`respuestas[${i}][campo_3]`, r.campo_3 ?? '');
+            }
         }
 
         uploadedFiles[i]?.forEach(file => {
