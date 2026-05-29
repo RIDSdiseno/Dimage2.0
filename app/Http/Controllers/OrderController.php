@@ -1141,7 +1141,7 @@ class OrderController extends Controller
             }
         }
 
-        DB::transaction(function () use ($request, $order, $enviar, $radiologoIdUpdate): void {
+        DB::transaction(function () use ($request, $order, $enviar, $yaEstabaEnviada, $radiologoIdUpdate): void {
             $order->update([
                 'diagnostico'      => $request->input('diagnostico') ?? $order->diagnostico,
                 'observaciones'    => $request->input('observaciones') ?? '',
