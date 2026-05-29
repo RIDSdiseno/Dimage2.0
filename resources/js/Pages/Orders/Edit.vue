@@ -241,6 +241,8 @@ import AppLayout from '@/Layouts/AppLayout.vue';
 import Button from 'primevue/button';
 import Select from 'primevue/select';
 import Textarea from 'primevue/textarea';
+import Checkbox from 'primevue/checkbox';
+import FileUpload from 'primevue/fileupload';
 import { useTerms } from '@/composables/useTerms.js';
 import EditExamCol from '@/Components/EditExamCol.vue';
 import FileThumbnail from '@/Components/FileThumbnail.vue';
