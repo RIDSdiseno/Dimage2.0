@@ -378,7 +378,7 @@ class OrderController extends Controller
                 'odontologo_id' => $odontologoId ?: 0,
                 'radiologo_id' => $radiologoId ?: 0,
                 'operator_id' => $operatorId,
-                'diagnostico' => $request->diagnostico,
+                'diagnostico' => $request->boolean('sin_diagnostico') ? 'Sin diagnóstico' : ($request->diagnostico ?? ''),
                 'observaciones' => $request->observaciones ?? '',
                 'observaciones_2' => $request->observaciones_2 ?? '',
                 'prioridad' => $request->prioridad,
@@ -1146,7 +1146,7 @@ class OrderController extends Controller
 
         DB::transaction(function () use ($request, $order, $enviar, $yaEstabaEnviada, $radiologoIdUpdate): void {
             $order->update([
-                'diagnostico'      => $request->input('diagnostico') ?? $order->diagnostico,
+                'diagnostico'      => $request->boolean('sin_diagnostico') ? 'Sin diagnóstico' : ($request->input('diagnostico') ?? $order->diagnostico),
                 'observaciones'    => $request->input('observaciones') ?? '',
                 'prioridad'        => $request->input('prioridad'),
                 'sin_diagnostico'  => $request->boolean('sin_diagnostico') ? 1 : 0,
