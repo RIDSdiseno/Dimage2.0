@@ -652,6 +652,8 @@ class OrderController extends Controller
                 'kinds.id as kind_id',
                 'kinds.descipcion as descripcion',
                 'kinds.group as grupo',
+                'examinations.piezas',
+                'examinations.url_texto',
             ])
             ->get()
             ->map(function ($e) {
@@ -679,6 +681,8 @@ class OrderController extends Controller
                     'kind_id'     => $e->kind_id,
                     'descripcion' => $e->descripcion,
                     'grupo'       => $e->grupo,
+                    'piezas'      => $e->piezas,
+                    'url_texto'   => $e->url_texto,
                     'archivos'    => $archivos,
                     'respuesta'   => $respuestaArr,
                 ];
@@ -740,7 +744,9 @@ class OrderController extends Controller
         DB::transaction(function () use ($request, $order, $user, $soloAdjunto, $action): void {
             foreach ($request->respuestas as $r) {
                 $examinationId = (int) $r['id'];
-                $kindId        = (int) DB::table('examinations')->where('id', $examinationId)->value('kind_id');
+                $examRow       = DB::table('examinations')->where('id', $examinationId)->first(['kind_id', 'piezas']);
+                $kindId        = $examRow ? (int) $examRow->kind_id : null;
+                $piezasStr     = $examRow->piezas ?? '';
                 $isPanoramica  = ($kindId === self::PANORAMICA_KIND_ID);
 
                 if ($isPanoramica) {
@@ -756,6 +762,12 @@ class OrderController extends Controller
                         'informe'   => $r['informe_libre']     ?? '',
                         'impresion' => $r['informe_impresion'] ?? '',
                     ]);
+                } elseif (!empty($piezasStr)) {
+                    // Unitaria con piezas: guardar campo_1 general + diente_N por pieza
+                    $answerData = ['campo_1' => $r['campo_1'] ?? '', 'solo_adjunto' => $soloAdjunto];
+                    foreach (array_filter(array_map('intval', explode(',', $piezasStr))) as $p) {
+                        $answerData["diente_{$p}"] = $r["diente_{$p}"] ?? null;
+                    }
                 } else {
                     $answerData = [
                         'campo_1'      => $r['campo_1'] ?? '',
@@ -1519,9 +1531,14 @@ class OrderController extends Controller
     {
         $radiologos = DB::table('staffs')
             ->join('clinic_staff', 'clinic_staff.staff_id', '=', 'staffs.id')
+            ->join('users', 'users.id', '=', 'staffs.user_id')
             ->where('clinic_staff.clinic_id', $clinicId)
-            ->where('staffs.type_staff', 3)
+            ->where(function ($q) {
+                $q->where('staffs.type_staff', 3)->orWhere('users.type_id', 5);
+            })
+            ->where('staffs.activo', 1)
             ->pluck('staffs.id')
+            ->unique()
             ->toArray();
 
         if (empty($radiologos)) {
