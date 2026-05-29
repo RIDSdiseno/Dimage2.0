@@ -37,8 +37,8 @@
                     <a :href="route('ordenes.zip', order.id)">
                         <Button label="ZIP" icon="pi pi-download" size="small" severity="secondary" />
                     </a>
-                    <a :href="route('ordenes.pdf', order.id)" target="_blank" v-if="order.estadoradiologo == 1">
-                        <Button label="PDF" icon="pi pi-file-pdf" size="small" severity="danger" />
+                    <a :href="route('ordenes.pdf', order.id)" target="_blank">
+                        <Button label="Imprimir" icon="pi pi-print" size="small" severity="secondary" />
                     </a>
                     <Link v-if="puedeResponder" :href="route('ordenes.responder', order.id)">
                         <Button label="Responder" icon="pi pi-send" size="small"
@@ -297,8 +297,8 @@
                     <a :href="route('ordenes.zip', order.id)">
                         <Button label="Descargar ZIP" icon="pi pi-download" severity="secondary" />
                     </a>
-                    <a :href="route('ordenes.pdf', order.id)" target="_blank" v-if="order.estadoradiologo == 1">
-                        <Button label="Generar PDF" icon="pi pi-file-pdf" severity="danger" />
+                    <a :href="route('ordenes.pdf', order.id)" target="_blank">
+                        <Button label="Imprimir" icon="pi pi-print" severity="secondary" />
                     </a>
                     <Link v-if="puedeResponder" :href="route('ordenes.responder', order.id)">
                         <Button label="Responder Orden" icon="pi pi-send"
