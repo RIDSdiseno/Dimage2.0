@@ -1,5 +1,26 @@
 <template>
     <AppLayout title="Pacientes">
+
+        <!-- Dialog: crear orden para nuevo paciente -->
+        <Dialog v-model:visible="showOrdenDialog" modal
+            header="Paciente creado exitosamente"
+            :style="{ width: '420px' }"
+            :closable="true"
+            @hide="showOrdenDialog = false">
+            <div class="text-gray-700 text-sm mb-5">
+                <i class="pi pi-check-circle text-green-500 text-2xl block mb-3" />
+                ¿Deseas crear una orden radiográfica para
+                <span class="font-semibold">{{ nuevoPacienteNombre }}</span>?
+            </div>
+            <div class="flex justify-end gap-3">
+                <Button label="No, gracias" severity="secondary" @click="showOrdenDialog = false" />
+                <a :href="route('ordenes.create') + '?patient_id=' + nuevoPacienteId">
+                    <Button label="Crear Orden" icon="pi pi-file-edit"
+                        style="background-color:#3452ff;border-color:#3452ff;" />
+                </a>
+            </div>
+        </Dialog>
+
         <div class="p-6">
 
             <!-- Header -->
@@ -100,9 +121,10 @@
 
 <script setup>
 import { ref, onMounted } from 'vue';
-import { Link, router } from '@inertiajs/vue3';
+import { Link, router, usePage } from '@inertiajs/vue3';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import Button from 'primevue/button';
+import Dialog from 'primevue/dialog';
 import InputText from 'primevue/inputtext';
 import IconField from 'primevue/iconfield';
 import InputIcon from 'primevue/inputicon';
@@ -110,6 +132,11 @@ import Paginator from 'primevue/paginator';
 import { useTerms } from '@/composables/useTerms.js';
 
 const { terms } = useTerms();
+const page = usePage();
+
+const nuevoPacienteId     = ref(page.props.flash?.nuevo_paciente_id ?? null);
+const nuevoPacienteNombre = ref(page.props.flash?.nuevo_paciente_nombre ?? '');
+const showOrdenDialog     = ref(!!nuevoPacienteId.value);
 
 const patients    = ref([]);
 const loading     = ref(true);

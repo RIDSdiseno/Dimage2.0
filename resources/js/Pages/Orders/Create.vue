@@ -233,15 +233,16 @@ import Message from 'primevue/message';
 import ExamCol from '@/Components/ExamCol.vue';
 
 const props = defineProps({
-    clinics:             Array,
-    examTypes:           Array,
-    canSelectRadiologo:  { type: Boolean, default: true },
+    clinics:                  Array,
+    examTypes:                Array,
+    canSelectRadiologo:       { type: Boolean, default: true },
+    pacientePreseleccionado:  { type: Object, default: null },
 });
 
 const form = useForm({
     clinic_id:     null,
     odontologo_id: null,
-    patient_id:    null,
+    patient_id:    props.pacientePreseleccionado?.id ?? null,
     radiologo_id:  null,
     prioridad:     '2 días',
     diagnostico:   '',
@@ -253,7 +254,11 @@ const form = useForm({
 // Estado auxiliar
 const odontologos         = ref([]);
 const radiologos          = ref([]);
-const patientSearch       = ref('');
+const patientSearch       = ref(
+    props.pacientePreseleccionado
+        ? `${props.pacientePreseleccionado.name} (${props.pacientePreseleccionado.rut})`
+        : ''
+);
 const patientSuggestions  = ref([]);
 const examFiles           = reactive({});
 const examPiezas          = reactive({});

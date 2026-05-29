@@ -40,9 +40,11 @@ class HandleInertiaRequests extends Middleware
                 'location' => $request->url(),
             ],
             'flash' => [
-                'success'    => $request->session()->get('success'),
-                'error'      => $request->session()->get('error'),
-                'nueva_key'  => $request->session()->get('nueva_key'),
+                'success'               => $request->session()->get('success'),
+                'error'                 => $request->session()->get('error'),
+                'nueva_key'             => $request->session()->get('nueva_key'),
+                'nuevo_paciente_id'     => $request->session()->get('nuevo_paciente_id'),
+                'nuevo_paciente_nombre' => $request->session()->get('nuevo_paciente_nombre'),
             ],
         ];
     }

@@ -211,7 +211,7 @@ class OrderController extends Controller
         return $tabs;
     }
 
-    public function create(): Response
+    public function create(Request $request): Response
     {
         $this->guardRadiologoCrear();
         $user = Auth::user();
@@ -225,10 +225,19 @@ class OrderController extends Controller
             })
             ->values();
 
+        $pacientePreseleccionado = null;
+        if ($request->filled('patient_id')) {
+            $p = DB::table('patients')->where('id', (int) $request->patient_id)->first(['id', 'name', 'rut']);
+            if ($p) {
+                $pacientePreseleccionado = ['id' => $p->id, 'name' => $p->name, 'rut' => $p->rut];
+            }
+        }
+
         return Inertia::render('Orders/Create', [
-            'examTypes'          => $this->buildExamTabs(),
-            'clinics'            => $clinics,
-            'canSelectRadiologo' => $this->canSelectRadiologo($user),
+            'examTypes'               => $this->buildExamTabs(),
+            'clinics'                 => $clinics,
+            'canSelectRadiologo'      => $this->canSelectRadiologo($user),
+            'pacientePreseleccionado' => $pacientePreseleccionado,
         ]);
     }
 

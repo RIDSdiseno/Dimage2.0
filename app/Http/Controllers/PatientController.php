@@ -89,8 +89,10 @@ class PatientController extends Controller
             return back()->withErrors(['rut' => 'El RUT ya está registrado en esta red.']);
         }
 
-        DB::transaction(function () use ($request) {
-            $patient = Patient::create([
+        $newPatient = null;
+
+        DB::transaction(function () use ($request, &$newPatient) {
+            $newPatient = Patient::create([
                 'name'        => trim($request->name),
                 'email'       => trim($request->email),
                 'rut'         => strtolower(trim($request->rut)),
@@ -104,11 +106,13 @@ class PatientController extends Controller
                 'long'        => $request->long ?? '',
             ]);
 
-            $patient->clinics()->sync($request->clinics);
+            $newPatient->clinics()->sync($request->clinics);
         });
 
         return redirect()->route('pacientes.index')
-            ->with('success', '¡Paciente creado con éxito!');
+            ->with('success', '¡Paciente creado con éxito!')
+            ->with('nuevo_paciente_id',     $newPatient->id)
+            ->with('nuevo_paciente_nombre', $newPatient->name);
     }
 
     public function edit(Patient $patient)
