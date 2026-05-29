@@ -1317,8 +1317,11 @@ class OrderController extends Controller
 
     public function deleteExamen(Order $order, int $examinationId): \Illuminate\Http\RedirectResponse
     {
-        if ((int) (Auth::user()->type_id ?? 0) !== 1) {
-            abort(403);
+        $user    = Auth::user();
+        $isAdmin = (int) ($user->type_id ?? 0) === 1;
+
+        if (!$isAdmin && !$this->operadorPuedeEditar($order, $user)) {
+            abort(403, 'Sin permiso para eliminar exámenes de esta orden.');
         }
 
         if ((int) $order->estadoradiologo === 1) {

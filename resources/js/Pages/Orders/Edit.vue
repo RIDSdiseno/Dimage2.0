@@ -115,11 +115,19 @@
                         <div class="space-y-4">
                             <div v-for="examen in examenes" :key="examen.id"
                                 class="border border-gray-200 rounded-lg p-4">
-                                <p class="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-2">
-                                    <i class="pi pi-file-edit text-blue-500" />
-                                    {{ examLabel(examen.descripcion) }}
-                                    <span class="text-xs text-gray-400 font-normal">({{ examen.archivos.length }} archivo(s))</span>
-                                </p>
+                                <div class="flex items-center justify-between mb-3">
+                                    <p class="text-sm font-semibold text-gray-700 flex items-center gap-2">
+                                        <i class="pi pi-file-edit text-blue-500" />
+                                        {{ examLabel(examen.descripcion) }}
+                                        <span class="text-xs text-gray-400 font-normal">({{ examen.archivos.length }} archivo(s))</span>
+                                    </p>
+                                    <button type="button"
+                                        @click="eliminarExamen(examen.id)"
+                                        class="flex items-center gap-1 px-2 py-1 text-xs text-red-500 hover:text-red-700 hover:bg-red-50 rounded-lg transition-colors"
+                                        title="Eliminar examen">
+                                        <i class="pi pi-trash text-xs" /> Eliminar
+                                    </button>
+                                </div>
 
                                 <!-- Archivos actuales -->
                                 <div v-if="examen.archivos.length" class="flex flex-wrap gap-3 mb-3">
@@ -366,5 +374,12 @@ const submitAction = (action) => {
 function eliminarArchivo(id) {
     if (!confirm('¿Eliminar este archivo?')) return;
     router.delete(route('archivos.destroy', id), { preserveScroll: true });
+}
+
+function eliminarExamen(examenId) {
+    if (!confirm('¿Eliminar este examen y todos sus archivos? Esta acción no se puede deshacer.')) return;
+    router.delete(route('ordenes.examenes.destroy', { order: props.order.id, examinationId: examenId }), {
+        preserveScroll: true,
+    });
 }
 </script>

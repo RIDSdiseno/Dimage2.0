@@ -271,8 +271,14 @@
 
                                     <!-- Contexto: análisis solicitado (cefalométrico) -->
                                     <div v-if="ex.url_texto && !isConeBeam(ex)" class="text-xs bg-amber-50 border border-amber-100 rounded-lg p-3">
-                                        <p class="font-semibold text-amber-700 mb-1">Análisis solicitado:</p>
-                                        <p class="text-amber-600">{{ ex.url_texto }}</p>
+                                        <p class="font-semibold text-amber-700 mb-2">Análisis solicitado:</p>
+                                        <ul class="space-y-1">
+                                            <li v-for="(item, i) in ex.url_texto.split(',')" :key="i"
+                                                class="text-amber-700 flex items-start gap-1.5">
+                                                <i class="pi pi-check-circle text-amber-500 mt-0.5 flex-shrink-0" style="font-size:11px;" />
+                                                <span>{{ item.trim() }}</span>
+                                            </li>
+                                        </ul>
                                     </div>
 
                                     <button type="button"

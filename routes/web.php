@@ -89,8 +89,9 @@ Route::middleware(['auth'])->group(function () {
 
     // Órdenes - editar: admin, secretaria, clínica, odontólogo, técnico
     Route::middleware('role:1,2,4,6,11')->group(function () {
-        Route::get('/ordenes/{order}/editar', [OrderController::class, 'edit'])->name('ordenes.edit');
-        Route::post('/ordenes/{order}',       [OrderController::class, 'update'])->name('ordenes.update');
+        Route::get('/ordenes/{order}/editar',                         [OrderController::class, 'edit'])->name('ordenes.edit');
+        Route::post('/ordenes/{order}',                               [OrderController::class, 'update'])->name('ordenes.update');
+        Route::delete('/ordenes/{order}/examenes/{examinationId}',    [OrderController::class, 'deleteExamen'])->name('ordenes.examenes.destroy');
     });
 
     // Órdenes - ver/descargar por ID: todos los autenticados
@@ -107,10 +108,7 @@ Route::middleware(['auth'])->group(function () {
     // Órdenes - eliminar orden (admin only, extra check inside controller)
     Route::delete('/ordenes/{order}', [OrderController::class, 'destroy'])->name('ordenes.destroy');
 
-    // Órdenes - eliminar examen: solo admin
-    Route::middleware('role:1')->group(function () {
-        Route::delete('/ordenes/{order}/examenes/{examination}', [OrderController::class, 'deleteExamen'])->name('ordenes.examenes.destroy');
-    });
+    // (ordenes.examenes.destroy ahora está en el grupo role:1,2,4,6,11 de editar)
 
     // Admin - admin y secretaria
     Route::middleware('role:1,2')->prefix('admin')->name('admin.')->group(function () {
