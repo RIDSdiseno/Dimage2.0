@@ -230,8 +230,10 @@
                     <NavGroup label="Ordenes Radiográficas" icon="pi-file-edit" icon-color="#0284c7"
                         :open="menus.ordenes" @toggle="menus.ordenes = !menus.ordenes">
                         <NavSub v-if="!isRadiologo" href="/ordenes/crear" label="Crear Orden" />
+                        <NavSub v-if="isRadiologo" href="/ordenes" label="Mis Órdenes" />
                         <NavSub v-if="isOperador" href="/ordenes?mis=1" label="Mis Órdenes" />
-                        <NavSub href="/ordenes" :label="isRadiologo ? 'Mis Órdenes' : 'Buscar Orden'" />
+                        <NavSub v-if="!isOperador && !isRadiologo" href="/ordenes" label="Buscar Orden" />
+                        <NavSub v-if="isOperador && puedeBuscar" href="/ordenes" label="Buscar Orden" />
                     </NavGroup>
 
                     <!-- Excel (admin, secretaria y radiólogo) -->
@@ -393,6 +395,8 @@ const isOperador = computed(() => {
     const user = page.props.auth?.user;
     return user?.roles?.some(r => ['tecnico', 'odontologo'].includes(r)) || [4, 6, 11].includes(user?.type_id);
 });
+
+const puedeBuscar = computed(() => !!page.props.auth?.user?.puede_ver_busqueda);
 
 const isActive = (p) => window.location.pathname === p;
 

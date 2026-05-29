@@ -3,6 +3,7 @@
 namespace App\Http\Middleware;
 
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Inertia\Middleware;
 use Tighten\Ziggy\Ziggy;
 
@@ -20,13 +21,18 @@ class HandleInertiaRequests extends Middleware
         return [
             ...parent::share($request),
             'auth' => [
-                'user' => $request->user() ? [
-                    'id'      => $request->user()->id,
-                    'name'    => $request->user()->name,
-                    'email'   => $request->user()->email,
-                    'type_id' => $request->user()->type_id,
-                    'roles'   => $request->user()->getRoleNames(),
-                ] : null,
+                'user' => $request->user() ? (function () use ($request) {
+                    $u     = $request->user();
+                    $staff = DB::table('staffs')->where('user_id', $u->id)->first(['puede_ver_menu_busqueda']);
+                    return [
+                        'id'                 => $u->id,
+                        'name'               => $u->name,
+                        'email'              => $u->email,
+                        'type_id'            => $u->type_id,
+                        'roles'              => $u->getRoleNames(),
+                        'puede_ver_busqueda' => (bool) ($staff->puede_ver_menu_busqueda ?? false),
+                    ];
+                })() : null,
             ],
             'region' => $request->session()->get('region', 'CL'),
             'ziggy' => fn () => [
