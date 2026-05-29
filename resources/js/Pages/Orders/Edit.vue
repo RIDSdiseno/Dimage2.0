@@ -123,12 +123,18 @@
 
                                 <!-- Archivos actuales -->
                                 <div v-if="examen.archivos.length" class="flex flex-wrap gap-3 mb-3">
-                                    <FileThumbnail
-                                        v-for="f in examen.archivos"
-                                        :key="f.id"
-                                        :file="f"
-                                        :showDicom="examen.grupo === 4"
-                                        @lightbox="openLightbox" />
+                                    <div v-for="f in examen.archivos" :key="f.id" class="relative group">
+                                        <FileThumbnail
+                                            :file="f"
+                                            :showDicom="examen.grupo === 4"
+                                            @lightbox="openLightbox" />
+                                        <button type="button"
+                                            @click="eliminarArchivo(f.id)"
+                                            class="absolute top-1 right-1 hidden group-hover:flex items-center justify-center w-5 h-5 rounded-full bg-red-500 text-white shadow"
+                                            title="Eliminar archivo">
+                                            <i class="pi pi-times text-xs" />
+                                        </button>
+                                    </div>
                                 </div>
                                 <p v-else class="text-xs text-gray-400 italic mb-3">Sin archivos adjuntos.</p>
 
@@ -343,4 +349,9 @@ const submitAction = (action) => {
         onFinish: () => { submitting.value = false; },
     });
 };
+
+function eliminarArchivo(id) {
+    if (!confirm('¿Eliminar este archivo?')) return;
+    router.delete(route('archivos.destroy', id), { preserveScroll: true });
+}
 </script>

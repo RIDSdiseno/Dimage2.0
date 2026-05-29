@@ -16,9 +16,6 @@ class FileController extends Controller
     public function destroy(int $id): RedirectResponse
     {
         $user = Auth::user();
-        if ((int) ($user->type_id ?? 0) !== 1) {
-            abort(403, 'Solo administradores pueden eliminar archivos.');
-        }
 
         $file = DB::table('files')->where('id', $id)->first(['id', 'ruta', 'examination_id']);
         abort_if(!$file, 404);
@@ -30,8 +27,15 @@ class FileController extends Controller
         $order = DB::table('orders')->where('id', $orderId)->first(['estadoradiologo']);
         abort_if(!$order, 404);
 
-        if ((int) $order->estadoradiologo === 1) {
+        $isAdmin = (int) ($user->type_id ?? 0) === 1;
+        $estado  = (int) $order->estadoradiologo;
+
+        if ($estado === 1 && !$isAdmin) {
             return back()->with('error', 'No se puede eliminar archivos de una orden ya respondida.');
+        }
+
+        if (!$isAdmin && !in_array($estado, [0, 2, 4])) {
+            abort(403, 'Sin permiso para eliminar archivos en este estado.');
         }
 
         if ($file->ruta) {

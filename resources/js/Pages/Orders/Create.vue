@@ -323,11 +323,13 @@ const submitAction = (action) => {
     form.action = action;
     fileError.value = null;
 
-    // Verificar que cada examen seleccionado tenga al menos un archivo
-    const sinArchivo = form.examenes.filter(id => !examFiles[id]?.length);
-    if (sinArchivo.length > 0) {
-        fileError.value = 'Debes adjuntar al menos una imagen o archivo en cada examen seleccionado.';
-        return;
+    // Al enviar a informar, verificar que cada examen tenga al menos un archivo
+    if (action === 'enviar') {
+        const sinArchivo = form.examenes.filter(id => !examFiles[id]?.length);
+        if (sinArchivo.length > 0) {
+            fileError.value = 'Debes adjuntar al menos una imagen o archivo en cada examen seleccionado antes de enviar.';
+            return;
+        }
     }
 
     const data = new FormData();

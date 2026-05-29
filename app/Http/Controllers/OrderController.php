@@ -1163,8 +1163,12 @@ class OrderController extends Controller
             // Agregar nuevos exámenes
             foreach ((array) $request->input('nuevos_examenes', []) as $kindId) {
                 if (!$kindId) continue;
-                $examination = Examination::create(['kind_id' => $kindId, 'order_id' => $order->id]);
-                DB::table('examination_order')->insert(['order_id' => $order->id, 'examination_id' => $examination->id]);
+                $examinationId = DB::table('examinations')->insertGetId([
+                    'kind_id'    => (int) $kindId,
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ]);
+                DB::table('examination_order')->insert(['order_id' => $order->id, 'examination_id' => $examinationId]);
                 $fileKey = "archivos_nuevo_{$kindId}";
                 if (!$request->hasFile($fileKey)) continue;
                 $kindGroup = $this->kindGroupFor((int) $kindId);
@@ -1172,7 +1176,7 @@ class OrderController extends Controller
                     if (!$file) continue;
                     $stored = $this->storeUploadedFile($file, $order->id, $kindGroup);
                     DB::table('files')->insert([
-                        'ruta' => $stored['ruta'], 'examination_id' => $examination->id,
+                        'ruta' => $stored['ruta'], 'examination_id' => $examinationId,
                         'name' => $stored['name'], 'type_id' => 0,
                         'extension' => $stored['extension'],
                         'ruta_dcm' => $stored['ruta_dcm'], 'nombre_dcm' => null,
