@@ -189,14 +189,16 @@
                                 <div v-for="col in editIntraoralesCols" :key="col.group_id">
                                     <EditExamCol :col="col" :nuevosExamenes="nuevosExamenes" :newExamFiles="newExamFiles"
                                         :yaExiste="yaExiste" :examLabel="examLabel" :stripSuffix="stripSuffix"
-                                        @toggle="nuevosExamenes = $event" @files="onNewFilesSelect" />
+                                        @toggle="nuevosExamenes = $event" @files="onNewFilesSelect"
+                                        @piezas="onNewPiezasSelect" @urltext="onNewUrlTextChange" />
                                 </div>
                             </div>
                             <div v-else class="grid grid-cols-1 md:grid-cols-2 gap-6">
                                 <div v-for="col in editExtraoralesCols" :key="col.group_id">
                                     <EditExamCol :col="col" :nuevosExamenes="nuevosExamenes" :newExamFiles="newExamFiles"
                                         :yaExiste="yaExiste" :examLabel="examLabel" :stripSuffix="(l) => l"
-                                        @toggle="nuevosExamenes = $event" @files="onNewFilesSelect" />
+                                        @toggle="nuevosExamenes = $event" @files="onNewFilesSelect"
+                                        @piezas="onNewPiezasSelect" @urltext="onNewUrlTextChange" />
                                 </div>
                             </div>
                         </div>
@@ -284,6 +286,8 @@ const loadingRadiologos  = ref(false);
 const nuevosExamenes     = ref([]);
 const newFiles           = reactive({});   // archivos nuevos para exámenes existentes
 const newExamFiles       = reactive({});   // archivos para nuevos exámenes
+const newExamPiezas      = reactive({});   // piezas para nuevos exámenes
+const newExamUrlTexts    = reactive({});   // urltexto para nuevos exámenes
 const submitting         = ref(false);
 const currentAction      = ref('');
 
@@ -302,8 +306,10 @@ const editExtraoralesCols = computed(() => props.examTypes?.extraorales ?? []);
 const stripSuffix = (label) =>
     label.replace(/ Adulto$/i, '').replace(/ Niño$/i, '');
 
-const onFilesSelect    = (examId, e) => { newFiles[examId] = e.files; };
-const onNewFilesSelect = (kindId, e) => { newExamFiles[kindId] = e.files; };
+const onFilesSelect        = (examId, e) => { newFiles[examId] = e.files; };
+const onNewFilesSelect     = (kindId, e) => { newExamFiles[kindId] = e.files; };
+const onNewPiezasSelect    = (kindId, p) => { newExamPiezas[kindId] = p; };
+const onNewUrlTextChange   = (kindId, v) => { newExamUrlTexts[kindId] = v; };
 
 // Load odontólogos y radiólogos for current clinic
 onMounted(async () => {
@@ -343,6 +349,12 @@ const submitAction = (action) => {
     nuevosExamenes.value.forEach(id => data.append('nuevos_examenes[]', id));
     Object.entries(newExamFiles).forEach(([kindId, files]) => {
         files.forEach(file => data.append(`archivos_nuevo_${kindId}[]`, file));
+    });
+    Object.entries(newExamPiezas).forEach(([kindId, piezas]) => {
+        if (piezas?.length) piezas.forEach(p => data.append(`piezas_nuevo_${kindId}[]`, p));
+    });
+    Object.entries(newExamUrlTexts).forEach(([kindId, val]) => {
+        if (val) data.append(`url_nuevo_${kindId}`, val);
     });
 
     router.post(route('ordenes.update', props.order.id), data, {
