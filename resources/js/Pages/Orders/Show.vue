@@ -250,12 +250,40 @@
                             <p class="text-xs font-semibold text-green-700 uppercase tracking-wide mb-2 flex items-center gap-1">
                                 <i class="pi pi-check-circle text-xs" /> Informe del Radiólogo
                             </p>
-                            <div v-if="examen.respuesta.texto"
-                                class="bg-green-50 border border-green-100 rounded-lg p-4 text-sm text-gray-700 whitespace-pre-wrap leading-relaxed">
-                                {{ examen.respuesta.texto }}
-                            </div>
-                            <p v-else-if="examen.respuesta.solo_adjunto"
-                                class="text-xs text-gray-400 italic">Informe adjunto como archivo.</p>
+                            <div v-if="examen.respuesta.solo_adjunto && !examen.respuesta.campo_1 && !examen.respuesta.campo_2"
+                                class="text-xs text-gray-400 italic mb-2">Informe adjunto como archivo.</div>
+
+                            <!-- Panorámica: informe_examen, informe_libre, informe_impresion -->
+                            <template v-if="examen.respuesta.informe_examen || examen.respuesta.informe_libre || examen.respuesta.informe_impresion">
+                                <div v-if="examen.respuesta.informe_examen" class="mb-3">
+                                    <p class="text-xs font-semibold text-gray-500 uppercase mb-1">Examen</p>
+                                    <div class="bg-green-50 border border-green-100 rounded-lg p-3 text-sm text-gray-700 whitespace-pre-wrap">{{ examen.respuesta.informe_examen }}</div>
+                                </div>
+                                <div v-if="examen.respuesta.informe_libre" class="mb-3">
+                                    <p class="text-xs font-semibold text-gray-500 uppercase mb-1">Informe</p>
+                                    <div class="bg-green-50 border border-green-100 rounded-lg p-3 text-sm text-gray-700 whitespace-pre-wrap">{{ examen.respuesta.informe_libre }}</div>
+                                </div>
+                                <div v-if="examen.respuesta.informe_impresion" class="mb-3">
+                                    <p class="text-xs font-semibold text-gray-500 uppercase mb-1">Impresión Diagnóstica</p>
+                                    <div class="bg-green-50 border border-green-100 rounded-lg p-3 text-sm text-gray-700 whitespace-pre-wrap">{{ examen.respuesta.informe_impresion }}</div>
+                                </div>
+                            </template>
+
+                            <!-- Estándar: campo_1 (Examen), campo_2 (Informe), campo_3 (Impresión) -->
+                            <template v-else>
+                                <div v-if="examen.respuesta.campo_1" class="mb-3">
+                                    <p class="text-xs font-semibold text-gray-500 uppercase mb-1">Examen</p>
+                                    <div class="bg-green-50 border border-green-100 rounded-lg p-3 text-sm text-gray-700 whitespace-pre-wrap">{{ examen.respuesta.campo_1 }}</div>
+                                </div>
+                                <div v-if="examen.respuesta.campo_2" class="mb-3">
+                                    <p class="text-xs font-semibold text-gray-500 uppercase mb-1">Informe</p>
+                                    <div class="bg-green-50 border border-green-100 rounded-lg p-3 text-sm text-gray-700 whitespace-pre-wrap">{{ examen.respuesta.campo_2 }}</div>
+                                </div>
+                                <div v-if="examen.respuesta.campo_3" class="mb-3">
+                                    <p class="text-xs font-semibold text-gray-500 uppercase mb-1">Impresión Diagnóstica</p>
+                                    <div class="bg-green-50 border border-green-100 rounded-lg p-3 text-sm text-gray-700 whitespace-pre-wrap">{{ examen.respuesta.campo_3 }}</div>
+                                </div>
+                            </template>
 
                             <!-- Archivos del informe -->
                             <div v-if="examen.archivos_informe?.length" class="mt-4">

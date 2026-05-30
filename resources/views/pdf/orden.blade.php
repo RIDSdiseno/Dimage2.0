@@ -57,7 +57,7 @@
     </div>
     <div class="col">
       <div class="label">Radiólogo(s)</div>
-      <div class="value">{{ implode(', ', $radiologos->toArray()) }}</div>
+      <div class="value">{{ $radiologos->pluck('name')->implode(', ') }}</div>
     </div>
   </div>
   <div class="grid-2" style="margin-top:-1px;">
@@ -73,17 +73,54 @@
 
   <h2 style="margin-top:16px;">Resultados por Examen</h2>
   @foreach($examenes as $ex)
+  @php $r = $ex['respuesta'] ?? null; @endphp
   <div class="exam-box">
     <div class="exam-header">{{ $ex['descripcion'] }}</div>
     <div class="exam-body">
-      @if($ex['respuesta'])
-        <p>{{ $ex['respuesta'] }}</p>
+      @if($r)
+        @if(!empty($r['informe_examen']) || !empty($r['informe_libre']) || !empty($r['informe_impresion']))
+          @if(!empty($r['informe_examen']))
+            <p><strong>Examen:</strong></p><p>{{ $r['informe_examen'] }}</p>
+          @endif
+          @if(!empty($r['informe_libre']))
+            <p style="margin-top:6px;"><strong>Informe:</strong></p><p>{{ $r['informe_libre'] }}</p>
+          @endif
+          @if(!empty($r['informe_impresion']))
+            <p style="margin-top:6px;"><strong>Impresión Diagnóstica:</strong></p><p>{{ $r['informe_impresion'] }}</p>
+          @endif
+        @else
+          @if(!empty($r['campo_1']))
+            <p><strong>Examen:</strong></p><p>{{ $r['campo_1'] }}</p>
+          @endif
+          @if(!empty($r['campo_2']))
+            <p style="margin-top:6px;"><strong>Informe:</strong></p><p>{{ $r['campo_2'] }}</p>
+          @endif
+          @if(!empty($r['campo_3']))
+            <p style="margin-top:6px;"><strong>Impresión Diagnóstica:</strong></p><p>{{ $r['campo_3'] }}</p>
+          @endif
+        @endif
       @else
         <p style="color:#94a3b8;font-style:italic;">Sin informe.</p>
       @endif
     </div>
   </div>
   @endforeach
+
+  @if($radiologos->isNotEmpty())
+  <div style="margin-top:24px; border-top:1px solid #e2e8f0; padding-top:16px;">
+    <h2>Firma(s) del Radiólogo</h2>
+    @foreach($radiologos as $rad)
+    <div style="display:inline-block; margin-right:40px; text-align:center; margin-top:8px;">
+      @if(!empty($rad->firma))
+        <img src="{{ $rad->firma }}" style="height:60px; object-fit:contain; display:block; margin-bottom:4px;" />
+      @else
+        <div style="height:60px; width:150px; border-bottom:1px solid #94a3b8; margin-bottom:4px;"></div>
+      @endif
+      <p style="font-size:10px; color:#1e293b; font-weight:600;">{{ $rad->name }}</p>
+    </div>
+    @endforeach
+  </div>
+  @endif
 
   <div class="footer">
     Documento generado por DIMAGE · {{ now()->format('d/m/Y H:i') }}

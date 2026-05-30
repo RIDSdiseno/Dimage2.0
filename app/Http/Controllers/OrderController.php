@@ -533,9 +533,21 @@ class OrderController extends Controller
                     ->get(['id', 'name', 'ruta', 'ruta_dcm', 'nombre_dcm', 'extension', 'file_size'])
                     ->map(fn ($f) => array_merge((array) $f, ['url' => $this->signedUrl($f->ruta)]));
 
-                $respuesta = DB::table('answers')
+                $ans = DB::table('answers')
                     ->where('examination_id', $e->examination_id)
-                    ->first(['id', 'campo_1', 'solo_adjunto']);
+                    ->first();
+
+                $respuesta = null;
+                if ($ans) {
+                    $respuesta = (array) $ans;
+                    $respuesta['solo_adjunto'] = (bool) ($ans->solo_adjunto ?? false);
+                    if ($e->kind_id == self::PANORAMICA_KIND_ID && !empty($ans->content)) {
+                        $c = json_decode($ans->content, true) ?? [];
+                        $respuesta['informe_examen']    = $c['examen']    ?? '';
+                        $respuesta['informe_libre']     = $c['informe']   ?? '';
+                        $respuesta['informe_impresion'] = $c['impresion'] ?? '';
+                    }
+                }
 
                 $archivosInforme = DB::table('files')
                     ->where('examination_id', $e->examination_id)
@@ -552,10 +564,7 @@ class OrderController extends Controller
                     'piezas'      => $e->piezas,
                     'archivos'    => $archivos,
                     'archivos_informe' => $archivosInforme,
-                    'respuesta'   => $respuesta ? [
-                        'texto'       => $respuesta->campo_1,
-                        'solo_adjunto'=> (bool) $respuesta->solo_adjunto,
-                    ] : null,
+                    'respuesta'   => $respuesta,
                 ];
             });
 
@@ -898,11 +907,23 @@ class OrderController extends Controller
             ->join('examination_order', 'examination_order.examination_id', '=', 'examinations.id')
             ->join('kinds', 'kinds.id', '=', 'examinations.kind_id')
             ->where('examination_order.order_id', $order->id)
-            ->select(['examinations.id as examination_id', 'kinds.descipcion as descripcion'])
+            ->select(['examinations.id as examination_id', 'kinds.id as kind_id', 'kinds.descipcion as descripcion', 'examinations.piezas'])
             ->get()
             ->map(function ($e) {
-                $respuesta = DB::table('answers')->where('examination_id', $e->examination_id)->first();
-                return ['descripcion' => $e->descripcion, 'respuesta' => $respuesta?->campo_1 ?? ''];
+                $ans = DB::table('answers')->where('examination_id', $e->examination_id)->first();
+                $respuesta = $ans ? (array) $ans : null;
+                if ($respuesta && $e->kind_id == self::PANORAMICA_KIND_ID && !empty($ans->content)) {
+                    $c = json_decode($ans->content, true) ?? [];
+                    $respuesta['informe_examen']    = $c['examen']    ?? '';
+                    $respuesta['informe_libre']     = $c['informe']   ?? '';
+                    $respuesta['informe_impresion'] = $c['impresion'] ?? '';
+                }
+                return [
+                    'descripcion' => $e->descripcion,
+                    'kind_id'     => $e->kind_id,
+                    'piezas'      => $e->piezas,
+                    'respuesta'   => $respuesta,
+                ];
             });
 
         $paciente  = DB::table('patients')->where('id', $order->patient_id)->first();
@@ -912,7 +933,8 @@ class OrderController extends Controller
             ->join('staffs as s', 's.id', '=', 'ose.staff_id')
             ->join('users as u', 'u.id', '=', 's.user_id')
             ->where('ose.order_id', $order->id)
-            ->pluck('u.name');
+            ->select('u.name', 's.firma')
+            ->get();
 
         $pdf = \Barryvdh\DomPDF\Facade\Pdf::loadView('pdf.orden', [
             'order'      => $order,
