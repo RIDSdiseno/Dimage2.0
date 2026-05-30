@@ -211,9 +211,9 @@
                         </div>
                         <div class="flex items-center gap-2">
                             <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium"
-                                :class="examen.respuesta ? 'bg-green-500 text-white' : 'bg-gray-600 text-gray-200'">
-                                <i :class="examen.respuesta ? 'pi pi-check' : 'pi pi-clock'" class="text-xs" />
-                                {{ examen.respuesta ? 'Informado' : 'Pendiente' }}
+                                :class="order.estadoradiologo == 1 && examen.respuesta ? 'bg-green-500 text-white' : 'bg-gray-600 text-gray-200'">
+                                <i :class="order.estadoradiologo == 1 && examen.respuesta ? 'pi pi-check' : 'pi pi-clock'" class="text-xs" />
+                                {{ order.estadoradiologo == 1 && examen.respuesta ? 'Informado' : 'Pendiente' }}
                             </span>
                             <button v-if="esAdmin && order.estadoradiologo != 1"
                                 @click="eliminarExamen(examen.id)"
