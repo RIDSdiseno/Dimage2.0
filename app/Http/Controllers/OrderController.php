@@ -1096,7 +1096,7 @@ class OrderController extends Controller
             ->join('examination_order', 'examination_order.examination_id', '=', 'examinations.id')
             ->join('kinds', 'kinds.id', '=', 'examinations.kind_id')
             ->where('examination_order.order_id', $order->id)
-            ->select(['examinations.id as id', 'kinds.id as kind_id', 'kinds.descipcion as descripcion', 'kinds.group as grupo'])
+            ->select(['examinations.id as id', 'kinds.id as kind_id', 'kinds.descipcion as descripcion', 'kinds.group as grupo', 'examinations.piezas'])
             ->get()
             ->map(function ($e) {
                 $archivos = DB::table('files')
@@ -1111,7 +1111,7 @@ class OrderController extends Controller
                         'nombre_dcm'=> $f->nombre_dcm,
                         'url'       => $this->signedUrl($f->ruta),
                     ]);
-                return ['id' => $e->id, 'kind_id' => $e->kind_id, 'descripcion' => $e->descripcion, 'grupo' => (int) $e->grupo, 'archivos' => $archivos];
+                return ['id' => $e->id, 'kind_id' => $e->kind_id, 'descripcion' => $e->descripcion, 'grupo' => (int) $e->grupo, 'archivos' => $archivos, 'piezas' => $e->piezas];
             });
 
         $radiologoId = DB::table('order_staff_exam')->where('order_id', $order->id)->value('staff_id');
@@ -1156,18 +1156,23 @@ class OrderController extends Controller
         $enviar          = $request->input('action') === 'enviar';
         $yaEstabaEnviada = ! is_null($order->enviada); // capturar ANTES del update
 
-        // Auto-asignar radiólogo al enviar si no hay uno asignado
+        // Determinar radiólogo al enviar
         $radiologoIdUpdate = null;
         if ($enviar) {
             $existingStaffId = DB::table('order_staff_exam')->where('order_id', $order->id)->value('staff_id');
             if (! $existingStaffId) {
-                $kindIds = DB::table('examinations')
-                    ->join('examination_order', 'examination_order.examination_id', '=', 'examinations.id')
-                    ->where('examination_order.order_id', $order->id)
-                    ->pluck('examinations.kind_id')
-                    ->map('intval')
-                    ->toArray();
-                $radiologoIdUpdate = $this->autoAsignarRadiologo((int) $order->clinic_id, $kindIds);
+                if ($this->canSelectRadiologo($user) && $request->filled('radiologo_id')) {
+                    // Operador con permiso seleccionó radiólogo → respetar su elección
+                    $radiologoIdUpdate = (int) $request->input('radiologo_id');
+                } else {
+                    $kindIds = DB::table('examinations')
+                        ->join('examination_order', 'examination_order.examination_id', '=', 'examinations.id')
+                        ->where('examination_order.order_id', $order->id)
+                        ->pluck('examinations.kind_id')
+                        ->map('intval')
+                        ->toArray();
+                    $radiologoIdUpdate = $this->autoAsignarRadiologo((int) $order->clinic_id, $kindIds);
+                }
             }
         }
 
@@ -1204,6 +1209,14 @@ class OrderController extends Controller
                         'created_at' => now(), 'updated_at' => now(),
                     ]);
                 }
+            }
+
+            // Actualizar piezas de exámenes Unitaria existentes
+            foreach ($existingIds as $examinationId) {
+                if ($request->input("piezas_existente_{$examinationId}_update") !== '1') continue;
+                $piezasRaw = (array) $request->input("piezas_existente_{$examinationId}", []);
+                $piezasStr = !empty($piezasRaw) ? implode(',', array_map('intval', $piezasRaw)) : null;
+                DB::table('examinations')->where('id', $examinationId)->update(['piezas' => $piezasStr, 'updated_at' => now()]);
             }
 
             // Agregar nuevos exámenes
@@ -1247,8 +1260,8 @@ class OrderController extends Controller
                 ]);
             }
 
-            // Actualizar radiólogo (solo admin)
-            if ($request->filled('radiologo_id') && Auth::user()->type_id === 1) {
+            // Actualizar radiólogo (admin o con permiso de seleccionar)
+            if ($request->filled('radiologo_id') && ($this->canSelectRadiologo($user) || Auth::user()->type_id === 1)) {
                 $rid = (int) $request->input('radiologo_id');
                 $existing = DB::table('order_staff_exam')->where('order_id', $order->id)->exists();
                 if ($existing) {

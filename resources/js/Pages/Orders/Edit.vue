@@ -146,6 +146,92 @@
                                 </div>
                                 <p v-else class="text-xs text-gray-400 italic mb-3">Sin archivos adjuntos.</p>
 
+                                <!-- Piezas dentales para Retroalveolar Unitaria -->
+                                <div v-if="examen.descripcion?.toLowerCase().includes('unitaria')" class="mt-3 border-t border-gray-100 pt-3">
+                                    <p class="text-xs font-medium text-gray-600 mb-2">Piezas dentales:</p>
+                                    <div class="text-xs">
+                                        <template v-if="!isNino(examen.descripcion)">
+                                            <p class="font-semibold text-gray-700 mb-1">Dientes Permanentes</p>
+                                            <p class="text-gray-500 mb-0.5">Maxilar</p>
+                                            <div class="flex flex-wrap gap-x-1 gap-y-1 mb-1">
+                                                <template v-for="n in [18,17,16,15,14,13,12,11]" :key="n">
+                                                    <label class="flex items-center gap-0.5 cursor-pointer select-none">
+                                                        <input type="checkbox" :checked="isPiezaSelectedExisting(examen.id, n)"
+                                                            @change="togglePiezaExisting(examen.id, n)" class="accent-blue-600 cursor-pointer" />
+                                                        <span>{{ toDot(n) }}</span>
+                                                    </label>
+                                                </template>
+                                                <span class="text-gray-400 mx-0.5">|</span>
+                                                <template v-for="n in [21,22,23,24,25,26,27,28]" :key="n">
+                                                    <label class="flex items-center gap-0.5 cursor-pointer select-none">
+                                                        <input type="checkbox" :checked="isPiezaSelectedExisting(examen.id, n)"
+                                                            @change="togglePiezaExisting(examen.id, n)" class="accent-blue-600 cursor-pointer" />
+                                                        <span>{{ toDot(n) }}</span>
+                                                    </label>
+                                                </template>
+                                            </div>
+                                            <p class="text-gray-500 mb-0.5">Mandíbula</p>
+                                            <div class="flex flex-wrap gap-x-1 gap-y-1 mb-2">
+                                                <template v-for="n in [48,47,46,45,44,43,42,41]" :key="n">
+                                                    <label class="flex items-center gap-0.5 cursor-pointer select-none">
+                                                        <input type="checkbox" :checked="isPiezaSelectedExisting(examen.id, n)"
+                                                            @change="togglePiezaExisting(examen.id, n)" class="accent-blue-600 cursor-pointer" />
+                                                        <span>{{ toDot(n) }}</span>
+                                                    </label>
+                                                </template>
+                                                <span class="text-gray-400 mx-0.5">|</span>
+                                                <template v-for="n in [31,32,33,34,35,36,37,38]" :key="n">
+                                                    <label class="flex items-center gap-0.5 cursor-pointer select-none">
+                                                        <input type="checkbox" :checked="isPiezaSelectedExisting(examen.id, n)"
+                                                            @change="togglePiezaExisting(examen.id, n)" class="accent-blue-600 cursor-pointer" />
+                                                        <span>{{ toDot(n) }}</span>
+                                                    </label>
+                                                </template>
+                                            </div>
+                                        </template>
+                                        <p class="font-semibold text-gray-700 mb-1">Dientes Temporales</p>
+                                        <p class="text-gray-500 mb-0.5">Maxilar</p>
+                                        <div class="flex flex-wrap gap-x-1 gap-y-1 mb-1">
+                                            <template v-for="n in [55,54,53,52,51]" :key="n">
+                                                <label class="flex items-center gap-0.5 cursor-pointer select-none">
+                                                    <input type="checkbox" :checked="isPiezaSelectedExisting(examen.id, n)"
+                                                        @change="togglePiezaExisting(examen.id, n)" class="accent-blue-600 cursor-pointer" />
+                                                    <span>{{ toDot(n) }}</span>
+                                                </label>
+                                            </template>
+                                            <span class="text-gray-400 mx-0.5">|</span>
+                                            <template v-for="n in [61,62,63,64,65]" :key="n">
+                                                <label class="flex items-center gap-0.5 cursor-pointer select-none">
+                                                    <input type="checkbox" :checked="isPiezaSelectedExisting(examen.id, n)"
+                                                        @change="togglePiezaExisting(examen.id, n)" class="accent-blue-600 cursor-pointer" />
+                                                    <span>{{ toDot(n) }}</span>
+                                                </label>
+                                            </template>
+                                        </div>
+                                        <p class="text-gray-500 mb-0.5">Mandíbula</p>
+                                        <div class="flex flex-wrap gap-x-1 gap-y-1 mb-1">
+                                            <template v-for="n in [85,84,83,82,81]" :key="n">
+                                                <label class="flex items-center gap-0.5 cursor-pointer select-none">
+                                                    <input type="checkbox" :checked="isPiezaSelectedExisting(examen.id, n)"
+                                                        @change="togglePiezaExisting(examen.id, n)" class="accent-blue-600 cursor-pointer" />
+                                                    <span>{{ toDot(n) }}</span>
+                                                </label>
+                                            </template>
+                                            <span class="text-gray-400 mx-0.5">|</span>
+                                            <template v-for="n in [71,72,73,74,75]" :key="n">
+                                                <label class="flex items-center gap-0.5 cursor-pointer select-none">
+                                                    <input type="checkbox" :checked="isPiezaSelectedExisting(examen.id, n)"
+                                                        @change="togglePiezaExisting(examen.id, n)" class="accent-blue-600 cursor-pointer" />
+                                                    <span>{{ toDot(n) }}</span>
+                                                </label>
+                                            </template>
+                                        </div>
+                                        <p v-if="existingExamPiezas[examen.id]?.length" class="text-blue-600 mt-1">
+                                            Seleccionadas: {{ existingExamPiezas[examen.id].map(toDot).join(', ') }}
+                                        </p>
+                                    </div>
+                                </div>
+
                                 <!-- Subir más archivos a este examen -->
                                 <div>
                                     <label class="block text-xs text-gray-500 mb-1">Agregar más imágenes:</label>
@@ -292,10 +378,11 @@ const radiologos         = ref([]);
 const loadingOdontologos = ref(false);
 const loadingRadiologos  = ref(false);
 const nuevosExamenes     = ref([]);
-const newFiles           = reactive({});   // archivos nuevos para exámenes existentes
-const newExamFiles       = reactive({});   // archivos para nuevos exámenes
-const newExamPiezas      = reactive({});   // piezas para nuevos exámenes
-const newExamUrlTexts    = reactive({});   // urltexto para nuevos exámenes
+const newFiles            = reactive({});   // archivos nuevos para exámenes existentes
+const newExamFiles        = reactive({});   // archivos para nuevos exámenes
+const newExamPiezas       = reactive({});   // piezas para nuevos exámenes
+const newExamUrlTexts     = reactive({});   // urltexto para nuevos exámenes
+const existingExamPiezas  = reactive({});   // piezas editadas en exámenes existentes unitaria
 const submitting         = ref(false);
 const currentAction      = ref('');
 
@@ -314,10 +401,31 @@ const editExtraoralesCols = computed(() => props.examTypes?.extraorales ?? []);
 const stripSuffix = (label) =>
     label.replace(/ Adulto$/i, '').replace(/ Niño$/i, '');
 
+function isUnitaria(desc) { return desc?.toLowerCase().includes('unitaria'); }
+function isNino(desc)     { return /niño|nino/i.test(desc); }
+function toDot(n)         { const s = String(n); return s[0] + '.' + s[1]; }
+
+function isPiezaSelectedExisting(examId, n) {
+    return existingExamPiezas[examId]?.includes(n) ?? false;
+}
+
+function togglePiezaExisting(examId, n) {
+    if (!existingExamPiezas[examId]) existingExamPiezas[examId] = [];
+    const idx = existingExamPiezas[examId].indexOf(n);
+    if (idx >= 0) existingExamPiezas[examId].splice(idx, 1);
+    else existingExamPiezas[examId].push(n);
+}
+
 const onFilesSelect        = (examId, e) => { newFiles[examId] = e.files; };
 const onNewFilesSelect     = (kindId, e) => { newExamFiles[kindId] = e.files; };
 const onNewPiezasSelect    = (kindId, p) => { newExamPiezas[kindId] = p; };
 const onNewUrlTextChange   = (kindId, v) => { newExamUrlTexts[kindId] = v; };
+
+// Inicializar piezas de exámenes Unitaria existentes
+props.examenes.forEach(e => {
+    if (!isUnitaria(e.descripcion)) return;
+    existingExamPiezas[e.id] = e.piezas ? e.piezas.split(',').map(Number) : [];
+});
 
 // Load odontólogos y radiólogos for current clinic
 onMounted(async () => {
@@ -351,6 +459,12 @@ const submitAction = (action) => {
     // Archivos nuevos para exámenes existentes
     Object.entries(newFiles).forEach(([examId, files]) => {
         files.forEach(file => data.append(`archivos_${examId}[]`, file));
+    });
+
+    // Piezas de exámenes Unitaria existentes
+    Object.entries(existingExamPiezas).forEach(([examId, piezas]) => {
+        data.append(`piezas_existente_${examId}_update`, '1');
+        if (piezas?.length) piezas.forEach(p => data.append(`piezas_existente_${examId}[]`, p));
     });
 
     // Nuevos exámenes
