@@ -607,7 +607,7 @@ class OrderController extends Controller
         $esRadiologoAsignado = $user->hasRole('radiologo') && $radiologos->contains('id', $user->staff?->id);
         $puedeResponder = $user->hasAnyRole(['radiologo', 'admin', 'secretaria'])
             && (
-                (int) $order->estadoradiologo === 0 ||
+                in_array((int) $order->estadoradiologo, [0, 4]) ||
                 ($esRadiologoAsignado && (int) $order->estadoradiologo === 1)
             )
             && ($user->hasAnyRole(['admin', 'secretaria']) || $esRadiologoAsignado);
