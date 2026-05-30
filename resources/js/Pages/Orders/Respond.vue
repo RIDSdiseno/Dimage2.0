@@ -536,19 +536,24 @@ function permMandibForExam(ex)  { const t = getTeethForExam(ex); return PERM_MAN
 function tempMaxilarForExam(ex) { const t = getTeethForExam(ex); return TEMP_MAXILAR.filter(n => t.includes(n)); }
 function tempMandibForExam(ex)  { const t = getTeethForExam(ex); return TEMP_MANDIBULA.filter(n => t.includes(n)); }
 
-// showCampos: panorámica opens only when it has answers; tooth-based exams
-// open when they have answers; all other exams open by default (like legacy).
+// showCampos:
+//  - Panorámica: closed unless has existing answers
+//  - Retroalveolar (unitaria or total): always closed by default, open only if has existing answers
+//  - All other exams: open by default
 const showCampos = reactive(
     props.examenes.map(ex => {
         const r = ex.respuesta ?? {};
         if (ex.kind_id === PANORAMICA_KIND_ID) {
             return !!(r.informe_examen || r.informe_libre || r.informe_impresion);
         }
-        const teeth = getTeethForExam(ex);
-        if (teeth.length > 0) {
-            return teeth.some(p => !!r[`diente_${p}`]) || !!r.campo_1;
+        if (/retroalveolar/i.test(ex?.descripcion ?? '')) {
+            const teeth = getTeethForExam(ex);
+            if (teeth.length > 0) {
+                return teeth.some(p => !!r[`diente_${p}`]) || !!r.campo_1;
+            }
+            return !!(r.campo_1 || r.campo_2 || r.campo_3);
         }
-        return true; // open by default for standard exams (cefalométrico, cone beam, etc.)
+        return true; // open by default for standard exams (cefalométrico, cone beam, bite wing, etc.)
     })
 );
 
