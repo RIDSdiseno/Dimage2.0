@@ -74,19 +74,11 @@ class HomeController extends Controller
         }
 
         if ($user->hasAnyRole(['odontologo', 'tecnico']) && $user->staff) {
-            $clinicIds = DB::table('clinic_staff')
-                ->where('staff_id', $user->staff->id)
-                ->pluck('clinic_id');
-            if ($clinicIds->isEmpty()) {
-                $query->whereRaw('1 = 0');
-                return;
-            }
-            $holdingIds = DB::table('clinics')
-                ->whereIn('id', $clinicIds)
-                ->pluck('holding_id')
-                ->filter()->unique();
-            $query->join('clinics as _c', '_c.id', '=', 'o.clinic_id')
-                  ->whereIn('_c.holding_id', $holdingIds);
+            $staffId = (int) $user->staff->id;
+            $query->where(function ($q) use ($staffId) {
+                $q->where('o.operator_id', $staffId)
+                  ->orWhere('o.odontologo_id', $staffId);
+            });
             return;
         }
 
