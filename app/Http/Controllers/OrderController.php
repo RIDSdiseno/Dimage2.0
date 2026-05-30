@@ -946,7 +946,7 @@ class OrderController extends Controller
 
         if ($user->hasRole('clinica') && $user->clinic) {
             return Clinic::with('user')
-                ->where('holding_id', $user->clinic->holding_id)
+                ->where('id', $user->clinic->id)
                 ->orderBy('id')
                 ->get();
         }
@@ -1041,19 +1041,7 @@ class OrderController extends Controller
                 return;
             }
 
-            $holdingIds = Clinic::query()
-                ->whereIn('id', $clinicIds->all())
-                ->pluck('holding_id')
-                ->filter()
-                ->unique()
-                ->values();
-
-            if ($holdingIds->isEmpty()) {
-                $query->whereRaw('1 = 0');
-                return;
-            }
-
-            $query->whereIn('c.holding_id', $holdingIds->all());
+            $query->whereIn('c.id', $clinicIds->all());
             return;
         }
 
