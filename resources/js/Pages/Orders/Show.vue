@@ -246,66 +246,88 @@
                         </div>
 
                         <!-- Informe del radiólogo -->
-                        <div v-if="examen.respuesta" class="border-t border-gray-100 pt-4">
-                            <p class="text-xs font-semibold text-green-700 uppercase tracking-wide mb-2 flex items-center gap-1">
-                                <i class="pi pi-check-circle text-xs" /> Informe del Radiólogo
-                            </p>
-                            <div v-if="examen.respuesta.solo_adjunto && !examen.respuesta.campo_1 && !examen.respuesta.campo_2"
-                                class="text-xs text-gray-400 italic mb-2">Informe adjunto como archivo.</div>
+                        <div class="border-t border-gray-100 pt-4">
+                            <div v-if="examen.respuesta">
+                                <!-- Toggle button -->
+                                <button type="button"
+                                    @click="showInforme[idx] = !showInforme[idx]"
+                                    class="flex items-center gap-2 text-xs font-semibold text-green-700 uppercase tracking-wide mb-2 hover:text-green-800 transition-colors">
+                                    <i class="pi pi-check-circle text-xs" />
+                                    {{ showInforme[idx] ? 'Ocultar informe del radiólogo' : 'Mostrar informe del radiólogo' }}
+                                    <i :class="showInforme[idx] ? 'pi pi-chevron-up' : 'pi pi-chevron-down'" class="text-xs" />
+                                </button>
 
-                            <!-- Panorámica: informe_examen, informe_libre, informe_impresion -->
-                            <template v-if="examen.respuesta.informe_examen || examen.respuesta.informe_libre || examen.respuesta.informe_impresion">
-                                <div v-if="examen.respuesta.informe_examen" class="mb-3">
-                                    <p class="text-xs font-semibold text-gray-500 uppercase mb-1">Examen</p>
-                                    <div class="bg-green-50 border border-green-100 rounded-lg p-3 text-sm text-gray-700 whitespace-pre-wrap">{{ examen.respuesta.informe_examen }}</div>
-                                </div>
-                                <div v-if="examen.respuesta.informe_libre" class="mb-3">
-                                    <p class="text-xs font-semibold text-gray-500 uppercase mb-1">Informe</p>
-                                    <div class="bg-green-50 border border-green-100 rounded-lg p-3 text-sm text-gray-700 whitespace-pre-wrap">{{ examen.respuesta.informe_libre }}</div>
-                                </div>
-                                <div v-if="examen.respuesta.informe_impresion" class="mb-3">
-                                    <p class="text-xs font-semibold text-gray-500 uppercase mb-1">Impresión Diagnóstica</p>
-                                    <div class="bg-green-50 border border-green-100 rounded-lg p-3 text-sm text-gray-700 whitespace-pre-wrap">{{ examen.respuesta.informe_impresion }}</div>
-                                </div>
-                            </template>
+                                <template v-if="showInforme[idx]">
+                                    <div v-if="examen.respuesta.solo_adjunto && !examen.respuesta.campo_1 && !examen.respuesta.campo_2"
+                                        class="text-xs text-gray-400 italic mb-2">Informe adjunto como archivo.</div>
 
-                            <!-- Estándar: campo_1 (Examen), campo_2 (Informe), campo_3 (Impresión) -->
-                            <template v-else>
-                                <div v-if="examen.respuesta.campo_1" class="mb-3">
-                                    <p class="text-xs font-semibold text-gray-500 uppercase mb-1">Examen</p>
-                                    <div class="bg-green-50 border border-green-100 rounded-lg p-3 text-sm text-gray-700 whitespace-pre-wrap">{{ examen.respuesta.campo_1 }}</div>
-                                </div>
-                                <div v-if="examen.respuesta.campo_2" class="mb-3">
-                                    <p class="text-xs font-semibold text-gray-500 uppercase mb-1">Informe</p>
-                                    <div class="bg-green-50 border border-green-100 rounded-lg p-3 text-sm text-gray-700 whitespace-pre-wrap">{{ examen.respuesta.campo_2 }}</div>
-                                </div>
-                                <div v-if="examen.respuesta.campo_3" class="mb-3">
-                                    <p class="text-xs font-semibold text-gray-500 uppercase mb-1">Impresión Diagnóstica</p>
-                                    <div class="bg-green-50 border border-green-100 rounded-lg p-3 text-sm text-gray-700 whitespace-pre-wrap">{{ examen.respuesta.campo_3 }}</div>
-                                </div>
-                            </template>
+                                    <!-- Panorámica -->
+                                    <template v-if="examen.respuesta.informe_examen || examen.respuesta.informe_libre || examen.respuesta.informe_impresion">
+                                        <div v-if="examen.respuesta.informe_examen" class="mb-3">
+                                            <p class="text-xs font-semibold text-gray-500 uppercase mb-1">Examen</p>
+                                            <div class="bg-green-50 border border-green-100 rounded-lg p-3 text-sm text-gray-700 whitespace-pre-wrap">{{ examen.respuesta.informe_examen }}</div>
+                                        </div>
+                                        <div v-if="examen.respuesta.informe_libre" class="mb-3">
+                                            <p class="text-xs font-semibold text-gray-500 uppercase mb-1">Informe</p>
+                                            <div class="bg-green-50 border border-green-100 rounded-lg p-3 text-sm text-gray-700 whitespace-pre-wrap">{{ examen.respuesta.informe_libre }}</div>
+                                        </div>
+                                        <div v-if="examen.respuesta.informe_impresion" class="mb-3">
+                                            <p class="text-xs font-semibold text-gray-500 uppercase mb-1">Impresión Diagnóstica</p>
+                                            <div class="bg-green-50 border border-green-100 rounded-lg p-3 text-sm text-gray-700 whitespace-pre-wrap">{{ examen.respuesta.informe_impresion }}</div>
+                                        </div>
+                                    </template>
 
-                            <!-- Archivos del informe -->
-                            <div v-if="examen.archivos_informe?.length" class="mt-4">
-                                <p class="text-xs text-gray-500 mb-2">Archivos adjuntos del informe:</p>
-                                <div class="flex flex-wrap gap-3">
-                                    <FileThumbnail
-                                        v-for="f in examen.archivos_informe" :key="f.id"
-                                        :file="f"
-                                        @lightbox="openLightbox"
-                                        :showDicom="examen.grupo === 4" />
-                                </div>
+                                    <!-- Estándar: campo_1/2/3 -->
+                                    <template v-else>
+                                        <div v-if="examen.respuesta.campo_1" class="mb-3">
+                                            <p class="text-xs font-semibold text-gray-500 uppercase mb-1">Examen</p>
+                                            <div class="bg-green-50 border border-green-100 rounded-lg p-3 text-sm text-gray-700 whitespace-pre-wrap">{{ examen.respuesta.campo_1 }}</div>
+                                        </div>
+                                        <div v-if="examen.respuesta.campo_2" class="mb-3">
+                                            <p class="text-xs font-semibold text-gray-500 uppercase mb-1">Informe</p>
+                                            <div class="bg-green-50 border border-green-100 rounded-lg p-3 text-sm text-gray-700 whitespace-pre-wrap">{{ examen.respuesta.campo_2 }}</div>
+                                        </div>
+                                        <div v-if="examen.respuesta.campo_3" class="mb-3">
+                                            <p class="text-xs font-semibold text-gray-500 uppercase mb-1">Impresión Diagnóstica</p>
+                                            <div class="bg-green-50 border border-green-100 rounded-lg p-3 text-sm text-gray-700 whitespace-pre-wrap">{{ examen.respuesta.campo_3 }}</div>
+                                        </div>
+                                    </template>
+
+                                    <!-- Dientes (retro/tooth-based) -->
+                                    <template v-if="getDientesConContenido(examen.respuesta).length">
+                                        <p class="text-xs font-semibold text-gray-500 uppercase mb-2 mt-2">Por pieza dental</p>
+                                        <div class="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                                            <div v-for="d in getDientesConContenido(examen.respuesta)" :key="d.n"
+                                                class="bg-green-50 border border-green-100 rounded-lg p-2">
+                                                <p class="text-xs font-semibold text-green-700 mb-0.5">Diente {{ toDot(d.n) }}</p>
+                                                <p class="text-xs text-gray-700 whitespace-pre-wrap">{{ d.val }}</p>
+                                            </div>
+                                        </div>
+                                    </template>
+
+                                    <!-- Archivos del informe -->
+                                    <div v-if="examen.archivos_informe?.length" class="mt-4">
+                                        <p class="text-xs text-gray-500 mb-2">Archivos adjuntos del informe:</p>
+                                        <div class="flex flex-wrap gap-3">
+                                            <FileThumbnail
+                                                v-for="f in examen.archivos_informe" :key="f.id"
+                                                :file="f"
+                                                @lightbox="openLightbox"
+                                                :showDicom="examen.grupo === 4" />
+                                        </div>
+                                    </div>
+
+                                    <a v-if="examen.url_texto" :href="examen.url_texto" target="_blank"
+                                        class="inline-flex items-center gap-1 text-xs text-blue-600 mt-2 hover:underline">
+                                        <i class="pi pi-external-link text-xs" /> Ver informe externo
+                                    </a>
+                                </template>
                             </div>
-
-                            <a v-if="examen.url_texto" :href="examen.url_texto" target="_blank"
-                                class="inline-flex items-center gap-1 text-xs text-blue-600 mt-2 hover:underline">
-                                <i class="pi pi-external-link text-xs" /> Ver informe externo
-                            </a>
-                        </div>
-                        <div v-else class="border-t border-gray-100 pt-4">
-                            <p class="text-xs text-gray-400 italic flex items-center gap-1">
-                                <i class="pi pi-clock text-xs" /> Sin informe aún
-                            </p>
+                            <div v-else>
+                                <p class="text-xs text-gray-400 italic flex items-center gap-1">
+                                    <i class="pi pi-clock text-xs" /> Sin informe aún
+                                </p>
+                            </div>
                         </div>
 
                     </div>
@@ -365,6 +387,22 @@ const props = defineProps({
 });
 
 const lightbox = reactive({ open: false, src: '', name: '' });
+
+const showInforme = reactive(
+    Object.fromEntries((props.examenes ?? []).map((_, i) => [i, false]))
+);
+
+const DIENTES_PERM = [11,12,13,14,15,16,17,18,21,22,23,24,25,26,27,28,31,32,33,34,35,36,37,38,41,42,43,44,45,46,47,48];
+const DIENTES_TEMP = [51,52,53,54,55,61,62,63,64,65,71,72,73,74,75,81,82,83,84,85];
+
+function toDot(n) { const s = String(n); return s[0] + '.' + s[1]; }
+
+function getDientesConContenido(respuesta) {
+    if (!respuesta) return [];
+    return [...DIENTES_PERM, ...DIENTES_TEMP]
+        .filter(n => respuesta[`diente_${n}`])
+        .map(n => ({ n, val: respuesta[`diente_${n}`] }));
+}
 
 function eliminarOrden() {
     if (!confirm(`¿Confirma ELIMINAR la orden #${props.order.id}? Esta acción no se puede deshacer.`)) return;
