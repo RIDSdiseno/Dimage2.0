@@ -259,12 +259,32 @@ class OrderController extends Controller
 
     public function getPatients(Request $request): JsonResponse
     {
-        $term = trim((string) $request->get('q', ''));
-        $clinicId = $request->get('clinic_id');
+        $term     = trim((string) $request->get('q', ''));
+        $clinicId = $request->get('clinic_id') ? (int) $request->get('clinic_id') : null;
+        $user     = Auth::user();
 
         $query = Patient::query()->select('id', 'name', 'rut');
 
-        if ($clinicId) {
+        // Operadores solo pueden ver pacientes de sus propias clínicas
+        if ($user->hasAnyRole(['odontologo', 'tecnico']) && $user->staff) {
+            $allowedClinicIds = DB::table('clinic_staff')
+                ->where('staff_id', $user->staff->id)
+                ->pluck('clinic_id');
+
+            if ($allowedClinicIds->isEmpty()) {
+                return response()->json([]);
+            }
+
+            // Si pasan un clinic_id, validar que pertenece a sus clínicas
+            if ($clinicId && !$allowedClinicIds->contains($clinicId)) {
+                return response()->json([]);
+            }
+
+            $filterIds = $clinicId ? [$clinicId] : $allowedClinicIds->all();
+            $query->whereHas('clinics', function (Builder $q) use ($filterIds): void {
+                $q->whereIn('clinics.id', $filterIds);
+            });
+        } elseif ($clinicId) {
             $query->whereHas('clinics', function (Builder $q) use ($clinicId): void {
                 $q->where('clinics.id', $clinicId);
             });
