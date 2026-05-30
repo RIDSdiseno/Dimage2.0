@@ -1028,7 +1028,7 @@ class OrderController extends Controller
                     ->from('order_staff_exam as ose')
                     ->whereColumn('ose.order_id', 'orders.id')
                     ->where('ose.staff_id', $staffId);
-            })->where('orders.estadoradiologo', '!=', 4);
+            })->whereIn('orders.estadoradiologo', [0, 2, 4]);
 
             return;
         }
