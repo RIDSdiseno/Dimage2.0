@@ -53,18 +53,11 @@ trait CalculaAlertas
             } elseif ($user->hasRole('clinica') && $user->clinic) {
                 $query->where('c.holding_id', $user->clinic->holding_id);
             } elseif ($user->hasAnyRole(['odontologo', 'tecnico']) && $user->staff) {
-                $clinicIds = DB::table('clinic_staff')
-                    ->where('staff_id', $user->staff->id)
-                    ->pluck('clinic_id');
-                if ($clinicIds->isEmpty()) {
-                    return ['pendientes' => 0, 'vencidas' => [], 'porVencer' => []];
-                }
-                $holdingIds = DB::table('clinics')
-                    ->whereIn('id', $clinicIds)
-                    ->pluck('holding_id')
-                    ->filter()
-                    ->unique();
-                $query->whereIn('c.holding_id', $holdingIds);
+                $staffId = (int) $user->staff->id;
+                $query->where(function ($q) use ($staffId) {
+                    $q->where('o.operator_id', $staffId)
+                      ->orWhere('o.odontologo_id', $staffId);
+                });
             }
 
             $orders = $query->get();
