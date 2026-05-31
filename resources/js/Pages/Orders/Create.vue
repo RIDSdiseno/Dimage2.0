@@ -94,8 +94,8 @@
                                 />
                             </div>
 
-                            <!-- Radiólogo (solo si tiene permiso) -->
-                            <div v-if="canSelectRadiologo">
+                            <!-- Radiólogo global (fallback cuando no hay asignación por examen) -->
+                            <div v-if="canSelectRadiologo && form.examenes.length === 0">
                                 <label class="block text-sm font-medium text-gray-700 mb-1">Radiólogo</label>
                                 <Select
                                     v-model="form.radiologo_id"
@@ -193,6 +193,32 @@
                         </div>
                     </div>
 
+                    <!-- Asignación de Radiólogos por Examen -->
+                    <div v-if="canSelectRadiologo && form.examenes.length > 0"
+                        class="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
+                        <h2 class="text-sm font-semibold uppercase tracking-wide mb-4" style="color:#3452ff">
+                            <i class="pi pi-user-edit mr-2" />Asignación de Radiólogos por Examen
+                        </h2>
+                        <div class="space-y-2">
+                            <div v-for="kindId in form.examenes" :key="kindId"
+                                class="flex items-center gap-3 py-2 border-b border-gray-100 last:border-0">
+                                <span class="text-sm text-gray-700 flex-1 min-w-0">
+                                    {{ kindLabelMap[kindId] ?? `Examen #${kindId}` }}
+                                </span>
+                                <Select
+                                    v-model="radiologoPorExamen[kindId]"
+                                    :options="radiologos"
+                                    optionLabel="name"
+                                    optionValue="id"
+                                    placeholder="Auto-asignar"
+                                    class="w-56"
+                                    :loading="loadingRadiologos"
+                                    showClear
+                                />
+                            </div>
+                        </div>
+                    </div>
+
                     <!-- Error de archivos faltantes -->
                     <Message v-if="fileError" severity="error" class="mt-4">{{ fileError }}</Message>
 
@@ -214,7 +240,6 @@
                             icon="pi pi-send"
                             type="button"
                             :loading="form.processing && form.action === 'enviar'"
-                            :disabled="canSelectRadiologo && !form.radiologo_id"
                             @click="submitAction('enviar')"
                             style="background-color: #3452ff; border-color: #3452ff;"
                         />
@@ -276,6 +301,14 @@ const patientSuggestions  = ref([]);
 const examFiles           = reactive({});
 const examPiezas          = reactive({});
 const examUrlTexts        = reactive({});
+const radiologoPorExamen  = reactive({});
+
+const kindLabelMap = computed(() => {
+    const map = {};
+    [...(props.examTypes?.intraorales ?? []), ...(props.examTypes?.extraorales ?? [])]
+        .forEach(col => col.items?.forEach(item => { map[item.id] = item.label; }));
+    return map;
+});
 const loadingOdontologos  = ref(false);
 const loadingRadiologos   = ref(false);
 const submitting          = ref(false);
@@ -359,7 +392,24 @@ const submitAction = (action) => {
     data.append('observaciones',    form.observaciones);
     data.append('sin_diagnostico',  form.sin_diagnostico ? '1' : '0');
     data.append('action',           action);
-    if (form.radiologo_id) data.append('radiologo_id', form.radiologo_id);
+    // Construir asignaciones por examen
+    const groupedByRad = {};
+    form.examenes.forEach(kindId => {
+        const radId = radiologoPorExamen[kindId];
+        if (!radId) return;
+        if (!groupedByRad[radId]) groupedByRad[radId] = [];
+        groupedByRad[radId].push(kindId);
+    });
+    const assignments = Object.entries(groupedByRad);
+    if (assignments.length > 0) {
+        assignments.forEach(([radId, kindIds], i) => {
+            data.append(`radiologo_assignments[${i}][radiologo_id]`, radId);
+            kindIds.forEach(k => data.append(`radiologo_assignments[${i}][kind_ids][]`, k));
+        });
+    } else if (form.radiologo_id) {
+        // Fallback: un radiólogo global para todos los exámenes
+        data.append('radiologo_id', form.radiologo_id);
+    }
 
     form.examenes.forEach(id => data.append('examenes[]', id));
 
