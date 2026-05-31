@@ -510,12 +510,16 @@ class AdminController extends Controller
         ]);
 
         DB::transaction(function () use ($request, $h) {
-            DB::table('users')->where('id', $h->user_id)->update([
+            $userData = [
                 'name'       => trim($request->name),
                 'mail'       => trim($request->emailresponsable ?? ''),
                 'telephone'  => trim($request->telefonoresponsable ?? ''),
                 'updated_at' => now(),
-            ]);
+            ];
+            if ($request->filled('password')) {
+                $userData['password'] = bcrypt($request->password);
+            }
+            DB::table('users')->where('id', $h->user_id)->update($userData);
 
             DB::table('holdings')->where('id', $h->id)->update([
                 'representantelegal'  => trim($request->representantelegal ?? ''),
@@ -1110,10 +1114,11 @@ class AdminController extends Controller
         ]);
 
         DB::transaction(function () use ($request, $c) {
-            DB::table('users')->where('id', $c->user_id)->update([
-                'name'       => trim($request->name),
-                'updated_at' => now(),
-            ]);
+            $userData = ['name' => trim($request->name), 'updated_at' => now()];
+            if ($request->filled('password')) {
+                $userData['password'] = bcrypt($request->password);
+            }
+            DB::table('users')->where('id', $c->user_id)->update($userData);
 
             DB::table('clinics')->where('id', $c->id)->update([
                 'holding_id'   => (int) $request->holding_id,

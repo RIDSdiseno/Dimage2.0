@@ -40,9 +40,9 @@
                             <small class="text-red-500">{{ form.errors.username }}</small>
                         </div>
 
-                        <div v-if="!holding">
-                            <label class="block text-sm font-medium mb-1">Contraseña *</label>
-                            <InputText v-model="form.password" type="password" class="w-full" :class="{ 'p-invalid': form.errors.password }" />
+                        <div>
+                            <label class="block text-sm font-medium mb-1">{{ holding ? 'Nueva Contraseña (opcional)' : 'Contraseña *' }}</label>
+                            <InputText v-model="form.password" type="password" class="w-full" :class="{ 'p-invalid': form.errors.password }" :placeholder="holding ? 'Dejar vacío para no cambiar' : ''" />
                             <small class="text-red-500">{{ form.errors.password }}</small>
                         </div>
 

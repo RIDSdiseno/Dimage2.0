@@ -40,9 +40,10 @@
                             <small class="text-red-500">{{ form.errors.username }}</small>
                         </div>
 
-                        <div v-if="!clinica">
-                            <label class="block text-sm font-medium mb-1">Contraseña *</label>
-                            <InputText v-model="form.password" type="password" class="w-full" />
+                        <div>
+                            <label class="block text-sm font-medium mb-1">{{ clinica ? 'Nueva Contraseña (opcional)' : 'Contraseña *' }}</label>
+                            <InputText v-model="form.password" type="password" class="w-full" :placeholder="clinica ? 'Dejar vacío para no cambiar' : ''" />
+                            <small class="text-red-500">{{ form.errors.password }}</small>
                         </div>
 
                         <div class="md:col-span-2">
