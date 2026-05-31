@@ -1230,27 +1230,38 @@ class OrderController extends Controller
         $enviar          = $request->input('action') === 'enviar';
         $yaEstabaEnviada = ! is_null($order->enviada); // capturar ANTES del update
 
-        // Determinar radiólogo al enviar
-        $radiologoIdUpdate = null;
+        // Determinar asignaciones de radiólogo al enviar desde update()
+        $radiologoIdUpdate   = null; // legacy single-rad fallback
+        $updateAssignments   = [];
         if ($enviar) {
             $existingStaffId = DB::table('order_staff_exam')->where('order_id', $order->id)->value('staff_id');
             if (! $existingStaffId) {
-                if ($this->canSelectRadiologo($user) && $request->filled('radiologo_id')) {
-                    // Operador con permiso seleccionó radiólogo → respetar su elección
-                    $radiologoIdUpdate = (int) $request->input('radiologo_id');
+                $kindIds = DB::table('examinations')
+                    ->join('examination_order', 'examination_order.examination_id', '=', 'examinations.id')
+                    ->where('examination_order.order_id', $order->id)
+                    ->pluck('examinations.kind_id')
+                    ->map('intval')
+                    ->toArray();
+
+                $rawAss = $request->input('radiologo_assignments', []);
+                if (!empty($rawAss) && is_array($rawAss) && $this->canSelectRadiologo($user)) {
+                    foreach ($rawAss as $a) {
+                        if (empty($a['radiologo_id'])) continue;
+                        $updateAssignments[] = [
+                            'radiologo_id' => (int) $a['radiologo_id'],
+                            'kind_ids'     => !empty($a['kind_ids']) ? array_map('intval', (array) $a['kind_ids']) : null,
+                        ];
+                    }
+                } elseif ($this->canSelectRadiologo($user) && $request->filled('radiologo_id')) {
+                    $updateAssignments = [['radiologo_id' => (int) $request->input('radiologo_id'), 'kind_ids' => null]];
                 } else {
-                    $kindIds = DB::table('examinations')
-                        ->join('examination_order', 'examination_order.examination_id', '=', 'examinations.id')
-                        ->where('examination_order.order_id', $order->id)
-                        ->pluck('examinations.kind_id')
-                        ->map('intval')
-                        ->toArray();
-                    $radiologoIdUpdate = $this->autoAsignarRadiologo((int) $order->clinic_id, $kindIds);
+                    $updateAssignments = $this->autoAsignarRadiologoPorExamen((int) $order->clinic_id, $kindIds);
                 }
+                $radiologoIdUpdate = !empty($updateAssignments) ? $updateAssignments[0]['radiologo_id'] : null;
             }
         }
 
-        DB::transaction(function () use ($request, $order, $enviar, $yaEstabaEnviada, $radiologoIdUpdate, $user): void {
+        DB::transaction(function () use ($request, $order, $enviar, $yaEstabaEnviada, $radiologoIdUpdate, $updateAssignments, $user): void {
             $order->update([
                 'diagnostico'      => $request->boolean('sin_diagnostico') ? 'Sin diagnóstico' : ($request->input('diagnostico') ?? $order->diagnostico),
                 'observaciones'    => $request->input('observaciones') ?? '',
@@ -1340,9 +1351,11 @@ class OrderController extends Controller
                 foreach (array_unique(array_column($newAssignments, 'radiologo_id')) as $sid) {
                     DB::table('order_staff')->insertOrIgnore(['order_id' => $order->id, 'staff_id' => $sid]);
                 }
-            } elseif ($radiologoIdUpdate) {
-                $this->insertRadiologoAssignments($order->id, [['radiologo_id' => $radiologoIdUpdate, 'kind_ids' => null]]);
-                DB::table('order_staff')->insertOrIgnore(['order_id' => $order->id, 'staff_id' => $radiologoIdUpdate]);
+            } elseif (!empty($updateAssignments)) {
+                $this->insertRadiologoAssignments($order->id, $updateAssignments);
+                foreach (array_unique(array_column($updateAssignments, 'radiologo_id')) as $sid) {
+                    DB::table('order_staff')->insertOrIgnore(['order_id' => $order->id, 'staff_id' => $sid]);
+                }
             } elseif ($request->filled('radiologo_id') && ($this->canSelectRadiologo($user) || Auth::user()->type_id === 1)) {
                 $rid = (int) $request->input('radiologo_id');
                 $existing = DB::table('order_staff_exam')->where('order_id', $order->id)->exists();
@@ -1635,12 +1648,75 @@ class OrderController extends Controller
     }
 
     /**
+     * Auto-asigna radiólogos por examen usando kind_staff.
+     * Para cada kindId elige el especialista/generalista menos ocupado.
+     * Devuelve un array de assignments [{radiologo_id, kind_ids}].
+     */
+    private function autoAsignarRadiologoPorExamen(int $clinicId, array $kindIds): array
+    {
+        $radiologos = DB::table('staffs')
+            ->join('clinic_staff', 'clinic_staff.staff_id', '=', 'staffs.id')
+            ->join('users', 'users.id', '=', 'staffs.user_id')
+            ->where('clinic_staff.clinic_id', $clinicId)
+            ->where(function ($q) { $q->where('staffs.type_staff', 3)->orWhere('users.type_id', 5); })
+            ->where('staffs.activo', 1)
+            ->pluck('staffs.id')->unique()->toArray();
+
+        if (empty($radiologos)) return [];
+
+        // Mapa staff_id => [kind_ids que maneja]
+        $kindStaffMap = DB::table('kind_staff')
+            ->whereIn('staff_id', $radiologos)
+            ->get(['staff_id', 'kind_id'])
+            ->groupBy('staff_id')
+            ->map(fn($rows) => $rows->pluck('kind_id')->toArray());
+
+        $generalists = array_values(array_filter($radiologos, fn($id) => !isset($kindStaffMap[$id])));
+
+        // Carga de trabajo: órdenes pendientes por radiólogo
+        $workload = DB::table('order_staff_exam as ose')
+            ->join('orders as o', 'o.id', '=', 'ose.order_id')
+            ->whereIn('ose.staff_id', $radiologos)
+            ->whereIn('o.estadoradiologo', [0, 2])
+            ->groupBy('ose.staff_id')
+            ->select('ose.staff_id', DB::raw('COUNT(DISTINCT ose.order_id) as cnt'))
+            ->pluck('cnt', 'staff_id');
+
+        $leastBusy = function (array $ids) use ($workload): ?int {
+            return collect($ids)->sortBy(fn($id) => (int) ($workload[$id] ?? 0))->first();
+        };
+
+        // Asignar el mejor radiólogo para cada kindId
+        $kindToRad = [];
+        foreach ($kindIds as $kindId) {
+            $specialists = array_values(array_filter(
+                $radiologos,
+                fn($id) => isset($kindStaffMap[$id]) && in_array($kindId, $kindStaffMap[$id])
+            ));
+            if (!empty($specialists)) {
+                $kindToRad[$kindId] = $leastBusy($specialists);
+            } elseif (!empty($generalists)) {
+                $kindToRad[$kindId] = $leastBusy($generalists);
+            } else {
+                $kindToRad[$kindId] = $leastBusy($radiologos);
+            }
+        }
+
+        // Agrupar kind_ids por radiólogo asignado
+        $grouped = [];
+        foreach ($kindToRad as $kindId => $radId) {
+            if ($radId) $grouped[$radId][] = $kindId;
+        }
+
+        return array_values(array_map(
+            fn($radId, $kIds) => ['radiologo_id' => (int) $radId, 'kind_ids' => $kIds],
+            array_keys($grouped), array_values($grouped)
+        ));
+    }
+
+    /**
      * Elige aleatoriamente un radiólogo de la clínica que pueda informar los exámenes.
-     *
-     * Reglas:
-     *  - Sin entradas en kind_staff → generalista, acepta cualquier tipo de examen.
-     *  - Con entradas en kind_staff → especialista, solo si algún kind coincide con los de la orden.
-     *  - Si ningún especialista coincide → fallback a cualquier radiólogo activo de la clínica.
+     * Mantenido para compatibilidad — usar autoAsignarRadiologoPorExamen cuando sea posible.
      */
     private function autoAsignarRadiologo(int $clinicId, array $kindIds): ?int
     {
@@ -1769,10 +1845,9 @@ class OrderController extends Controller
             return [['radiologo_id' => (int) $request->radiologo_id, 'kind_ids' => null]];
         }
 
-        // Auto-assign when sending
+        // Auto-asignar por examen al enviar
         if ($enviar) {
-            $rid = $this->autoAsignarRadiologo($clinicId, $kindIds);
-            if ($rid) return [['radiologo_id' => $rid, 'kind_ids' => null]];
+            return $this->autoAsignarRadiologoPorExamen($clinicId, $kindIds);
         }
 
         return [];
