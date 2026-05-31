@@ -193,7 +193,7 @@
                 </p>
                 <div v-for="c in correcciones" :key="c.id"
                     class="bg-white border border-orange-100 rounded-lg p-3 mb-2 last:mb-0">
-                    <p class="text-xs text-orange-500 mb-1">Fecha: <strong>{{ c.enviada ?? c.created_at }}</strong></p>
+                    <p class="text-xs text-orange-500 mb-1">Fecha: <strong>{{ localDateTime(c.enviada ?? c.created_at) }}</strong></p>
                     <p v-if="c.description" class="text-sm text-gray-700">{{ c.description }}</p>
                     <p v-else-if="c.detalle" class="text-sm text-gray-700">{{ c.detalle }}</p>
                 </div>
@@ -427,6 +427,12 @@ const DIENTES_PERM = [11,12,13,14,15,16,17,18,21,22,23,24,25,26,27,28,31,32,33,3
 const DIENTES_TEMP = [51,52,53,54,55,61,62,63,64,65,71,72,73,74,75,81,82,83,84,85];
 
 function toDot(n) { const s = String(n); return s[0] + '.' + s[1]; }
+
+function localDateTime(utcStr) {
+    if (!utcStr) return '-';
+    const d = new Date(utcStr.replace(' ', 'T') + (utcStr.includes('T') ? '' : 'Z'));
+    return d.toLocaleString(undefined, { dateStyle: 'short', timeStyle: 'short' });
+}
 
 function getDientesConContenido(respuesta) {
     if (!respuesta) return [];
