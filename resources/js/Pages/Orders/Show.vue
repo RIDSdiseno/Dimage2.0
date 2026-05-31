@@ -193,8 +193,9 @@
                 </p>
                 <div v-for="c in correcciones" :key="c.id"
                     class="bg-white border border-orange-100 rounded-lg p-3 mb-2 last:mb-0">
-                    <p class="text-xs text-orange-500 mb-1">Fecha: <strong>{{ c.enviada }}</strong></p>
-                    <p class="text-sm text-gray-700">{{ c.detalle }}</p>
+                    <p class="text-xs text-orange-500 mb-1">Fecha: <strong>{{ c.enviada ?? c.created_at }}</strong></p>
+                    <p v-if="c.description" class="text-sm text-gray-700">{{ c.description }}</p>
+                    <p v-else-if="c.detalle" class="text-sm text-gray-700">{{ c.detalle }}</p>
                 </div>
             </div>
 

@@ -600,7 +600,7 @@ class OrderController extends Controller
         $correcciones = DB::table('corrections')
             ->where('order_id', $order->id)
             ->orderBy('created_at')
-            ->get(['id', 'detalle', 'enviada', 'respondida']);
+            ->get(['id', 'detalle', 'enviada', 'respondida', 'description', 'status', 'created_at']);
 
         $estado = self::ESTADOS[(int) $order->estadoradiologo] ?? [
             'label' => 'Desconocido', 'color' => 'secondary',
