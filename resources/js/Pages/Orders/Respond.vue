@@ -152,109 +152,48 @@
                                     <button type="button"
                                         @click="showCampos[idx] = !showCampos[idx]"
                                         class="flex items-center gap-2 px-4 py-2 rounded-lg border text-sm font-medium transition-colors"
-                                        :class="showCampos[idx]
-                                            ? 'border-blue-500 bg-blue-50 text-blue-700'
-                                            : 'border-gray-200 bg-white text-gray-600 hover:border-gray-300'">
+                                        :class="showCampos[idx] ? 'border-blue-500 bg-blue-50 text-blue-700' : 'border-gray-200 bg-white text-gray-600 hover:border-gray-300'">
                                         <i :class="showCampos[idx] ? 'pi pi-eye-slash' : 'pi pi-eye'" class="text-xs" />
                                         Mostrar campos para informar
                                     </button>
                                     <template v-if="showCampos[idx]">
-                                        <div>
-                                            <label class="block text-sm font-medium text-gray-700 mb-1.5">Examen</label>
-                                            <Textarea v-model="respuestas[idx].informe_examen"
-                                                placeholder="Descripción del examen..."
-                                                rows="3" class="w-full" autoResize />
-                                        </div>
-                                        <div>
-                                            <label class="block text-sm font-medium text-gray-700 mb-1.5">Informe</label>
-                                            <Textarea v-model="respuestas[idx].informe_libre"
-                                                placeholder="Informe radiológico..."
-                                                rows="4" class="w-full" autoResize />
-                                        </div>
-                                        <div>
-                                            <label class="block text-sm font-medium text-gray-700 mb-1.5">Impresión Diagnóstica</label>
-                                            <Textarea v-model="respuestas[idx].informe_impresion"
-                                                placeholder="Impresión diagnóstica..."
-                                                rows="3" class="w-full" autoResize />
-                                        </div>
-
-                                        <div class="space-y-6">
-
-                                    <!-- Maxilar -->
-                                    <div class="border border-blue-100 rounded-xl overflow-hidden">
-                                        <div class="bg-blue-700 px-4 py-2">
-                                            <h3 class="text-white font-semibold text-sm">Maxilar</h3>
-                                        </div>
-                                        <div class="p-4 space-y-3">
-                                            <div v-for="(label, campo) in MAXILAR_CAMPOS" :key="campo">
-                                                <label class="block text-xs font-medium text-gray-600 mb-1">{{ label }}</label>
-                                                <Textarea v-model="respuestas[idx][campo]"
-                                                    :placeholder="label" rows="2" class="w-full text-sm" autoResize />
-                                            </div>
-
-                                            <div class="mt-4">
-                                                <p class="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Dientes Permanentes</p>
-                                                <div class="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                                                    <div v-for="d in PERM_MAXILAR" :key="d">
-                                                        <label class="block text-xs text-gray-500 mb-0.5">Diente {{ fmtD(d) }}</label>
-                                                        <Textarea v-model="respuestas[idx][`diente_${d}`]"
-                                                            :placeholder="`Dx diente ${fmtD(d)}`"
-                                                            rows="2" class="w-full text-xs" autoResize />
+                                        <div class="space-y-4">
+                                            <!-- Maxilar -->
+                                            <div class="border border-blue-100 rounded-xl overflow-hidden">
+                                                <div class="bg-blue-700 px-4 py-2"><h3 class="text-white font-semibold text-sm">Maxilar</h3></div>
+                                                <div class="p-4 space-y-3">
+                                                    <div><label class="block text-xs font-medium text-gray-600 mb-1">Nivel Óseo Marginal</label><Textarea v-model="respuestas[idx].campo_2" placeholder="Nivel Óseo Marginal" rows="2" class="w-full text-sm" autoResize /></div>
+                                                    <div><label class="block text-xs font-medium text-gray-600 mb-1">Cálculo dentario marginal</label><Textarea v-model="respuestas[idx].campo_3" placeholder="Cálculo dentario marginal" rows="2" class="w-full text-sm" autoResize /></div>
+                                                    <div><label class="block text-xs font-medium text-gray-600 mb-1">Dientes Ausentes</label><Textarea v-model="respuestas[idx].campo_4" placeholder="Dientes Ausentes" rows="2" class="w-full text-sm" autoResize /></div>
+                                                    <div><label class="block text-xs font-medium text-gray-600 mb-1">Observaciones</label><Textarea v-model="respuestas[idx].campo_5" placeholder="Observaciones" rows="2" class="w-full text-sm" autoResize /></div>
+                                                    <p class="text-xs font-semibold text-gray-500 uppercase mt-2">Dientes Permanentes</p>
+                                                    <div class="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                                                        <div v-for="d in PERM_MAXILAR" :key="d"><label class="block text-xs text-gray-500 mb-0.5">Diente {{ fmtD(d) }}</label><Textarea v-model="respuestas[idx][`diente_${d}`]" :placeholder="`Dx ${fmtD(d)}`" rows="2" class="w-full text-xs" autoResize /></div>
+                                                    </div>
+                                                    <p class="text-xs font-semibold text-gray-500 uppercase mt-2">Dientes Temporales</p>
+                                                    <div class="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                                                        <div v-for="d in TEMP_MAXILAR" :key="d"><label class="block text-xs text-gray-500 mb-0.5">Diente {{ fmtD(d) }}</label><Textarea v-model="respuestas[idx][`diente_${d}`]" :placeholder="`Dx ${fmtD(d)}`" rows="2" class="w-full text-xs" autoResize /></div>
                                                     </div>
                                                 </div>
                                             </div>
-
-                                            <div class="mt-2">
-                                                <p class="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Dientes Temporales</p>
-                                                <div class="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                                                    <div v-for="d in TEMP_MAXILAR" :key="d">
-                                                        <label class="block text-xs text-gray-500 mb-0.5">Diente {{ fmtD(d) }}</label>
-                                                        <Textarea v-model="respuestas[idx][`diente_${d}`]"
-                                                            :placeholder="`Dx diente ${fmtD(d)}`"
-                                                            rows="2" class="w-full text-xs" autoResize />
+                                            <!-- Mandíbula -->
+                                            <div class="border border-blue-100 rounded-xl overflow-hidden">
+                                                <div class="bg-blue-700 px-4 py-2"><h3 class="text-white font-semibold text-sm">Mandíbula</h3></div>
+                                                <div class="p-4 space-y-3">
+                                                    <div><label class="block text-xs font-medium text-gray-600 mb-1">Nivel Óseo Marginal</label><Textarea v-model="respuestas[idx].campo_6" placeholder="Nivel Óseo Marginal" rows="2" class="w-full text-sm" autoResize /></div>
+                                                    <div><label class="block text-xs font-medium text-gray-600 mb-1">Cálculo dentario marginal</label><Textarea v-model="respuestas[idx].campo_7" placeholder="Cálculo dentario marginal" rows="2" class="w-full text-sm" autoResize /></div>
+                                                    <div><label class="block text-xs font-medium text-gray-600 mb-1">Dientes Ausentes</label><Textarea v-model="respuestas[idx].campo_8" placeholder="Dientes Ausentes" rows="2" class="w-full text-sm" autoResize /></div>
+                                                    <div><label class="block text-xs font-medium text-gray-600 mb-1">Observaciones</label><Textarea v-model="respuestas[idx].campo_9" placeholder="Observaciones" rows="2" class="w-full text-sm" autoResize /></div>
+                                                    <p class="text-xs font-semibold text-gray-500 uppercase mt-2">Dientes Permanentes</p>
+                                                    <div class="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                                                        <div v-for="d in PERM_MANDIBULA" :key="d"><label class="block text-xs text-gray-500 mb-0.5">Diente {{ fmtD(d) }}</label><Textarea v-model="respuestas[idx][`diente_${d}`]" :placeholder="`Dx ${fmtD(d)}`" rows="2" class="w-full text-xs" autoResize /></div>
+                                                    </div>
+                                                    <p class="text-xs font-semibold text-gray-500 uppercase mt-2">Dientes Temporales</p>
+                                                    <div class="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                                                        <div v-for="d in TEMP_MANDIBULA" :key="d"><label class="block text-xs text-gray-500 mb-0.5">Diente {{ fmtD(d) }}</label><Textarea v-model="respuestas[idx][`diente_${d}`]" :placeholder="`Dx ${fmtD(d)}`" rows="2" class="w-full text-xs" autoResize /></div>
                                                     </div>
                                                 </div>
                                             </div>
-                                        </div>
-                                    </div>
-
-                                    <!-- Mandibula -->
-                                    <div class="border border-indigo-100 rounded-xl overflow-hidden">
-                                        <div class="bg-indigo-700 px-4 py-2">
-                                            <h3 class="text-white font-semibold text-sm">Mandíbula</h3>
-                                        </div>
-                                        <div class="p-4 space-y-3">
-                                            <div v-for="(label, campo) in MANDIBULA_CAMPOS" :key="campo">
-                                                <label class="block text-xs font-medium text-gray-600 mb-1">{{ label }}</label>
-                                                <Textarea v-model="respuestas[idx][campo]"
-                                                    :placeholder="label" rows="2" class="w-full text-sm" autoResize />
-                                            </div>
-
-                                            <div class="mt-4">
-                                                <p class="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Dientes Permanentes</p>
-                                                <div class="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                                                    <div v-for="d in PERM_MANDIBULA" :key="d">
-                                                        <label class="block text-xs text-gray-500 mb-0.5">Diente {{ fmtD(d) }}</label>
-                                                        <Textarea v-model="respuestas[idx][`diente_${d}`]"
-                                                            :placeholder="`Dx diente ${fmtD(d)}`"
-                                                            rows="2" class="w-full text-xs" autoResize />
-                                                    </div>
-                                                </div>
-                                            </div>
-
-                                            <div class="mt-2">
-                                                <p class="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Dientes Temporales</p>
-                                                <div class="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                                                    <div v-for="d in TEMP_MANDIBULA" :key="d">
-                                                        <label class="block text-xs text-gray-500 mb-0.5">Diente {{ fmtD(d) }}</label>
-                                                        <Textarea v-model="respuestas[idx][`diente_${d}`]"
-                                                            :placeholder="`Dx diente ${fmtD(d)}`"
-                                                            rows="2" class="w-full text-xs" autoResize />
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
                                         </div>
                                     </template>
                                 </div>
@@ -295,71 +234,246 @@
                                         <!-- Campos por pieza con secciones (unitaria o total) -->
                                         <template v-if="getTeethForExam(ex).length > 0">
 
-                                            <!-- Dientes Permanentes -->
-                                            <template v-if="permMaxilarForExam(ex).length || permMandibForExam(ex).length">
-                                                <p class="text-sm font-semibold text-gray-700 mt-2">Dientes Permanentes</p>
+                                            <!-- ══ RETRO (unitaria y total): secciones Maxilar/Mandíbula con campos fijos ══ -->
+                                            <template v-if="isRetro(ex)">
 
-                                                <div v-if="permMaxilarForExam(ex).length">
-                                                    <p class="text-xs font-medium text-gray-500 mb-1">Maxilar</p>
-                                                    <div class="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                                                        <div v-for="p in permMaxilarForExam(ex)" :key="p">
-                                                            <label class="block text-xs text-gray-500 mb-0.5">Diente {{ fmtD(p) }}</label>
-                                                            <Textarea v-model="respuestas[idx][`diente_${p}`]"
-                                                                :placeholder="`Dx ${fmtD(p)}`"
-                                                                rows="2" class="w-full text-xs" autoResize />
+                                                <!-- Maxilar -->
+                                                <template v-if="permMaxilarForExam(ex).length || tempMaxilarForExam(ex).length">
+                                                    <div class="border border-blue-100 rounded-xl overflow-hidden mb-3">
+                                                        <div class="bg-blue-700 px-4 py-2">
+                                                            <h3 class="text-white font-semibold text-sm">Maxilar</h3>
+                                                        </div>
+                                                        <div class="p-4 space-y-3">
+                                                            <div>
+                                                                <label class="block text-xs font-medium text-gray-600 mb-1">Nivel Óseo Marginal</label>
+                                                                <Textarea v-model="respuestas[idx].campo_2" placeholder="Nivel Óseo Marginal" rows="2" class="w-full text-sm" autoResize />
+                                                            </div>
+                                                            <div>
+                                                                <label class="block text-xs font-medium text-gray-600 mb-1">Cálculo dentario marginal</label>
+                                                                <Textarea v-model="respuestas[idx].campo_3" placeholder="Cálculo dentario marginal" rows="2" class="w-full text-sm" autoResize />
+                                                            </div>
+                                                            <div>
+                                                                <label class="block text-xs font-medium text-gray-600 mb-1">Observaciones</label>
+                                                                <Textarea v-model="respuestas[idx].campo_4" placeholder="Observaciones" rows="2" class="w-full text-sm" autoResize />
+                                                            </div>
+                                                            <template v-if="permMaxilarForExam(ex).length">
+                                                                <p class="text-xs font-semibold text-gray-500 uppercase mt-1">Dientes Permanentes</p>
+                                                                <div class="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                                                                    <div v-for="p in permMaxilarForExam(ex)" :key="p">
+                                                                        <label class="block text-xs text-gray-500 mb-0.5">Diente {{ fmtD(p) }}</label>
+                                                                        <Textarea v-model="respuestas[idx][`diente_${p}`]" :placeholder="`Dx ${fmtD(p)}`" rows="2" class="w-full text-xs" autoResize />
+                                                                    </div>
+                                                                </div>
+                                                            </template>
+                                                            <template v-if="tempMaxilarForExam(ex).length">
+                                                                <p class="text-xs font-semibold text-gray-500 uppercase mt-1">Dientes Temporales</p>
+                                                                <div class="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                                                                    <div v-for="p in tempMaxilarForExam(ex)" :key="p">
+                                                                        <label class="block text-xs text-gray-500 mb-0.5">Diente {{ fmtD(p) }}</label>
+                                                                        <Textarea v-model="respuestas[idx][`diente_${p}`]" :placeholder="`Dx ${fmtD(p)}`" rows="2" class="w-full text-xs" autoResize />
+                                                                    </div>
+                                                                </div>
+                                                            </template>
                                                         </div>
                                                     </div>
-                                                </div>
+                                                </template>
 
-                                                <div v-if="permMandibForExam(ex).length">
-                                                    <p class="text-xs font-medium text-gray-500 mb-1">Mandíbula</p>
-                                                    <div class="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                                                        <div v-for="p in permMandibForExam(ex)" :key="p">
-                                                            <label class="block text-xs text-gray-500 mb-0.5">Diente {{ fmtD(p) }}</label>
-                                                            <Textarea v-model="respuestas[idx][`diente_${p}`]"
-                                                                :placeholder="`Dx ${fmtD(p)}`"
-                                                                rows="2" class="w-full text-xs" autoResize />
+                                                <!-- Mandíbula -->
+                                                <template v-if="permMandibForExam(ex).length || tempMandibForExam(ex).length">
+                                                    <div class="border border-blue-100 rounded-xl overflow-hidden mb-3">
+                                                        <div class="bg-blue-700 px-4 py-2">
+                                                            <h3 class="text-white font-semibold text-sm">Mandíbula</h3>
+                                                        </div>
+                                                        <div class="p-4 space-y-3">
+                                                            <div>
+                                                                <label class="block text-xs font-medium text-gray-600 mb-1">Nivel Óseo Marginal</label>
+                                                                <Textarea v-model="respuestas[idx].campo_5" placeholder="Nivel Óseo Marginal" rows="2" class="w-full text-sm" autoResize />
+                                                            </div>
+                                                            <div>
+                                                                <label class="block text-xs font-medium text-gray-600 mb-1">Cálculo dentario marginal</label>
+                                                                <Textarea v-model="respuestas[idx].campo_6" placeholder="Cálculo dentario marginal" rows="2" class="w-full text-sm" autoResize />
+                                                            </div>
+                                                            <div>
+                                                                <label class="block text-xs font-medium text-gray-600 mb-1">Observaciones</label>
+                                                                <Textarea v-model="respuestas[idx].campo_7" placeholder="Observaciones" rows="2" class="w-full text-sm" autoResize />
+                                                            </div>
+                                                            <template v-if="permMandibForExam(ex).length">
+                                                                <p class="text-xs font-semibold text-gray-500 uppercase mt-1">Dientes Permanentes</p>
+                                                                <div class="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                                                                    <div v-for="p in permMandibForExam(ex)" :key="p">
+                                                                        <label class="block text-xs text-gray-500 mb-0.5">Diente {{ fmtD(p) }}</label>
+                                                                        <Textarea v-model="respuestas[idx][`diente_${p}`]" :placeholder="`Dx ${fmtD(p)}`" rows="2" class="w-full text-xs" autoResize />
+                                                                    </div>
+                                                                </div>
+                                                            </template>
+                                                            <template v-if="tempMandibForExam(ex).length">
+                                                                <p class="text-xs font-semibold text-gray-500 uppercase mt-1">Dientes Temporales</p>
+                                                                <div class="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                                                                    <div v-for="p in tempMandibForExam(ex)" :key="p">
+                                                                        <label class="block text-xs text-gray-500 mb-0.5">Diente {{ fmtD(p) }}</label>
+                                                                        <Textarea v-model="respuestas[idx][`diente_${p}`]" :placeholder="`Dx ${fmtD(p)}`" rows="2" class="w-full text-xs" autoResize />
+                                                                    </div>
+                                                                </div>
+                                                            </template>
                                                         </div>
                                                     </div>
+                                                </template>
+
+                                                <!-- Observaciones generales -->
+                                                <div>
+                                                    <label class="block text-sm font-medium text-gray-700 mb-1.5">Observaciones generales</label>
+                                                    <Textarea v-model="respuestas[idx].campo_1" placeholder="Observaciones generales del examen..." rows="2" class="w-full" autoResize />
                                                 </div>
                                             </template>
 
-                                            <!-- Dientes Temporales (niño) -->
-                                            <template v-if="tempMaxilarForExam(ex).length || tempMandibForExam(ex).length">
-                                                <p class="text-sm font-semibold text-gray-700 mt-2">Dientes Temporales</p>
-
-                                                <div v-if="tempMaxilarForExam(ex).length">
-                                                    <p class="text-xs font-medium text-gray-500 mb-1">Maxilar</p>
-                                                    <div class="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                                                        <div v-for="p in tempMaxilarForExam(ex)" :key="p">
-                                                            <label class="block text-xs text-gray-500 mb-0.5">Diente {{ fmtD(p) }}</label>
-                                                            <Textarea v-model="respuestas[idx][`diente_${p}`]"
-                                                                :placeholder="`Dx ${fmtD(p)}`"
-                                                                rows="2" class="w-full text-xs" autoResize />
+                                            <!-- ══ RETRO TOTAL y otros con dientes: estructura original ══ -->
+                                            <template v-else>
+                                                <template v-if="permMaxilarForExam(ex).length || permMandibForExam(ex).length">
+                                                    <p class="text-sm font-semibold text-gray-700 mt-2">Dientes Permanentes</p>
+                                                    <div v-if="permMaxilarForExam(ex).length">
+                                                        <p class="text-xs font-medium text-gray-500 mb-1">Maxilar</p>
+                                                        <div class="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                                                            <div v-for="p in permMaxilarForExam(ex)" :key="p">
+                                                                <label class="block text-xs text-gray-500 mb-0.5">Diente {{ fmtD(p) }}</label>
+                                                                <Textarea v-model="respuestas[idx][`diente_${p}`]" :placeholder="`Dx ${fmtD(p)}`" rows="2" class="w-full text-xs" autoResize />
+                                                            </div>
                                                         </div>
                                                     </div>
-                                                </div>
-
-                                                <div v-if="tempMandibForExam(ex).length">
-                                                    <p class="text-xs font-medium text-gray-500 mb-1">Mandíbula</p>
-                                                    <div class="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                                                        <div v-for="p in tempMandibForExam(ex)" :key="p">
-                                                            <label class="block text-xs text-gray-500 mb-0.5">Diente {{ fmtD(p) }}</label>
-                                                            <Textarea v-model="respuestas[idx][`diente_${p}`]"
-                                                                :placeholder="`Dx ${fmtD(p)}`"
-                                                                rows="2" class="w-full text-xs" autoResize />
+                                                    <div v-if="permMandibForExam(ex).length">
+                                                        <p class="text-xs font-medium text-gray-500 mb-1">Mandíbula</p>
+                                                        <div class="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                                                            <div v-for="p in permMandibForExam(ex)" :key="p">
+                                                                <label class="block text-xs text-gray-500 mb-0.5">Diente {{ fmtD(p) }}</label>
+                                                                <Textarea v-model="respuestas[idx][`diente_${p}`]" :placeholder="`Dx ${fmtD(p)}`" rows="2" class="w-full text-xs" autoResize />
+                                                            </div>
                                                         </div>
                                                     </div>
+                                                </template>
+                                                <template v-if="tempMaxilarForExam(ex).length || tempMandibForExam(ex).length">
+                                                    <p class="text-sm font-semibold text-gray-700 mt-2">Dientes Temporales</p>
+                                                    <div v-if="tempMaxilarForExam(ex).length">
+                                                        <p class="text-xs font-medium text-gray-500 mb-1">Maxilar</p>
+                                                        <div class="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                                                            <div v-for="p in tempMaxilarForExam(ex)" :key="p">
+                                                                <label class="block text-xs text-gray-500 mb-0.5">Diente {{ fmtD(p) }}</label>
+                                                                <Textarea v-model="respuestas[idx][`diente_${p}`]" :placeholder="`Dx ${fmtD(p)}`" rows="2" class="w-full text-xs" autoResize />
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                    <div v-if="tempMandibForExam(ex).length">
+                                                        <p class="text-xs font-medium text-gray-500 mb-1">Mandíbula</p>
+                                                        <div class="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                                                            <div v-for="p in tempMandibForExam(ex)" :key="p">
+                                                                <label class="block text-xs text-gray-500 mb-0.5">Diente {{ fmtD(p) }}</label>
+                                                                <Textarea v-model="respuestas[idx][`diente_${p}`]" :placeholder="`Dx ${fmtD(p)}`" rows="2" class="w-full text-xs" autoResize />
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </template>
+                                                <div>
+                                                    <label class="block text-sm font-medium text-gray-700 mb-1.5">Observaciones generales</label>
+                                                    <Textarea v-model="respuestas[idx].campo_1" placeholder="Observaciones generales del examen..." rows="2" class="w-full" autoResize />
                                                 </div>
                                             </template>
 
-                                            <!-- Observaciones generales -->
-                                            <div>
-                                                <label class="block text-sm font-medium text-gray-700 mb-1.5">Observaciones generales</label>
-                                                <Textarea v-model="respuestas[idx].campo_1"
-                                                    placeholder="Observaciones generales del examen..."
-                                                    rows="2" class="w-full" autoResize />
+                                        </template>
+
+                                        <!-- ══ BITE WING BILATERAL ══ -->
+                                        <template v-else-if="isBiteWingBilateral(ex)">
+                                            <!-- Lado Derecho -->
+                                            <div class="border border-blue-100 rounded-xl overflow-hidden mb-3">
+                                                <div class="bg-blue-700 px-4 py-2"><h3 class="text-white font-semibold text-sm">Lado Derecho</h3></div>
+                                                <div class="p-4 space-y-3">
+                                                    <div><label class="block text-xs font-medium text-gray-600 mb-1">Nivel Óseo Marginal</label><Textarea v-model="respuestas[idx].campo_2" placeholder="Nivel Óseo Marginal" rows="2" class="w-full text-sm" autoResize /></div>
+                                                    <div><label class="block text-xs font-medium text-gray-600 mb-1">Cálculo dentario marginal</label><Textarea v-model="respuestas[idx].campo_3" placeholder="Cálculo dentario marginal" rows="2" class="w-full text-sm" autoResize /></div>
+                                                    <div><label class="block text-xs font-medium text-gray-600 mb-1">Observaciones</label><Textarea v-model="respuestas[idx].campo_4" placeholder="Observaciones" rows="2" class="w-full text-sm" autoResize /></div>
+                                                    <p class="text-xs font-semibold text-gray-500 uppercase mt-1">Dientes Permanentes</p>
+                                                    <div class="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                                                        <div v-for="p in BW_DERECHO_PERM" :key="p"><label class="block text-xs text-gray-500 mb-0.5">Diente {{ fmtD(p) }}</label><Textarea v-model="respuestas[idx][`diente_${p}`]" :placeholder="`Dx ${fmtD(p)}`" rows="2" class="w-full text-xs" autoResize /></div>
+                                                    </div>
+                                                    <p class="text-xs font-semibold text-gray-500 uppercase mt-1">Dientes Temporales</p>
+                                                    <div class="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                                                        <div v-for="p in BW_DERECHO_TEMP" :key="p"><label class="block text-xs text-gray-500 mb-0.5">Diente {{ fmtD(p) }}</label><Textarea v-model="respuestas[idx][`diente_${p}`]" :placeholder="`Dx ${fmtD(p)}`" rows="2" class="w-full text-xs" autoResize /></div>
+                                                    </div>
+                                                </div>
                                             </div>
+                                            <!-- Lado Izquierdo -->
+                                            <div class="border border-blue-100 rounded-xl overflow-hidden mb-3">
+                                                <div class="bg-blue-700 px-4 py-2"><h3 class="text-white font-semibold text-sm">Lado Izquierdo</h3></div>
+                                                <div class="p-4 space-y-3">
+                                                    <div><label class="block text-xs font-medium text-gray-600 mb-1">Nivel Óseo Marginal</label><Textarea v-model="respuestas[idx].campo_5" placeholder="Nivel Óseo Marginal" rows="2" class="w-full text-sm" autoResize /></div>
+                                                    <div><label class="block text-xs font-medium text-gray-600 mb-1">Cálculo dentario marginal</label><Textarea v-model="respuestas[idx].campo_6" placeholder="Cálculo dentario marginal" rows="2" class="w-full text-sm" autoResize /></div>
+                                                    <div><label class="block text-xs font-medium text-gray-600 mb-1">Observaciones</label><Textarea v-model="respuestas[idx].campo_7" placeholder="Observaciones" rows="2" class="w-full text-sm" autoResize /></div>
+                                                    <p class="text-xs font-semibold text-gray-500 uppercase mt-1">Dientes Permanentes</p>
+                                                    <div class="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                                                        <div v-for="p in BW_IZQUIERDO_PERM" :key="p"><label class="block text-xs text-gray-500 mb-0.5">Diente {{ fmtD(p) }}</label><Textarea v-model="respuestas[idx][`diente_${p}`]" :placeholder="`Dx ${fmtD(p)}`" rows="2" class="w-full text-xs" autoResize /></div>
+                                                    </div>
+                                                    <p class="text-xs font-semibold text-gray-500 uppercase mt-1">Dientes Temporales</p>
+                                                    <div class="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                                                        <div v-for="p in BW_IZQUIERDO_TEMP" :key="p"><label class="block text-xs text-gray-500 mb-0.5">Diente {{ fmtD(p) }}</label><Textarea v-model="respuestas[idx][`diente_${p}`]" :placeholder="`Dx ${fmtD(p)}`" rows="2" class="w-full text-xs" autoResize /></div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <div><label class="block text-sm font-medium text-gray-700 mb-1.5">Observaciones generales</label><Textarea v-model="respuestas[idx].campo_1" placeholder="Observaciones generales..." rows="2" class="w-full" autoResize /></div>
+                                        </template>
+
+                                        <!-- ══ BITE WING UNILATERAL DERECHA ══ -->
+                                        <template v-else-if="isBiteWingUnilateralDerecha(ex)">
+                                            <div class="border border-blue-100 rounded-xl overflow-hidden mb-3">
+                                                <div class="bg-blue-700 px-4 py-2"><h3 class="text-white font-semibold text-sm">Lado Derecho</h3></div>
+                                                <div class="p-4 space-y-3">
+                                                    <div><label class="block text-xs font-medium text-gray-600 mb-1">Nivel Óseo Marginal</label><Textarea v-model="respuestas[idx].campo_2" placeholder="Nivel Óseo Marginal" rows="2" class="w-full text-sm" autoResize /></div>
+                                                    <div><label class="block text-xs font-medium text-gray-600 mb-1">Cálculo dentario marginal</label><Textarea v-model="respuestas[idx].campo_3" placeholder="Cálculo dentario marginal" rows="2" class="w-full text-sm" autoResize /></div>
+                                                    <div><label class="block text-xs font-medium text-gray-600 mb-1">Observaciones</label><Textarea v-model="respuestas[idx].campo_4" placeholder="Observaciones" rows="2" class="w-full text-sm" autoResize /></div>
+                                                    <p class="text-xs font-semibold text-gray-500 uppercase mt-1">Dientes Permanentes</p>
+                                                    <div class="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                                                        <div v-for="p in BW_DERECHO_PERM" :key="p"><label class="block text-xs text-gray-500 mb-0.5">Diente {{ fmtD(p) }}</label><Textarea v-model="respuestas[idx][`diente_${p}`]" :placeholder="`Dx ${fmtD(p)}`" rows="2" class="w-full text-xs" autoResize /></div>
+                                                    </div>
+                                                    <p class="text-xs font-semibold text-gray-500 uppercase mt-1">Dientes Temporales</p>
+                                                    <div class="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                                                        <div v-for="p in BW_DERECHO_TEMP" :key="p"><label class="block text-xs text-gray-500 mb-0.5">Diente {{ fmtD(p) }}</label><Textarea v-model="respuestas[idx][`diente_${p}`]" :placeholder="`Dx ${fmtD(p)}`" rows="2" class="w-full text-xs" autoResize /></div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <div><label class="block text-sm font-medium text-gray-700 mb-1.5">Observaciones generales</label><Textarea v-model="respuestas[idx].campo_1" placeholder="Observaciones generales..." rows="2" class="w-full" autoResize /></div>
+                                        </template>
+
+                                        <!-- ══ BITE WING UNILATERAL IZQUIERDA ══ -->
+                                        <template v-else-if="isBiteWingUnilateralIzquierda(ex)">
+                                            <div class="border border-blue-100 rounded-xl overflow-hidden mb-3">
+                                                <div class="bg-blue-700 px-4 py-2"><h3 class="text-white font-semibold text-sm">Lado Izquierdo</h3></div>
+                                                <div class="p-4 space-y-3">
+                                                    <div><label class="block text-xs font-medium text-gray-600 mb-1">Nivel Óseo Marginal</label><Textarea v-model="respuestas[idx].campo_2" placeholder="Nivel Óseo Marginal" rows="2" class="w-full text-sm" autoResize /></div>
+                                                    <div><label class="block text-xs font-medium text-gray-600 mb-1">Cálculo dentario marginal</label><Textarea v-model="respuestas[idx].campo_3" placeholder="Cálculo dentario marginal" rows="2" class="w-full text-sm" autoResize /></div>
+                                                    <div><label class="block text-xs font-medium text-gray-600 mb-1">Observaciones</label><Textarea v-model="respuestas[idx].campo_4" placeholder="Observaciones" rows="2" class="w-full text-sm" autoResize /></div>
+                                                    <p class="text-xs font-semibold text-gray-500 uppercase mt-1">Dientes Permanentes</p>
+                                                    <div class="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                                                        <div v-for="p in BW_IZQUIERDO_PERM" :key="p"><label class="block text-xs text-gray-500 mb-0.5">Diente {{ fmtD(p) }}</label><Textarea v-model="respuestas[idx][`diente_${p}`]" :placeholder="`Dx ${fmtD(p)}`" rows="2" class="w-full text-xs" autoResize /></div>
+                                                    </div>
+                                                    <p class="text-xs font-semibold text-gray-500 uppercase mt-1">Dientes Temporales</p>
+                                                    <div class="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                                                        <div v-for="p in BW_IZQUIERDO_TEMP" :key="p"><label class="block text-xs text-gray-500 mb-0.5">Diente {{ fmtD(p) }}</label><Textarea v-model="respuestas[idx][`diente_${p}`]" :placeholder="`Dx ${fmtD(p)}`" rows="2" class="w-full text-xs" autoResize /></div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <div><label class="block text-sm font-medium text-gray-700 mb-1.5">Observaciones generales</label><Textarea v-model="respuestas[idx].campo_1" placeholder="Observaciones generales..." rows="2" class="w-full" autoResize /></div>
+                                        </template>
+
+                                        <!-- ══ ANÁLISIS CEFALOMÉTRICO ══ -->
+                                        <template v-else-if="isCefalo(ex)">
+                                            <div><label class="block text-sm font-medium text-gray-700 mb-1.5">Examen radiográfico</label><Textarea v-model="respuestas[idx].campo_1" placeholder="Examen radiográfico" rows="3" class="w-full" autoResize /></div>
+                                            <div><label class="block text-sm font-medium text-gray-700 mb-1.5">Informe Radiográfico</label><Textarea v-model="respuestas[idx].campo_2" placeholder="Informe Radiográfico" rows="4" class="w-full" autoResize /></div>
+                                            <div><label class="block text-sm font-medium text-gray-700 mb-1.5">Observaciones</label><Textarea v-model="respuestas[idx].campo_3" placeholder="Observaciones" rows="3" class="w-full" autoResize /></div>
+                                            <template v-for="c in cefaloSolicitados(ex)" :key="c.campo">
+                                                <div><label class="block text-sm font-medium text-gray-700 mb-1.5">{{ c.label }}</label><Textarea v-model="respuestas[idx][c.campo]" :placeholder="c.label" rows="3" class="w-full" autoResize /></div>
+                                            </template>
+                                        </template>
+
+                                        <!-- ══ OCLUSAL (Superior/Inferior, Adulto/Niño) ══ -->
+                                        <template v-else-if="isOclusal(ex)">
+                                            <div><label class="block text-sm font-medium text-gray-700 mb-1.5">Examen radiográfico</label><Textarea v-model="respuestas[idx].campo_1" placeholder="Examen radiográfico" rows="3" class="w-full" autoResize /></div>
+                                            <div><label class="block text-sm font-medium text-gray-700 mb-1.5">Informe Radiográfico</label><Textarea v-model="respuestas[idx].campo_2" placeholder="Informe Radiográfico" rows="4" class="w-full" autoResize /></div>
+                                            <div><label class="block text-sm font-medium text-gray-700 mb-1.5">Observaciones</label><Textarea v-model="respuestas[idx].campo_3" placeholder="Observaciones" rows="3" class="w-full" autoResize /></div>
                                         </template>
 
                                         <!-- Campos estándar (Examen / Informe / Impresión) -->
@@ -521,7 +635,39 @@ function parsePiezas(str) {
 function isConeBeam(ex)      { return parseInt(ex?.grupo ?? 0) === 4; }
 function isCefalometrico(ex) { return /cefalom/i.test(ex?.descripcion ?? ''); }
 function isRetroTotal(ex)    { return /retroalveolar/i.test(ex?.descripcion ?? '') && /total/i.test(ex?.descripcion ?? ''); }
-function isNinoExam(ex)      { return /ni[ñn]/i.test(ex?.descripcion ?? ''); }
+function isRetroUnitaria(ex) { return /retroalveolar/i.test(ex?.descripcion ?? '') && !/total/i.test(ex?.descripcion ?? ''); }
+function isRetro(ex)              { return /retroalveolar/i.test(ex?.descripcion ?? ''); }
+function isNinoExam(ex)           { return /ni[ñn]/i.test(ex?.descripcion ?? ''); }
+function isBiteWingBilateral(ex)         { return /bite wing bilateral/i.test(ex?.descripcion ?? ''); }
+function isBiteWingUnilateralDerecha(ex) { return /bite wing unilateral derecha/i.test(ex?.descripcion ?? ''); }
+function isBiteWingUnilateralIzquierda(ex) { return /bite wing unilateral izquierda/i.test(ex?.descripcion ?? ''); }
+function isOclusal(ex)        { return /oclusal/i.test(ex?.descripcion ?? '') || /telerradiograf/i.test(ex?.descripcion ?? '') || /carpo/i.test(ex?.descripcion ?? '') || /atm/i.test(ex?.descripcion ?? ''); }
+function isCefalo(ex)         { return /cefalom/i.test(ex?.descripcion ?? ''); }
+
+const CEFALO_CAMPOS = [
+    { key: 'Análisis Rickets',  campo: 'campo_4' },
+    { key: 'Análisis Roth',     campo: 'campo_5' },
+    { key: 'Análisis Jaraback', campo: 'campo_6' },
+    { key: 'Análisis Steiner',  campo: 'campo_7' },
+    { key: 'Análisis Mcnamara', campo: 'campo_8' },
+    { key: 'Otros',             campo: 'campo_9' },
+];
+
+function cefaloSolicitados(ex) {
+    if (!ex?.url_texto) return [];
+    const parts = ex.url_texto.split(',').map(s => s.trim());
+    return CEFALO_CAMPOS.filter(c =>
+        parts.some(p => p === c.key || (c.key === 'Otros' && p.startsWith('Otros')))
+    ).map(c => ({
+        ...c,
+        label: parts.find(p => c.key === 'Otros' ? p.startsWith('Otros') : p === c.key) ?? c.key
+    }));
+}
+
+const BW_DERECHO_PERM  = [13,14,15,16,17,18,43,44,45,46,47,48];
+const BW_DERECHO_TEMP  = [53,54,55,83,84,85];
+const BW_IZQUIERDO_PERM = [23,24,25,26,27,28,33,34,35,36,37,38];
+const BW_IZQUIERDO_TEMP = [63,64,65,73,74,75];
 
 function getTeethForExam(ex) {
     if (ex?.piezas) return parsePiezas(ex.piezas);
@@ -558,15 +704,30 @@ const respuestas = reactive(
         const obj = { id: ex.id, kind_id: ex.kind_id };
 
         if (ex.kind_id === PANORAMICA_KIND_ID) {
-            for (let i = 1; i <= 8; i++) obj[`campo_${i}`] = r[`campo_${i}`] ?? '';
+            for (let i = 1; i <= 9; i++) obj[`campo_${i}`] = r[`campo_${i}`] ?? '';
             ALL_DIENTES.forEach(d => { obj[`diente_${d}`] = r[`diente_${d}`] ?? ''; });
-            obj.informe_examen    = r.informe_examen    ?? '';
-            obj.informe_libre     = r.informe_libre     ?? '';
-            obj.informe_impresion = r.informe_impresion ?? '';
+        } else if (isBiteWingBilateral(ex)) {
+            obj.campo_1 = r.campo_1 ?? '';
+            for (let i = 2; i <= 7; i++) obj[`campo_${i}`] = r[`campo_${i}`] ?? '';
+            [...BW_DERECHO_PERM, ...BW_DERECHO_TEMP, ...BW_IZQUIERDO_PERM, ...BW_IZQUIERDO_TEMP]
+                .forEach(p => { obj[`diente_${p}`] = r[`diente_${p}`] ?? ''; });
+        } else if (isBiteWingUnilateralDerecha(ex)) {
+            obj.campo_1 = r.campo_1 ?? '';
+            for (let i = 2; i <= 4; i++) obj[`campo_${i}`] = r[`campo_${i}`] ?? '';
+            [...BW_DERECHO_PERM, ...BW_DERECHO_TEMP].forEach(p => { obj[`diente_${p}`] = r[`diente_${p}`] ?? ''; });
+        } else if (isBiteWingUnilateralIzquierda(ex)) {
+            obj.campo_1 = r.campo_1 ?? '';
+            for (let i = 2; i <= 4; i++) obj[`campo_${i}`] = r[`campo_${i}`] ?? '';
+            [...BW_IZQUIERDO_PERM, ...BW_IZQUIERDO_TEMP].forEach(p => { obj[`diente_${p}`] = r[`diente_${p}`] ?? ''; });
+        } else if (isCefalo(ex)) {
+            for (let i = 1; i <= 9; i++) obj[`campo_${i}`] = r[`campo_${i}`] ?? '';
         } else {
             const teeth = getTeethForExam(ex);
             if (teeth.length > 0) {
                 obj.campo_1 = r.campo_1 ?? '';
+                if (isRetro(ex)) {
+                    for (let i = 2; i <= 7; i++) obj[`campo_${i}`] = r[`campo_${i}`] ?? '';
+                }
                 teeth.forEach(p => { obj[`diente_${p}`] = r[`diente_${p}`] ?? ''; });
             } else {
                 obj.campo_1 = r.campo_1 ?? '';

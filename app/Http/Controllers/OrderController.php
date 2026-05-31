@@ -787,19 +787,15 @@ class OrderController extends Controller
 
                 if ($isPanoramica) {
                     $answerData = ['solo_adjunto' => $soloAdjunto];
-                    for ($i = 1; $i <= 8; $i++) {
+                    for ($i = 1; $i <= 9; $i++) {
                         $answerData["campo_{$i}"] = $r["campo_{$i}"] ?? null;
                     }
                     foreach (self::PANORAMICA_DIENTES as $d) {
                         $answerData["diente_{$d}"] = $r["diente_{$d}"] ?? null;
                     }
-                    $answerData['content'] = json_encode([
-                        'examen'    => $r['informe_examen']    ?? '',
-                        'informe'   => $r['informe_libre']     ?? '',
-                        'impresion' => $r['informe_impresion'] ?? '',
-                    ]);
                 } elseif (!empty($piezasStr) || $isRetroTotal) {
                     // Unitaria con piezas o Retroalveolar Total: guardar campo_1 + diente_N
+                    $isRetroUnitaria = str_contains($descripcion, 'retroalveolar') && !$isRetroTotal;
                     if (!empty($piezasStr)) {
                         $teeth = array_filter(array_map('intval', explode(',', $piezasStr)));
                     } else {
@@ -809,8 +805,39 @@ class OrderController extends Controller
                         $teeth = $isNinoExam ? array_merge($perm, $temp) : $perm;
                     }
                     $answerData = ['campo_1' => $r['campo_1'] ?? '', 'solo_adjunto' => $soloAdjunto];
+                    // Retro unitaria y total: guardar campo_2-7 (Maxilar/Mandíbula secciones)
+                    for ($i = 2; $i <= 7; $i++) {
+                        $answerData["campo_{$i}"] = $r["campo_{$i}"] ?? null;
+                    }
                     foreach ($teeth as $p) {
                         $answerData["diente_{$p}"] = $r["diente_{$p}"] ?? null;
+                    }
+                } elseif (str_contains($descripcion, 'bite wing bilateral')) {
+                    $answerData = ['campo_1' => $r['campo_1'] ?? '', 'solo_adjunto' => $soloAdjunto];
+                    for ($i = 2; $i <= 7; $i++) {
+                        $answerData["campo_{$i}"] = $r["campo_{$i}"] ?? null;
+                    }
+                    $bwTeeth = [13,14,15,16,17,18,43,44,45,46,47,48,53,54,55,83,84,85,
+                                23,24,25,26,27,28,33,34,35,36,37,38,63,64,65,73,74,75];
+                    foreach ($bwTeeth as $p) {
+                        $answerData["diente_{$p}"] = $r["diente_{$p}"] ?? null;
+                    }
+                } elseif (str_contains($descripcion, 'bite wing unilateral derecha')) {
+                    $answerData = ['campo_1' => $r['campo_1'] ?? '', 'solo_adjunto' => $soloAdjunto];
+                    for ($i = 2; $i <= 4; $i++) $answerData["campo_{$i}"] = $r["campo_{$i}"] ?? null;
+                    foreach ([13,14,15,16,17,18,43,44,45,46,47,48,53,54,55,83,84,85] as $p) {
+                        $answerData["diente_{$p}"] = $r["diente_{$p}"] ?? null;
+                    }
+                } elseif (str_contains($descripcion, 'bite wing unilateral izquierda')) {
+                    $answerData = ['campo_1' => $r['campo_1'] ?? '', 'solo_adjunto' => $soloAdjunto];
+                    for ($i = 2; $i <= 4; $i++) $answerData["campo_{$i}"] = $r["campo_{$i}"] ?? null;
+                    foreach ([23,24,25,26,27,28,33,34,35,36,37,38,63,64,65,73,74,75] as $p) {
+                        $answerData["diente_{$p}"] = $r["diente_{$p}"] ?? null;
+                    }
+                } elseif (preg_match('/cefalom/i', $descripcion)) {
+                    $answerData = ['solo_adjunto' => $soloAdjunto];
+                    for ($i = 1; $i <= 9; $i++) {
+                        $answerData["campo_{$i}"] = $r["campo_{$i}"] ?? null;
                     }
                 } else {
                     $answerData = [

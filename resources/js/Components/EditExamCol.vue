@@ -17,7 +17,7 @@
 
                         <!-- Tooth chart: unitaria exams -->
                         <div v-if="isUnitaria(exam.label)" class="text-xs">
-                            <template v-if="!isNino(exam.label)">
+                            <template v-if="true">
                                 <p class="font-semibold text-gray-700 mb-1">Dientes Permanentes</p>
                                 <p class="text-gray-500 mb-0.5">Maxilar</p>
                                 <div class="flex flex-wrap gap-x-1 gap-y-1 mb-1">
