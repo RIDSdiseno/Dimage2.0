@@ -976,8 +976,10 @@ class OrderController extends Controller
             ->join('staffs as s', 's.id', '=', 'ose.staff_id')
             ->join('users as u', 'u.id', '=', 's.user_id')
             ->where('ose.order_id', $order->id)
-            ->select('u.name', 's.firma')
-            ->get();
+            ->select('s.id', 'u.name', 's.firma')
+            ->get()
+            ->unique('id') // deduplicar por staff_id
+            ->values();
 
         $pdf = \Barryvdh\DomPDF\Facade\Pdf::loadView('pdf.orden', [
             'order'      => $order,
@@ -987,7 +989,7 @@ class OrderController extends Controller
             'examenes'   => $examenes,
         ]);
 
-        return $pdf->download("orden-{$order->id}.pdf");
+        return $pdf->stream("orden-{$order->id}.pdf");
     }
 
     private function clinicsForUser($user): Collection
