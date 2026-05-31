@@ -335,7 +335,7 @@ class OrderController extends Controller
             ->select('staffs.id', 'users.name')
             ->join('users', 'staffs.user_id', '=', 'users.id')
             ->join('clinic_staff', 'clinic_staff.staff_id', '=', 'staffs.id')
-            ->where('staffs.type_staff', 3)
+            ->where(function ($q) { $q->where('staffs.type_staff', 3)->orWhere('staffs.type_staff', 5); })
             ->where('clinic_staff.clinic_id', $clinicId)
             ->groupBy('staffs.id', 'users.name')
             ->orderBy('users.name')
