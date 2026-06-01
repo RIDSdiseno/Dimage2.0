@@ -125,11 +125,11 @@
                                                     <div><label class="block text-xs font-medium text-gray-600 mb-1">Observaciones</label><Textarea v-model="respuestas[idx].campo_5" placeholder="Observaciones" rows="2" class="w-full text-sm" autoResize /></div>
                                                     <p class="text-xs font-semibold text-gray-500 uppercase mt-2">Dientes Permanentes</p>
                                                     <div class="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                                                        <div v-for="d in PERM_MAXILAR" :key="d"><label class="block text-xs text-gray-500 mb-0.5">Diente {{ fmtD(d) }}</label><Textarea v-model="respuestas[idx][`diente_${d}`]" :placeholder="`Dx ${fmtD(d)}`" rows="2" class="w-full text-xs" autoResize /></div>
+                                                        <div v-for="d in PERM_MAXILAR" :key="d"><label class="block text-xs text-gray-500 mb-0.5">Diente {{ fmtD(d) }}</label><Textarea v-model="respuestas[idx][`diente_${d}`]" :placeholder="`Escriba el diagnostico Clínico para diente número ${fmtD(d)}`" rows="2" class="w-full text-xs" autoResize /></div>
                                                     </div>
                                                     <p class="text-xs font-semibold text-gray-500 uppercase mt-2">Dientes Temporales</p>
                                                     <div class="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                                                        <div v-for="d in TEMP_MAXILAR" :key="d"><label class="block text-xs text-gray-500 mb-0.5">Diente {{ fmtD(d) }}</label><Textarea v-model="respuestas[idx][`diente_${d}`]" :placeholder="`Dx ${fmtD(d)}`" rows="2" class="w-full text-xs" autoResize /></div>
+                                                        <div v-for="d in TEMP_MAXILAR" :key="d"><label class="block text-xs text-gray-500 mb-0.5">Diente {{ fmtD(d) }}</label><Textarea v-model="respuestas[idx][`diente_${d}`]" :placeholder="`Escriba el diagnostico Clínico para diente número ${fmtD(d)}`" rows="2" class="w-full text-xs" autoResize /></div>
                                                     </div>
                                                 </div>
                                             </div>
@@ -143,11 +143,11 @@
                                                     <div><label class="block text-xs font-medium text-gray-600 mb-1">Observaciones</label><Textarea v-model="respuestas[idx].campo_9" placeholder="Observaciones" rows="2" class="w-full text-sm" autoResize /></div>
                                                     <p class="text-xs font-semibold text-gray-500 uppercase mt-2">Dientes Permanentes</p>
                                                     <div class="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                                                        <div v-for="d in PERM_MANDIBULA" :key="d"><label class="block text-xs text-gray-500 mb-0.5">Diente {{ fmtD(d) }}</label><Textarea v-model="respuestas[idx][`diente_${d}`]" :placeholder="`Dx ${fmtD(d)}`" rows="2" class="w-full text-xs" autoResize /></div>
+                                                        <div v-for="d in PERM_MANDIBULA" :key="d"><label class="block text-xs text-gray-500 mb-0.5">Diente {{ fmtD(d) }}</label><Textarea v-model="respuestas[idx][`diente_${d}`]" :placeholder="`Escriba el diagnostico Clínico para diente número ${fmtD(d)}`" rows="2" class="w-full text-xs" autoResize /></div>
                                                     </div>
                                                     <p class="text-xs font-semibold text-gray-500 uppercase mt-2">Dientes Temporales</p>
                                                     <div class="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                                                        <div v-for="d in TEMP_MANDIBULA" :key="d"><label class="block text-xs text-gray-500 mb-0.5">Diente {{ fmtD(d) }}</label><Textarea v-model="respuestas[idx][`diente_${d}`]" :placeholder="`Dx ${fmtD(d)}`" rows="2" class="w-full text-xs" autoResize /></div>
+                                                        <div v-for="d in TEMP_MANDIBULA" :key="d"><label class="block text-xs text-gray-500 mb-0.5">Diente {{ fmtD(d) }}</label><Textarea v-model="respuestas[idx][`diente_${d}`]" :placeholder="`Escriba el diagnostico Clínico para diente número ${fmtD(d)}`" rows="2" class="w-full text-xs" autoResize /></div>
                                                     </div>
                                                 </div>
                                             </div>
