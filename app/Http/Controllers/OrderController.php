@@ -506,6 +506,10 @@ class OrderController extends Controller
     {
         $user = Auth::user();
 
+        $canSeeInforme = (int) $order->estadoradiologo === 1
+            || $user->hasAnyRole(['admin', 'secretaria', 'radiologo'])
+            || (int) ($user->type_id ?? 0) === 1;
+
         $examenes = DB::table('examinations')
             ->join('examination_order', 'examination_order.examination_id', '=', 'examinations.id')
             ->join('kinds', 'kinds.id', '=', 'examinations.kind_id')
@@ -519,45 +523,49 @@ class OrderController extends Controller
                 'examinations.piezas',
             ])
             ->get()
-            ->map(function ($e) {
+            ->map(function ($e) use ($canSeeInforme) {
                 $archivos = DB::table('files')
                     ->where('examination_id', $e->examination_id)
                     ->where('desde_informar', '!=', 1)
                     ->get(['id', 'name', 'ruta', 'ruta_dcm', 'nombre_dcm', 'extension', 'file_size'])
                     ->map(fn ($f) => array_merge((array) $f, ['url' => $this->signedUrl($f->ruta)]));
 
-                $ans = DB::table('answers')
-                    ->where('examination_id', $e->examination_id)
-                    ->first();
+                $respuesta       = null;
+                $archivosInforme = collect();
 
-                $respuesta = null;
-                if ($ans) {
-                    $respuesta = (array) $ans;
-                    $respuesta['solo_adjunto'] = (bool) ($ans->solo_adjunto ?? false);
-                    if ($e->kind_id == self::PANORAMICA_KIND_ID && !empty($ans->content)) {
-                        $c = json_decode($ans->content, true) ?? [];
-                        $respuesta['informe_examen']    = $c['examen']    ?? '';
-                        $respuesta['informe_libre']     = $c['informe']   ?? '';
-                        $respuesta['informe_impresion'] = $c['impresion'] ?? '';
+                if ($canSeeInforme) {
+                    $ans = DB::table('answers')
+                        ->where('examination_id', $e->examination_id)
+                        ->first();
+
+                    if ($ans) {
+                        $respuesta = (array) $ans;
+                        $respuesta['solo_adjunto'] = (bool) ($ans->solo_adjunto ?? false);
+                        if ($e->kind_id == self::PANORAMICA_KIND_ID && !empty($ans->content)) {
+                            $c = json_decode($ans->content, true) ?? [];
+                            $respuesta['informe_examen']    = $c['examen']    ?? '';
+                            $respuesta['informe_libre']     = $c['informe']   ?? '';
+                            $respuesta['informe_impresion'] = $c['impresion'] ?? '';
+                        }
                     }
+
+                    $archivosInforme = DB::table('files')
+                        ->where('examination_id', $e->examination_id)
+                        ->where('desde_informar', 1)
+                        ->get(['id', 'name', 'ruta', 'extension', 'file_size'])
+                        ->map(fn ($f) => array_merge((array) $f, ['url' => $this->signedUrl($f->ruta)]));
                 }
 
-                $archivosInforme = DB::table('files')
-                    ->where('examination_id', $e->examination_id)
-                    ->where('desde_informar', 1)
-                    ->get(['id', 'name', 'ruta', 'extension', 'file_size'])
-                    ->map(fn ($f) => array_merge((array) $f, ['url' => $this->signedUrl($f->ruta)]));
-
                 return [
-                    'id'          => $e->examination_id,
-                    'kind_id'     => $e->kind_id,
-                    'descripcion' => $e->descripcion,
-                    'grupo'       => (int) $e->grupo,
-                    'url_texto'   => $e->url_texto,
-                    'piezas'      => $e->piezas,
-                    'archivos'    => $archivos,
+                    'id'               => $e->examination_id,
+                    'kind_id'          => $e->kind_id,
+                    'descripcion'      => $e->descripcion,
+                    'grupo'            => (int) $e->grupo,
+                    'url_texto'        => $e->url_texto,
+                    'piezas'           => $e->piezas,
+                    'archivos'         => $archivos,
                     'archivos_informe' => $archivosInforme,
-                    'respuesta'   => $respuesta,
+                    'respuesta'        => $respuesta,
                 ];
             });
 
