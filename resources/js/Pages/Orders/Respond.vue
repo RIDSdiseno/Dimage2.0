@@ -779,7 +779,7 @@ function doSubmit(action) {
         data.append(`respuestas[${i}][id]`, r.id);
 
         if (r.kind_id === PANORAMICA_KIND_ID) {
-            for (let c = 1; c <= 8; c++) {
+            for (let c = 1; c <= 9; c++) {
                 data.append(`respuestas[${i}][campo_${c}]`, r[`campo_${c}`] ?? '');
             }
             ALL_DIENTES.forEach(d => {
