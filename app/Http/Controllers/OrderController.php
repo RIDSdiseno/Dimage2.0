@@ -1102,10 +1102,15 @@ class OrderController extends Controller
 
 
         if ($user->hasAnyRole(['odontologo', 'tecnico']) && $user->staff) {
-            $clinicIds = $this->clinicIdsForStaff((int) $user->staff->id);
+            $staffId  = (int) $user->staff->id;
+            $clinicIds = $this->clinicIdsForStaff($staffId);
 
             if ($clinicIds->isEmpty()) {
-                $query->whereRaw('1 = 0');
+                // Sin clínica asignada: mostrar solo sus propias órdenes
+                $query->where(function ($q) use ($staffId) {
+                    $q->where('o.operator_id', $staffId)
+                      ->orWhere('o.odontologo_id', $staffId);
+                });
                 return;
             }
 
