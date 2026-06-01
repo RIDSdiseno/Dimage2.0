@@ -77,27 +77,71 @@
   <div class="exam-box">
     <div class="exam-header">{{ $ex['descripcion'] }}</div>
     <div class="exam-body">
+      @php
+        $isRetro = stripos($ex['descripcion'] ?? '', 'retroalveolar') !== false;
+        $maxilarN = [11,12,13,14,15,16,17,18,21,22,23,24,25,26,27,28,51,52,53,54,55,61,62,63,64,65];
+        $mandibN  = [31,32,33,34,35,36,37,38,41,42,43,44,45,46,47,48,71,72,73,74,75,81,82,83,84,85];
+        function fmtTooth($n) { return floor($n/10) . '.' . ($n%10); }
+      @endphp
       @if($r)
+        {{-- Panorámica: informe_examen/libre/impresion --}}
         @if(!empty($r['informe_examen']) || !empty($r['informe_libre']) || !empty($r['informe_impresion']))
-          @if(!empty($r['informe_examen']))
-            <p><strong>Examen:</strong></p><p>{{ $r['informe_examen'] }}</p>
+          @if(!empty($r['informe_examen']))  <p><strong>Examen:</strong></p><p>{{ $r['informe_examen'] }}</p> @endif
+          @if(!empty($r['informe_libre']))   <p style="margin-top:6px;"><strong>Informe:</strong></p><p>{{ $r['informe_libre'] }}</p> @endif
+          @if(!empty($r['informe_impresion']))<p style="margin-top:6px;"><strong>Impresión Diagnóstica:</strong></p><p>{{ $r['informe_impresion'] }}</p> @endif
+
+        {{-- Retroalveolar: secciones Maxilar / Mandíbula + dientes --}}
+        @elseif($isRetro)
+          @if(!empty($r['campo_2']) || !empty($r['campo_3']) || !empty($r['campo_4']))
+            <p style="font-weight:700;border-bottom:1px solid #e2e8f0;padding-bottom:3px;margin-bottom:6px;">Maxilar</p>
+            @if(!empty($r['campo_2'])) <p><strong>Nivel Óseo Marginal:</strong> {{ $r['campo_2'] }}</p> @endif
+            @if(!empty($r['campo_3'])) <p><strong>Cálculo dentario marginal:</strong> {{ $r['campo_3'] }}</p> @endif
+            @if(!empty($r['campo_4'])) <p><strong>Observaciones:</strong> {{ $r['campo_4'] }}</p> @endif
+            @php $maxDientes = collect($maxilarN)->filter(fn($d) => !empty($r["diente_{$d}"]))->values(); @endphp
+            @if($maxDientes->isNotEmpty())
+              <p style="margin-top:6px;font-weight:600;font-size:10px;">Dientes:</p>
+              <table style="width:100%;border-collapse:collapse;font-size:10px;margin-top:2px;">
+                @foreach($maxDientes->chunk(4) as $chunk)
+                <tr>
+                  @foreach($chunk as $d)
+                  <td style="border:1px solid #e2e8f0;padding:3px 5px;vertical-align:top;width:25%;">
+                    <strong>{{ fmtTooth($d) }}</strong><br>{{ $r["diente_{$d}"] }}
+                  </td>
+                  @endforeach
+                </tr>
+                @endforeach
+              </table>
+            @endif
           @endif
-          @if(!empty($r['informe_libre']))
-            <p style="margin-top:6px;"><strong>Informe:</strong></p><p>{{ $r['informe_libre'] }}</p>
+          @if(!empty($r['campo_5']) || !empty($r['campo_6']) || !empty($r['campo_7']))
+            <p style="font-weight:700;border-bottom:1px solid #e2e8f0;padding-bottom:3px;margin-bottom:6px;margin-top:10px;">Mandíbula</p>
+            @if(!empty($r['campo_5'])) <p><strong>Nivel Óseo Marginal:</strong> {{ $r['campo_5'] }}</p> @endif
+            @if(!empty($r['campo_6'])) <p><strong>Cálculo dentario marginal:</strong> {{ $r['campo_6'] }}</p> @endif
+            @if(!empty($r['campo_7'])) <p><strong>Observaciones:</strong> {{ $r['campo_7'] }}</p> @endif
+            @php $mandDientes = collect($mandibN)->filter(fn($d) => !empty($r["diente_{$d}"]))->values(); @endphp
+            @if($mandDientes->isNotEmpty())
+              <p style="margin-top:6px;font-weight:600;font-size:10px;">Dientes:</p>
+              <table style="width:100%;border-collapse:collapse;font-size:10px;margin-top:2px;">
+                @foreach($mandDientes->chunk(4) as $chunk)
+                <tr>
+                  @foreach($chunk as $d)
+                  <td style="border:1px solid #e2e8f0;padding:3px 5px;vertical-align:top;width:25%;">
+                    <strong>{{ fmtTooth($d) }}</strong><br>{{ $r["diente_{$d}"] }}
+                  </td>
+                  @endforeach
+                </tr>
+                @endforeach
+              </table>
+            @endif
           @endif
-          @if(!empty($r['informe_impresion']))
-            <p style="margin-top:6px;"><strong>Impresión Diagnóstica:</strong></p><p>{{ $r['informe_impresion'] }}</p>
-          @endif
+          @if(!empty($r['campo_1'])) <p style="margin-top:8px;"><strong>Observaciones generales:</strong> {{ $r['campo_1'] }}</p> @endif
+          @if(!empty($r['campo_1']) && !$isRetro && empty($r['campo_2'])) <p>Sin informe de secciones.</p> @endif
+
+        {{-- Examen estándar: campo_1/2/3 --}}
         @else
-          @if(!empty($r['campo_1']))
-            <p><strong>Examen:</strong></p><p>{{ $r['campo_1'] }}</p>
-          @endif
-          @if(!empty($r['campo_2']))
-            <p style="margin-top:6px;"><strong>Informe:</strong></p><p>{{ $r['campo_2'] }}</p>
-          @endif
-          @if(!empty($r['campo_3']))
-            <p style="margin-top:6px;"><strong>Impresión Diagnóstica:</strong></p><p>{{ $r['campo_3'] }}</p>
-          @endif
+          @if(!empty($r['campo_1'])) <p><strong>Examen:</strong></p><p>{{ $r['campo_1'] }}</p> @endif
+          @if(!empty($r['campo_2'])) <p style="margin-top:6px;"><strong>Informe:</strong></p><p>{{ $r['campo_2'] }}</p> @endif
+          @if(!empty($r['campo_3'])) <p style="margin-top:6px;"><strong>Impresión Diagnóstica:</strong></p><p>{{ $r['campo_3'] }}</p> @endif
         @endif
       @else
         <p style="color:#94a3b8;font-style:italic;">Sin informe.</p>

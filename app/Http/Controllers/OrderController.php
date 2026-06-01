@@ -981,17 +981,18 @@ class OrderController extends Controller
             ->unique('id')
             ->values()
             ->map(function ($rad) {
-                // DomPDF can't fetch S3 URLs; convert firma to base64 data URI
+                // DomPDF can't use URLs directly; convert firma to base64 data URI.
+                // Firmas are stored on the 'public' disk (storage/app/public/firmas/).
                 $rad->firma_b64 = null;
                 if (!empty($rad->firma)) {
                     try {
-                        $content = Storage::disk('s3')->get($rad->firma);
+                        $content = Storage::disk('public')->get($rad->firma);
                         $ext     = strtolower(pathinfo($rad->firma, PATHINFO_EXTENSION));
                         $mime    = match($ext) {
-                            'png'           => 'image/png',
-                            'gif'           => 'image/gif',
-                            'jpg', 'jpeg'   => 'image/jpeg',
-                            default         => 'image/jpeg',
+                            'png'         => 'image/png',
+                            'gif'         => 'image/gif',
+                            'jpg','jpeg'  => 'image/jpeg',
+                            default       => 'image/jpeg',
                         };
                         $rad->firma_b64 = 'data:' . $mime . ';base64,' . base64_encode($content);
                     } catch (\Throwable) {}
