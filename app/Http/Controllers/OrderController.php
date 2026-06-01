@@ -1109,7 +1109,18 @@ class OrderController extends Controller
                 return;
             }
 
-            $query->whereIn('c.id', $clinicIds->all());
+            // Mostrar órdenes de todo el holding del operador (igual que legacy)
+            $holdingIds = DB::table('clinics')
+                ->whereIn('id', $clinicIds->all())
+                ->pluck('holding_id')
+                ->filter()->unique();
+
+            if ($holdingIds->isEmpty()) {
+                $query->whereRaw('1 = 0');
+                return;
+            }
+
+            $query->whereIn('c.holding_id', $holdingIds->all());
             return;
         }
 
