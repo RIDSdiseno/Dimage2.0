@@ -254,34 +254,24 @@ if (!function_exists('pdfDienteTable')) {
   </div>
   @endforeach
 
+  @if($radiologos->isNotEmpty())
   <div style="margin-top:28px; border-top:1px solid #e2e8f0; padding-top:16px;">
-    <h2>Firmas</h2>
-    <div style="display:table; width:100%; margin-top:12px;">
-
-      {{-- Radiólogo(s) --}}
-      <div style="display:table-cell; width:50%; vertical-align:bottom;">
-        @foreach($radiologos as $rad)
-        <div style="text-align:center; margin-bottom:16px;">
-          @if(!empty($rad->firma_b64))
-            <img src="{{ $rad->firma_b64 }}" style="height:60px; max-width:180px; object-fit:contain; display:block; margin:0 auto 4px;" />
-          @else
-            <div style="height:60px; width:160px; border-bottom:1px solid #94a3b8; margin:0 auto 4px;"></div>
-          @endif
-          <p style="font-size:10px; color:#1e293b; font-weight:600;">{{ $rad->name }}</p>
-          <p style="font-size:9px; color:#64748b;">Radiólogo</p>
-        </div>
-        @endforeach
+    <h2>Firma del Radiólogo</h2>
+    <div style="margin-top:12px; display:flex; gap:40px; flex-wrap:wrap;">
+      @foreach($radiologos as $rad)
+      <div style="text-align:center;">
+        @if(!empty($rad->firma_b64))
+          <img src="{{ $rad->firma_b64 }}" style="height:60px; max-width:180px; object-fit:contain; display:block; margin:0 auto 4px;" />
+        @else
+          <div style="height:60px; width:160px; border-bottom:1px solid #94a3b8; margin:0 auto 4px;"></div>
+        @endif
+        <p style="font-size:10px; color:#1e293b; font-weight:600;">{{ $rad->name }}</p>
+        <p style="font-size:9px; color:#64748b;">Radiólogo</p>
       </div>
-
-      {{-- Paciente --}}
-      <div style="display:table-cell; width:50%; vertical-align:bottom; text-align:center;">
-        <div style="height:60px; width:160px; border-bottom:1px solid #94a3b8; margin:0 auto 4px;"></div>
-        <p style="font-size:10px; color:#1e293b; font-weight:600;">{{ $paciente->name ?? '' }}</p>
-        <p style="font-size:9px; color:#64748b;">Firma del Paciente</p>
-      </div>
-
+      @endforeach
     </div>
   </div>
+  @endif
 
   <div class="footer">
     Documento generado por DIMAGE · {{ now()->format('d/m/Y H:i') }}
