@@ -78,10 +78,9 @@
     <div class="exam-header">{{ $ex['descripcion'] }}</div>
     <div class="exam-body">
       @php
-        $isRetro = stripos($ex['descripcion'] ?? '', 'retroalveolar') !== false;
+        $isRetro  = stripos($ex['descripcion'] ?? '', 'retroalveolar') !== false;
         $maxilarN = [11,12,13,14,15,16,17,18,21,22,23,24,25,26,27,28,51,52,53,54,55,61,62,63,64,65];
         $mandibN  = [31,32,33,34,35,36,37,38,41,42,43,44,45,46,47,48,71,72,73,74,75,81,82,83,84,85];
-        function fmtTooth($n) { return floor($n/10) . '.' . ($n%10); }
       @endphp
       @if($r)
         {{-- Panorámica: informe_examen/libre/impresion --}}
@@ -105,7 +104,7 @@
                 <tr>
                   @foreach($chunk as $d)
                   <td style="border:1px solid #e2e8f0;padding:3px 5px;vertical-align:top;width:25%;">
-                    <strong>{{ fmtTooth($d) }}</strong><br>{{ $r["diente_{$d}"] }}
+                    <strong>{{ floor($d/10).'.'.($d%10) }}</strong><br>{{ $r["diente_{$d}"] }}
                   </td>
                   @endforeach
                 </tr>
@@ -126,7 +125,7 @@
                 <tr>
                   @foreach($chunk as $d)
                   <td style="border:1px solid #e2e8f0;padding:3px 5px;vertical-align:top;width:25%;">
-                    <strong>{{ fmtTooth($d) }}</strong><br>{{ $r["diente_{$d}"] }}
+                    <strong>{{ floor($d/10).'.'.($d%10) }}</strong><br>{{ $r["diente_{$d}"] }}
                   </td>
                   @endforeach
                 </tr>
