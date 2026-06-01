@@ -1041,9 +1041,20 @@ class OrderController extends Controller
             return;
         }
 
-        // Técnico/Operador → órdenes que crearon (operator_id) o donde están como odontólogo
+        // Técnico → todas las órdenes de su holding (incluye legacy sin operator_id)
         if ($user->hasRole('tecnico') && $user->staff) {
-            $staffId = $user->staff->id;
+            $staffId   = (int) $user->staff->id;
+            $clinicIds = $this->clinicIdsForStaff($staffId);
+            if (!$clinicIds->isEmpty()) {
+                $holdingIds = DB::table('clinics')
+                    ->whereIn('id', $clinicIds->all())
+                    ->pluck('holding_id')->filter()->unique();
+                if (!$holdingIds->isEmpty()) {
+                    $query->whereIn('c.holding_id', $holdingIds->all());
+                    return;
+                }
+            }
+            // Fallback: órdenes donde es operator u odontologo
             $query->where(function ($q) use ($staffId) {
                 $q->where('orders.operator_id', $staffId)
                   ->orWhere('orders.odontologo_id', $staffId);
