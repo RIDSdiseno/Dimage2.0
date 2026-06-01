@@ -766,10 +766,13 @@ function validate(action) {
         respuestas.forEach((_, i) => { respuestaErrors[i] = ''; });
         return true;
     }
-    // 'responder': al menos un campo de texto debe estar lleno por examen
+    // 'responder': al menos un campo de texto o archivo por examen
+    // Excepción: cefalométrico no requiere texto (adjuntan archivos aparte)
     let ok = true;
     respuestas.forEach((r, i) => {
         respuestaErrors[i] = '';
+        const ex = props.examenes[i];
+        if (ex.kind_id === PANORAMICA_KIND_ID || isCefalo(ex)) return; // exentos
         const hasText =
             [1,2,3,4,5,6,7,8,9].some(c => (r[`campo_${c}`] ?? '').trim().length > 0) ||
             Object.keys(r).some(k => k.startsWith('diente_') && (r[k] ?? '').trim().length > 0) ||
