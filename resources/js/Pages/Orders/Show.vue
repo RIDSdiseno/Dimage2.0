@@ -37,7 +37,8 @@
                     <a :href="route('ordenes.zip', order.id)">
                         <Button label="ZIP" icon="pi pi-download" size="small" severity="secondary" />
                     </a>
-                    <a :href="route('ordenes.pdf', order.id)" target="_blank">
+                    <a v-if="order.estadoradiologo == 1 || esRadiologo || esAdmin"
+                        :href="route('ordenes.pdf', order.id)" target="_blank">
                         <Button label="Imprimir" icon="pi pi-print" size="small" severity="secondary" />
                     </a>
                     <Link v-if="puedeResponder" :href="route('ordenes.responder', order.id)">
@@ -246,9 +247,9 @@
                             <p v-else class="text-xs text-gray-400 italic">Sin archivos de imagen.</p>
                         </div>
 
-                        <!-- Informe del radiólogo -->
+                        <!-- Informe del radiólogo (solo visible cuando está Informada, o para radiologo/admin) -->
                         <div class="border-t border-gray-100 pt-4">
-                            <div v-if="examen.respuesta">
+                            <div v-if="examen.respuesta && (order.estadoradiologo == 1 || esRadiologo || esAdmin)">
                                 <!-- Toggle button -->
                                 <button type="button"
                                     @click="showInforme[idx] = !showInforme[idx]"

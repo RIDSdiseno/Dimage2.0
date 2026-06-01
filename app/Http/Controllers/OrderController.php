@@ -947,15 +947,21 @@ class OrderController extends Controller
 
     public function pdf(Order $order): \Illuminate\Http\Response
     {
+        $user = Auth::user();
+        $isInformada = (int) $order->estadoradiologo === 1;
+        $canSeeInforme = $isInformada
+            || $user->hasAnyRole(['admin', 'secretaria', 'radiologo'])
+            || (int) ($user->type_id ?? 0) === 1;
+
         $examenes = DB::table('examinations')
             ->join('examination_order', 'examination_order.examination_id', '=', 'examinations.id')
             ->join('kinds', 'kinds.id', '=', 'examinations.kind_id')
             ->where('examination_order.order_id', $order->id)
             ->select(['examinations.id as examination_id', 'kinds.id as kind_id', 'kinds.descipcion as descripcion', 'examinations.piezas'])
             ->get()
-            ->map(function ($e) {
+            ->map(function ($e) use ($canSeeInforme) {
                 $ans = DB::table('answers')->where('examination_id', $e->examination_id)->first();
-                $respuesta = $ans ? (array) $ans : null;
+                $respuesta = ($ans && $canSeeInforme) ? (array) $ans : null;
                 if ($respuesta && $e->kind_id == self::PANORAMICA_KIND_ID && !empty($ans->content)) {
                     $c = json_decode($ans->content, true) ?? [];
                     $respuesta['informe_examen']    = $c['examen']    ?? '';
