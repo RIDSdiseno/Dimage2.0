@@ -25,15 +25,6 @@
                     <p class="text-xs text-gray-400 mt-3">Por favor espere, subiendo archivos...</p>
                 </div>
             </div>
-            <style>
-            @keyframes progress-bar {
-                0%   { width: 0% }
-                30%  { width: 40% }
-                60%  { width: 70% }
-                85%  { width: 88% }
-                100% { width: 95% }
-            }
-            </style>
 
             <form @submit.prevent="submit">
                 <div class="space-y-5">
@@ -451,3 +442,13 @@ const submitAction = (action) => {
     });
 };
 </script>
+
+<style>
+@keyframes progress-bar {
+    0%   { width: 0% }
+    30%  { width: 40% }
+    60%  { width: 70% }
+    85%  { width: 88% }
+    100% { width: 95% }
+}
+</style>
