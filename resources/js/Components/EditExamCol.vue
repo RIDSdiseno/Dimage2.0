@@ -143,7 +143,7 @@
                         </div>
 
                         <FileUpload :name="`archivos_nuevo_${exam.id}`" mode="basic"
-                            accept="*" :multiple="true"
+                            accept="image/*,application/pdf,.zip,.rar,.dcm,.dicom,.cbct,.7z,.tar,.gz,.doc,.docx,.xls,.xlsx" :multiple="true"
                             chooseLabel="Adjuntar archivos" class="w-full text-xs"
                             @select="(e) => $emit('files', exam.id, e)" />
                         <div v-if="newExamFiles[exam.id]?.length" class="mt-1 text-xs text-green-600">

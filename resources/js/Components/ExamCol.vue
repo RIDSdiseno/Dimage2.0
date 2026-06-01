@@ -152,7 +152,7 @@
                     </div>
 
                     <!-- File upload -->
-                    <FileUpload :name="`files_${exam.id}`" mode="basic" accept="*"
+                    <FileUpload :name="`files_${exam.id}`" mode="basic" accept="image/*,application/pdf,.zip,.rar,.dcm,.dicom,.cbct,.7z,.tar,.gz,.doc,.docx,.xls,.xlsx"
                         :multiple="true" chooseLabel="Buscar Imagen o Archivo" class="w-full text-xs"
                         @select="(e) => addFiles(exam.id, e)" />
 

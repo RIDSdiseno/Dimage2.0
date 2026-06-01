@@ -238,7 +238,7 @@
                                     <FileUpload
                                         :name="`archivos_${examen.id}`"
                                         mode="basic"
-                                        accept="*"
+                                        accept="image/*,application/pdf,.zip,.rar,.dcm,.dicom,.cbct,.7z,.tar,.gz,.doc,.docx,.xls,.xlsx"
                                         :multiple="true"
                                         chooseLabel="Adjuntar archivos"
                                         class="text-xs"
