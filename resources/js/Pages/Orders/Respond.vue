@@ -660,9 +660,13 @@ const showCampos = reactive(
         }
         const teeth = getTeethForExam(ex);
         if (teeth.length > 0) {
-            return teeth.some(p => !!r[`diente_${p}`]) || !!r.campo_1;
+            const hasTeeth  = teeth.some(p => !!r[`diente_${p}`]);
+            const hasCampos = [1,2,3,4,5,6,7,8,9].some(i => !!r[`campo_${i}`]);
+            return hasTeeth || hasCampos;
         }
-        return !!(r.campo_1 || r.campo_2 || r.campo_3);
+        return !!(r.campo_1 || r.campo_2 || r.campo_3 ||
+                  r.campo_4 || r.campo_5 || r.campo_6 ||
+                  r.campo_7 || r.campo_8 || r.campo_9);
     })
 );
 
@@ -789,15 +793,15 @@ function doSubmit(action) {
             data.append(`respuestas[${i}][informe_libre]`,     r.informe_libre     ?? '');
             data.append(`respuestas[${i}][informe_impresion]`, r.informe_impresion ?? '');
         } else {
-            const teeth = getTeethForExam(props.examenes[i]);
-            if (teeth.length > 0) {
-                data.append(`respuestas[${i}][campo_1]`, r.campo_1 ?? '');
-                teeth.forEach(p => data.append(`respuestas[${i}][diente_${p}]`, r[`diente_${p}`] ?? ''));
-            } else {
-                data.append(`respuestas[${i}][campo_1]`, r.campo_1 ?? '');
-                data.append(`respuestas[${i}][campo_2]`, r.campo_2 ?? '');
-                data.append(`respuestas[${i}][campo_3]`, r.campo_3 ?? '');
+            // Send every campo and diente that exists in this exam's respuesta
+            for (let c = 1; c <= 9; c++) {
+                if (`campo_${c}` in r) {
+                    data.append(`respuestas[${i}][campo_${c}]`, r[`campo_${c}`] ?? '');
+                }
             }
+            Object.keys(r).filter(k => k.startsWith('diente_')).forEach(k => {
+                data.append(`respuestas[${i}][${k}]`, r[k] ?? '');
+            });
         }
 
         uploadedFiles[i]?.forEach(file => {
