@@ -183,41 +183,31 @@
                         <div v-if="esRadiologo" class="md:col-span-2">
                             <label class="block text-sm font-medium mb-2">Firma del Radiólogo</label>
 
-                            <!-- Firma actual -->
-                            <div v-if="staff?.firma_url && !firmaPreview" class="mb-3">
-                                <img :src="staff.firma_url" alt="Firma actual" class="max-h-20 border rounded p-1 bg-gray-50" />
-                                <p class="text-xs text-gray-400 mt-1">Firma actual — reemplaza con una nueva abajo</p>
+                            <!-- Firma actual o preview -->
+                            <div v-if="firmaPreview || staff?.firma_url" class="mb-3">
+                                <img :src="firmaPreview || staff.firma_url" alt="Firma"
+                                    class="max-h-20 border rounded p-1 bg-gray-50" />
+                                <p v-if="!firmaPreview" class="text-xs text-gray-400 mt-1">
+                                    Firma actual — reemplaza con una nueva abajo
+                                </p>
                             </div>
 
-                            <!-- Tabs -->
+                            <!-- Botones de acción -->
                             <div class="flex gap-2 mb-3">
-                                <button type="button" @click="firmaMode = 'upload'"
-                                    class="px-3 py-1.5 text-sm rounded-lg font-medium border transition-colors"
-                                    :class="firmaMode === 'upload' ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-600 border-gray-300 hover:bg-gray-50'">
+                                <button type="button" @click="$refs.firmaInput.click()"
+                                    class="px-3 py-1.5 text-sm rounded-lg font-medium border border-gray-300 bg-white text-gray-600 hover:bg-gray-50 transition-colors">
                                     <i class="pi pi-upload mr-1 text-xs" />Subir imagen
                                 </button>
-                                <button type="button" @click="firmaMode = 'draw'"
+                                <input ref="firmaInput" type="file" accept="image/*" class="hidden" @change="onFirmaChange" />
+                                <button type="button" @click="firmaMode = firmaMode === 'draw' ? 'upload' : 'draw'"
                                     class="px-3 py-1.5 text-sm rounded-lg font-medium border transition-colors"
-                                    :class="firmaMode === 'draw' ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-600 border-gray-300 hover:bg-gray-50'">
+                                    :class="firmaMode === 'draw' ? 'bg-blue-600 text-white border-blue-600' : 'border-gray-300 bg-white text-gray-600 hover:bg-gray-50'">
                                     <i class="pi pi-pencil mr-1 text-xs" />Dibujar firma
                                 </button>
                             </div>
 
-                            <!-- Subir imagen -->
-                            <div v-if="firmaMode === 'upload'">
-                                <div class="flex items-center gap-3">
-                                    <Button label="Buscar imagen..." icon="pi pi-image" severity="secondary"
-                                        type="button" @click="$refs.firmaInput.click()" />
-                                    <input ref="firmaInput" type="file" accept="image/*" class="hidden" @change="onFirmaChange" />
-                                    <span v-if="firmaPreview" class="text-sm text-gray-500">{{ firmaFileName }}</span>
-                                </div>
-                                <div v-if="firmaPreview" class="mt-3">
-                                    <img :src="firmaPreview" alt="Vista previa" class="max-h-20 border rounded p-1 bg-gray-50" />
-                                </div>
-                            </div>
-
-                            <!-- Dibujar firma -->
-                            <div v-else>
+                            <!-- Canvas para dibujar -->
+                            <div v-if="firmaMode === 'draw'">
                                 <div class="border-2 border-dashed border-gray-300 rounded-lg bg-white overflow-hidden" style="cursor:crosshair;">
                                     <canvas ref="signatureCanvas" width="500" height="140"
                                         style="display:block; touch-action:none; width:100%; height:140px;"
@@ -232,12 +222,8 @@
                                     </button>
                                     <button type="button" @click="useCanvasAsFirma"
                                         class="px-3 py-1.5 text-xs text-green-700 border border-green-300 rounded-lg hover:bg-green-50 transition-colors font-medium">
-                                        <i class="pi pi-check mr-1" />Usar esta firma
+                                        <i class="pi pi-check mr-1" />Guardar firma
                                     </button>
-                                </div>
-                                <div v-if="firmaPreview && firmaMode === 'draw'" class="mt-3">
-                                    <p class="text-xs text-gray-500 mb-1">Firma guardada:</p>
-                                    <img :src="firmaPreview" alt="Firma" class="max-h-20 border rounded p-1 bg-gray-50" />
                                 </div>
                             </div>
 
