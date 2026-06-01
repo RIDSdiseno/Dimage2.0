@@ -978,8 +978,26 @@ class OrderController extends Controller
             ->where('ose.order_id', $order->id)
             ->select('s.id', 'u.name', 's.firma')
             ->get()
-            ->unique('id') // deduplicar por staff_id
-            ->values();
+            ->unique('id')
+            ->values()
+            ->map(function ($rad) {
+                // DomPDF can't fetch S3 URLs; convert firma to base64 data URI
+                $rad->firma_b64 = null;
+                if (!empty($rad->firma)) {
+                    try {
+                        $content = Storage::disk('s3')->get($rad->firma);
+                        $ext     = strtolower(pathinfo($rad->firma, PATHINFO_EXTENSION));
+                        $mime    = match($ext) {
+                            'png'           => 'image/png',
+                            'gif'           => 'image/gif',
+                            'jpg', 'jpeg'   => 'image/jpeg',
+                            default         => 'image/jpeg',
+                        };
+                        $rad->firma_b64 = 'data:' . $mime . ';base64,' . base64_encode($content);
+                    } catch (\Throwable) {}
+                }
+                return $rad;
+            });
 
         $pdf = \Barryvdh\DomPDF\Facade\Pdf::loadView('pdf.orden', [
             'order'      => $order,
