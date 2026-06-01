@@ -233,7 +233,7 @@
                         <NavSub v-if="isRadiologo" href="/ordenes" label="Mis Órdenes" />
                         <NavSub v-if="isOperador" href="/ordenes?mis=1" label="Mis Órdenes" />
                         <NavSub v-if="!isOperador && !isRadiologo" href="/ordenes" label="Buscar Orden" />
-                        <NavSub v-if="isOperador" href="/ordenes" label="Buscar Orden" />
+                        <NavSub v-if="isOperador && puedeBuscar" href="/ordenes" label="Buscar Orden" />
                     </NavGroup>
 
                     <!-- Excel (admin, secretaria y radiólogo) -->
