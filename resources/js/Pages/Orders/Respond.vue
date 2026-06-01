@@ -753,15 +753,37 @@ function getFileIcon(ext) {
 
 function validate(action) {
     if (action === 'borrador') return true;
-    if (soloAdjunto.value) {
-        respuestas.forEach((_, i) => { respuestaErrors[i] = ''; });
-        return true;
-    }
     if (action === 'correccion') {
         return !!correccionMensaje.value.trim();
     }
-    respuestas.forEach((_, i) => { respuestaErrors[i] = ''; });
-    return true;
+    // soloAdjunto: texto opcional, pero debe haber al menos un archivo subido
+    if (soloAdjunto.value) {
+        const hasFiles = uploadedFiles.some(arr => arr?.length > 0);
+        if (!hasFiles) {
+            form.errors.general = 'Al activar "Solo adjuntar informe" debes subir al menos un archivo.';
+            return false;
+        }
+        respuestas.forEach((_, i) => { respuestaErrors[i] = ''; });
+        return true;
+    }
+    // 'responder': al menos un campo de texto debe estar lleno por examen
+    let ok = true;
+    respuestas.forEach((r, i) => {
+        respuestaErrors[i] = '';
+        const hasText =
+            [1,2,3,4,5,6,7,8,9].some(c => (r[`campo_${c}`] ?? '').trim().length > 0) ||
+            Object.keys(r).some(k => k.startsWith('diente_') && (r[k] ?? '').trim().length > 0) ||
+            (r.informe_examen ?? '').trim().length > 0 ||
+            (r.informe_libre  ?? '').trim().length > 0 ||
+            (r.informe_impresion ?? '').trim().length > 0;
+        const hasFile = uploadedFiles[i]?.length > 0;
+        if (!hasText && !hasFile) {
+            respuestaErrors[i] = 'Debes completar al menos un campo del informe o adjuntar un archivo.';
+            ok = false;
+        }
+    });
+    if (!ok) form.errors.general = 'Completa al menos un campo en cada examen antes de enviar el informe.';
+    return ok;
 }
 
 function doSubmit(action) {
