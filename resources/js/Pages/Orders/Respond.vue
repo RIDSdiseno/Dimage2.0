@@ -92,56 +92,13 @@
                                     <i class="pi pi-paperclip mr-1" />Archivos ({{ ex.archivos.length }})
                                 </p>
                                 <div class="flex flex-wrap gap-3">
-                                    <div v-for="f in ex.archivos" :key="f.id"
-                                        class="group block rounded-xl overflow-hidden border border-gray-200 shadow-sm hover:shadow-md transition-shadow bg-white cursor-pointer"
-                                        :title="f.name || 'Archivo'"
-                                        @click="isImage(f.extension) && f.url && !imgErrors[f.id] ? openLightbox(f) : fileHref(f) ? window.open(fileHref(f), '_blank') : null">
-
-                                        <!-- Image -->
-                                        <template v-if="isImage(f.extension)">
-                                            <div class="relative w-36 h-28 bg-gray-100 flex items-center justify-center overflow-hidden">
-                                                <template v-if="f.url && !imgErrors[f.id]">
-                                                    <img :src="f.url" :alt="f.name"
-                                                        class="w-full h-full object-cover group-hover:opacity-90 transition-opacity"
-                                                        @error="imgErrors[f.id] = true" />
-                                                    <div class="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity bg-black/20">
-                                                        <i class="pi pi-search-plus text-white text-xl drop-shadow" />
-                                                    </div>
-                                                </template>
-                                                <template v-else>
-                                                    <div class="flex flex-col items-center gap-1 text-gray-300">
-                                                        <i class="pi pi-image text-4xl" />
-                                                        <span class="text-xs">Sin vista previa</span>
-                                                    </div>
-                                                </template>
-                                            </div>
-                                        </template>
-
-                                        <!-- PDF -->
-                                        <template v-else-if="(f.extension ?? '').toLowerCase() === 'pdf'">
-                                            <div class="w-36 h-28 flex flex-col items-center justify-center gap-1 bg-red-50 group-hover:bg-red-100 transition-colors">
-                                                <i class="pi pi-file-pdf text-red-500 text-4xl" />
-                                                <span class="text-xs text-red-400 font-medium">PDF</span>
-                                            </div>
-                                        </template>
-
-                                        <!-- Other -->
-                                        <template v-else>
-                                            <div class="w-36 h-28 flex flex-col items-center justify-center gap-1 bg-gray-50 group-hover:bg-gray-100 transition-colors">
-                                                <i :class="getFileIcon(f.extension)" class="text-gray-400 text-4xl" />
-                                                <span class="text-xs text-gray-400 uppercase font-medium">{{ f.extension || 'archivo' }}</span>
-                                            </div>
-                                        </template>
-
-                                        <!-- Filename footer + download -->
-                                        <div class="flex items-center justify-between px-2 py-1 border-t border-gray-100 w-36">
-                                            <span class="text-xs text-gray-500 truncate max-w-[100px]">{{ f.name || 'Archivo' }}</span>
-                                            <a :href="route('archivos.download', f.id)" title="Descargar" @click.stop
-                                                class="text-gray-400 hover:text-blue-600 transition-colors flex-shrink-0 ml-1">
-                                                <i class="pi pi-download text-xs" />
-                                            </a>
-                                        </div>
-                                    </div>
+                                    <FileThumbnail
+                                        v-for="f in ex.archivos"
+                                        :key="f.id"
+                                        :file="f"
+                                        :showDicom="parseInt(ex.grupo ?? 0) === 4"
+                                        @lightbox="openLightbox"
+                                    />
                                 </div>
                             </div>
                             <div v-else class="text-xs text-gray-400 italic">Sin archivos de imagen adjuntos.</div>
@@ -592,6 +549,7 @@ import Button from 'primevue/button';
 import Textarea from 'primevue/textarea';
 import { useTerms }  from '@/composables/useTerms.js';
 import ImageViewer   from '@/Components/ImageViewer.vue';
+import FileThumbnail from '@/Components/FileThumbnail.vue';
 
 const { examLabel } = useTerms();
 
