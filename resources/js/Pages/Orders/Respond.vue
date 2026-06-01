@@ -468,9 +468,17 @@
                                 <input type="file" :name="`archivos_${ex.id}[]`" multiple
                                     @change="onFileChange(idx, $event)"
                                     class="block w-full text-sm text-gray-500 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-medium file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100" />
-                                <div v-if="fileNames[idx]?.length" class="flex flex-wrap gap-1 mt-1.5">
-                                    <span v-for="name in fileNames[idx]" :key="name"
-                                        class="px-2 py-0.5 bg-blue-50 text-blue-700 rounded text-xs">{{ name }}</span>
+                                <div v-if="fileNames[idx]?.length" class="space-y-1 mt-1.5">
+                                    <div v-for="(name, fi) in fileNames[idx]" :key="fi"
+                                        class="flex items-center justify-between bg-blue-50 border border-blue-100 rounded px-2 py-1 text-xs">
+                                        <span class="text-blue-700 truncate max-w-xs">
+                                            <i class="pi pi-file mr-1 text-blue-400" />{{ name }}
+                                        </span>
+                                        <button type="button" @click="removeFile(idx, fi)"
+                                            class="text-red-400 hover:text-red-600 ml-2 flex-shrink-0">
+                                            <i class="pi pi-times text-xs" />
+                                        </button>
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -704,9 +712,15 @@ const uploadedFiles   = reactive(props.examenes.map(() => []));
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 function onFileChange(idx, event) {
-    const files = Array.from(event.target.files);
-    uploadedFiles[idx] = files;
-    fileNames[idx]     = files.map(f => f.name);
+    const newFiles = Array.from(event.target.files);
+    uploadedFiles[idx] = [...(uploadedFiles[idx] ?? []), ...newFiles];
+    fileNames[idx]     = uploadedFiles[idx].map(f => f.name);
+    event.target.value = ''; // reset so same file can be added again
+}
+
+function removeFile(idx, fileIdx) {
+    uploadedFiles[idx].splice(fileIdx, 1);
+    fileNames[idx] = uploadedFiles[idx].map(f => f.name);
 }
 
 const IMAGE_EXTS = ['jpg','jpeg','png','gif','bmp','webp'];
