@@ -757,7 +757,7 @@ class AdminController extends Controller
                 'telephone'                   => $s->telephone,
                 'rut'                         => $s->rut,
                 'activo'                      => (bool) $s->activo,
-                'firma_url'                   => $s->firma ? Storage::disk('public')->url($s->firma) : null,
+                'firma_url'                   => $s->firma ? url('storage/' . $s->firma) : null,
                 'address'                     => $s->address ?? '',
                 'solo_adjuntar_informe'       => (bool) ($s->solo_adjuntar_informe ?? false),
                 'puede_crear_ordenes'         => (bool) ($s->puede_crear_ordenes ?? false),
