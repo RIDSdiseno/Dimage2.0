@@ -78,9 +78,13 @@
     <div class="exam-header">{{ $ex['descripcion'] }}</div>
     <div class="exam-body">
       @php
-        $isRetro  = stripos($ex['descripcion'] ?? '', 'retroalveolar') !== false;
-        $maxilarN = [11,12,13,14,15,16,17,18,21,22,23,24,25,26,27,28,51,52,53,54,55,61,62,63,64,65];
-        $mandibN  = [31,32,33,34,35,36,37,38,41,42,43,44,45,46,47,48,71,72,73,74,75,81,82,83,84,85];
+        $isRetro       = stripos($ex['descripcion'] ?? '', 'retroalveolar') !== false;
+        $permMaxilarN  = [11,12,13,14,15,16,17,18,21,22,23,24,25,26,27,28];
+        $tempMaxilarN  = [51,52,53,54,55,61,62,63,64,65];
+        $permMandibN   = [31,32,33,34,35,36,37,38,41,42,43,44,45,46,47,48];
+        $tempMandibN   = [71,72,73,74,75,81,82,83,84,85];
+        $maxilarN      = array_merge($permMaxilarN, $tempMaxilarN);
+        $mandibN       = array_merge($permMandibN,  $tempMandibN);
       @endphp
       @if($r)
         {{-- Panorámica: informe_examen/libre/impresion --}}
@@ -103,19 +107,28 @@
             @if(!empty($r['campo_2'])) <p><strong>Nivel Óseo Marginal:</strong> {{ $r['campo_2'] }}</p> @endif
             @if(!empty($r['campo_3'])) <p><strong>Cálculo dentario marginal:</strong> {{ $r['campo_3'] }}</p> @endif
             @if(!empty($r['campo_4'])) <p><strong>Observaciones:</strong> {{ $r['campo_4'] }}</p> @endif
-            @if($maxDientes->isNotEmpty())
-              <p style="margin-top:6px;font-weight:600;font-size:10px;">Dientes Maxilar:</p>
+            @php
+              $permMaxD = collect($permMaxilarN)->filter(fn($d) => !empty($r["diente_{$d}"]))->values();
+              $tempMaxD = collect($tempMaxilarN)->filter(fn($d) => !empty($r["diente_{$d}"]))->values();
+            @endphp
+            @if($permMaxD->isNotEmpty())
+              <p style="margin-top:6px;font-weight:600;font-size:10px;color:#475569;">Permanentes:</p>
               <table style="width:100%;border-collapse:collapse;font-size:10px;margin-top:2px;">
-                @foreach($maxDientes->chunk(4) as $chunk)
+                @foreach($permMaxD->chunk(4) as $chunk)
                 <tr>
-                  @foreach($chunk as $d)
-                  <td style="border:1px solid #e2e8f0;padding:3px 5px;vertical-align:top;width:25%;">
-                    <strong>{{ floor($d/10).'.'.($d%10) }}</strong><br>{{ $r["diente_{$d}"] }}
-                  </td>
-                  @endforeach
-                  @for($fill = count($chunk); $fill < 4; $fill++)
-                  <td style="width:25%;"></td>
-                  @endfor
+                  @foreach($chunk as $d)<td style="border:1px solid #e2e8f0;padding:3px 5px;vertical-align:top;width:25%;"><strong>{{ floor($d/10).'.'.($d%10) }}</strong><br>{{ $r["diente_{$d}"] }}</td>@endforeach
+                  @for($fill=count($chunk);$fill<4;$fill++)<td style="width:25%;border:1px solid #f1f5f9;"></td>@endfor
+                </tr>
+                @endforeach
+              </table>
+            @endif
+            @if($tempMaxD->isNotEmpty())
+              <p style="margin-top:6px;font-weight:600;font-size:10px;color:#475569;">Temporales:</p>
+              <table style="width:100%;border-collapse:collapse;font-size:10px;margin-top:2px;">
+                @foreach($tempMaxD->chunk(4) as $chunk)
+                <tr>
+                  @foreach($chunk as $d)<td style="border:1px solid #e2e8f0;padding:3px 5px;vertical-align:top;width:25%;"><strong>{{ floor($d/10).'.'.($d%10) }}</strong><br>{{ $r["diente_{$d}"] }}</td>@endforeach
+                  @for($fill=count($chunk);$fill<4;$fill++)<td style="width:25%;border:1px solid #f1f5f9;"></td>@endfor
                 </tr>
                 @endforeach
               </table>
@@ -127,19 +140,28 @@
             @if(!empty($r['campo_5'])) <p><strong>Nivel Óseo Marginal:</strong> {{ $r['campo_5'] }}</p> @endif
             @if(!empty($r['campo_6'])) <p><strong>Cálculo dentario marginal:</strong> {{ $r['campo_6'] }}</p> @endif
             @if(!empty($r['campo_7'])) <p><strong>Observaciones:</strong> {{ $r['campo_7'] }}</p> @endif
-            @if($mandDientes->isNotEmpty())
-              <p style="margin-top:6px;font-weight:600;font-size:10px;">Dientes Mandíbula:</p>
+            @php
+              $permMandD = collect($permMandibN)->filter(fn($d) => !empty($r["diente_{$d}"]))->values();
+              $tempMandD = collect($tempMandibN)->filter(fn($d)  => !empty($r["diente_{$d}"]))->values();
+            @endphp
+            @if($permMandD->isNotEmpty())
+              <p style="margin-top:6px;font-weight:600;font-size:10px;color:#475569;">Permanentes:</p>
               <table style="width:100%;border-collapse:collapse;font-size:10px;margin-top:2px;">
-                @foreach($mandDientes->chunk(4) as $chunk)
+                @foreach($permMandD->chunk(4) as $chunk)
                 <tr>
-                  @foreach($chunk as $d)
-                  <td style="border:1px solid #e2e8f0;padding:3px 5px;vertical-align:top;width:25%;">
-                    <strong>{{ floor($d/10).'.'.($d%10) }}</strong><br>{{ $r["diente_{$d}"] }}
-                  </td>
-                  @endforeach
-                  @for($fill = count($chunk); $fill < 4; $fill++)
-                  <td style="width:25%;"></td>
-                  @endfor
+                  @foreach($chunk as $d)<td style="border:1px solid #e2e8f0;padding:3px 5px;vertical-align:top;width:25%;"><strong>{{ floor($d/10).'.'.($d%10) }}</strong><br>{{ $r["diente_{$d}"] }}</td>@endforeach
+                  @for($fill=count($chunk);$fill<4;$fill++)<td style="width:25%;border:1px solid #f1f5f9;"></td>@endfor
+                </tr>
+                @endforeach
+              </table>
+            @endif
+            @if($tempMandD->isNotEmpty())
+              <p style="margin-top:6px;font-weight:600;font-size:10px;color:#475569;">Temporales:</p>
+              <table style="width:100%;border-collapse:collapse;font-size:10px;margin-top:2px;">
+                @foreach($tempMandD->chunk(4) as $chunk)
+                <tr>
+                  @foreach($chunk as $d)<td style="border:1px solid #e2e8f0;padding:3px 5px;vertical-align:top;width:25%;"><strong>{{ floor($d/10).'.'.($d%10) }}</strong><br>{{ $r["diente_{$d}"] }}</td>@endforeach
+                  @for($fill=count($chunk);$fill<4;$fill++)<td style="width:25%;border:1px solid #f1f5f9;"></td>@endfor
                 </tr>
                 @endforeach
               </table>
