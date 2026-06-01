@@ -97,7 +97,7 @@ if (!function_exists('pdfDienteTable')) {
   @php
     $r  = $ex['respuesta'] ?? null;
     $d  = strtolower($ex['descripcion'] ?? '');
-    $isPano   = $ex['kind_id'] == 44;
+    $isPano   = $ex['kind_id'] == 15;
     $isRetro  = str_contains($d, 'retroalveolar');
     $isBWBi   = str_contains($d, 'bite wing bilateral');
     $isBWUD   = !$isBWBi && str_contains($d, 'bite wing') && (str_contains($d, 'derecha') || (!str_contains($d, 'izquierda') && str_contains($d, 'unilateral')));

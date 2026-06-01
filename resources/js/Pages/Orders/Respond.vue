@@ -562,7 +562,7 @@ import FileThumbnail from '@/Components/FileThumbnail.vue';
 const { examLabel } = useTerms();
 
 // ─── Panorámica constants ────────────────────────────────────────────────────
-const PANORAMICA_KIND_ID = 44;
+const PANORAMICA_KIND_ID = 15;
 
 const PERM_MAXILAR   = [11,12,13,14,15,16,17,18,21,22,23,24,25,26,27,28];
 const TEMP_MAXILAR   = [51,52,53,54,55,61,62,63,64,65];

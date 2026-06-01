@@ -749,7 +749,7 @@ class OrderController extends Controller
         ]);
     }
 
-    private const PANORAMICA_KIND_ID = 44;
+    private const PANORAMICA_KIND_ID = 15;
 
     private const PANORAMICA_DIENTES = [
         11,12,13,14,15,16,17,18,
