@@ -54,18 +54,18 @@
                         <thead style="background-color:#f8fafc;">
                             <tr>
                                 <th class="text-left px-3 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wide">N°</th>
-                                <th class="text-left px-3 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wide">{{ terms.id_label }}</th>
-                                <th class="text-left px-3 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wide">Clínica</th>
+                                <th class="text-left px-3 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wide hidden sm:table-cell">{{ terms.id_label }}</th>
+                                <th class="text-left px-3 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wide hidden md:table-cell">Clínica</th>
                                 <th class="text-left px-3 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wide">Paciente</th>
-                                <th class="text-left px-3 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wide">Radiólogo</th>
-                                <th class="text-left px-3 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wide">Odontólogo</th>
-                                <th class="text-left px-3 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wide">Prioridad</th>
-                                <th class="text-left px-3 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wide">Exámenes</th>
+                                <th class="text-left px-3 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wide hidden lg:table-cell">Radiólogo</th>
+                                <th class="text-left px-3 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wide hidden lg:table-cell">Odontólogo</th>
+                                <th class="text-left px-3 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wide hidden md:table-cell">Prioridad</th>
+                                <th class="text-left px-3 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wide hidden xl:table-cell">Exámenes</th>
                                 <th class="text-left px-3 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wide">Estado</th>
                                 <th class="text-left px-3 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wide">Ver/Editar</th>
-                                <th class="text-left px-3 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wide">Creada</th>
-                                <th class="text-left px-3 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wide">Enviada</th>
-                                <th class="text-left px-3 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wide">Respondida</th>
+                                <th class="text-left px-3 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wide hidden md:table-cell">Creada</th>
+                                <th class="text-left px-3 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wide hidden lg:table-cell">Enviada</th>
+                                <th class="text-left px-3 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wide hidden lg:table-cell">Respondida</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -83,18 +83,18 @@
                                 <tr v-for="orden in orders" :key="orden.id"
                                     class="border-t border-gray-50 hover:bg-blue-50/30 transition">
                                     <td class="px-3 py-3 text-gray-400 font-mono text-xs">{{ orden.id }}</td>
-                                    <td class="px-3 py-3 text-gray-600 text-xs">{{ orden.rut }}</td>
-                                    <td class="px-3 py-3 text-gray-600">{{ orden.clinica }}</td>
+                                    <td class="px-3 py-3 text-gray-600 text-xs hidden sm:table-cell">{{ orden.rut }}</td>
+                                    <td class="px-3 py-3 text-gray-600 hidden md:table-cell">{{ orden.clinica }}</td>
                                     <td class="px-3 py-3 font-medium text-gray-800">{{ orden.paciente }}</td>
-                                    <td class="px-3 py-3 text-gray-500 text-xs max-w-36 truncate">{{ orden.radiologos }}</td>
-                                    <td class="px-3 py-3 text-gray-500 text-xs">{{ orden.odontologo }}</td>
-                                    <td class="px-3 py-3">
+                                    <td class="px-3 py-3 text-gray-500 text-xs max-w-36 truncate hidden lg:table-cell">{{ orden.radiologos }}</td>
+                                    <td class="px-3 py-3 text-gray-500 text-xs hidden lg:table-cell">{{ orden.odontologo }}</td>
+                                    <td class="px-3 py-3 hidden md:table-cell">
                                         <span :class="prioridadBadgeClass(orden.prioridad)"
                                             class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold">
                                             {{ orden.prioridad }}
                                         </span>
                                     </td>
-                                    <td class="px-3 py-3 text-gray-500 text-xs max-w-48 truncate" :title="orden.tipo_examen">
+                                    <td class="px-3 py-3 text-gray-500 text-xs max-w-48 truncate hidden xl:table-cell" :title="orden.tipo_examen">
                                         {{ examListLabel(orden.tipo_examen) }}
                                     </td>
                                     <td class="px-3 py-3">
@@ -112,12 +112,12 @@
                                             </Link>
                                         </div>
                                     </td>
-                                    <td class="px-3 py-3 text-gray-400 text-xs">{{ orden.created_at }}</td>
-                                    <td class="px-3 py-3 text-xs"
+                                    <td class="px-3 py-3 text-gray-400 text-xs hidden md:table-cell">{{ orden.created_at }}</td>
+                                    <td class="px-3 py-3 text-xs hidden lg:table-cell"
                                         :class="orden.enviada !== '-' ? 'text-blue-600' : 'text-gray-300'">
                                         {{ orden.enviada }}
                                     </td>
-                                    <td class="px-3 py-3 text-xs"
+                                    <td class="px-3 py-3 text-xs hidden lg:table-cell"
                                         :class="orden.respondida !== '-' ? 'text-green-600 font-medium' : 'text-gray-300'">
                                         {{ orden.respondida }}
                                     </td>
