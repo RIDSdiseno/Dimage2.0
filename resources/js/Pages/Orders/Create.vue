@@ -11,10 +11,29 @@
 
             <!-- Overlay de carga -->
             <div v-if="submitting"
-                class="fixed inset-0 z-50 flex flex-col items-center justify-center gap-4 bg-white/70 backdrop-blur-sm">
-                <i class="pi pi-spin pi-spinner text-4xl" style="color:#3452ff" />
-                <p class="text-sm font-medium text-gray-700">Guardando orden, por favor espere...</p>
+                class="fixed inset-0 z-50 flex flex-col items-center justify-center gap-6 bg-white/80 backdrop-blur-sm">
+                <div class="bg-white rounded-2xl shadow-xl p-8 w-80 text-center">
+                    <i class="pi pi-cloud-upload text-4xl mb-3 block" style="color:#3452ff" />
+                    <p class="text-sm font-semibold text-gray-800 mb-4">
+                        {{ form.action === 'enviar' ? 'Enviando orden al radiólogo...' : 'Guardando orden...' }}
+                    </p>
+                    <div class="w-full bg-gray-100 rounded-full h-2.5 overflow-hidden">
+                        <div class="h-2.5 rounded-full transition-all duration-300"
+                            style="background:linear-gradient(90deg,#3452ff,#6366f1); animation: progress-bar 3s ease-in-out forwards;">
+                        </div>
+                    </div>
+                    <p class="text-xs text-gray-400 mt-3">Por favor espere, subiendo archivos...</p>
+                </div>
             </div>
+            <style>
+            @keyframes progress-bar {
+                0%   { width: 0% }
+                30%  { width: 40% }
+                60%  { width: 70% }
+                85%  { width: 88% }
+                100% { width: 95% }
+            }
+            </style>
 
             <form @submit.prevent="submit">
                 <div class="space-y-5">
