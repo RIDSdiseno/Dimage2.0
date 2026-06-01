@@ -772,7 +772,7 @@ function validate(action) {
     respuestas.forEach((r, i) => {
         respuestaErrors[i] = '';
         const ex = props.examenes[i];
-        if (ex.kind_id === PANORAMICA_KIND_ID || isCefalo(ex)) return; // exentos
+        if (isCefalo(ex)) return; // cefalométrico exento: adjuntan archivos aparte
         const hasText =
             [1,2,3,4,5,6,7,8,9].some(c => (r[`campo_${c}`] ?? '').trim().length > 0) ||
             Object.keys(r).some(k => k.startsWith('diente_') && (r[k] ?? '').trim().length > 0) ||
