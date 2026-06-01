@@ -574,9 +574,9 @@ const submit = () => {
     form.rut = rutDisplay.value;
 
     if (props.staff) {
-        form.put(route(props.tipo.route_update, props.staff.id));
+        form.put(route(props.tipo.route_update, props.staff.id), { forceFormData: true });
     } else {
-        form.post(route(props.tipo.route_store));
+        form.post(route(props.tipo.route_store), { forceFormData: true });
     }
 };
 </script>
