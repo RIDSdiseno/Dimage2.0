@@ -181,33 +181,66 @@
                         </div>
 
                         <div v-if="esRadiologo" class="md:col-span-2">
-                            <label class="block text-sm font-medium mb-1">Agregar Firma</label>
-                            <div class="flex items-center gap-4">
-                                <Button
-                                    label="Buscar imagen..."
-                                    icon="pi pi-image"
-                                    severity="secondary"
-                                    type="button"
-                                    @click="$refs.firmaInput.click()"
-                                />
-                                <input
-                                    ref="firmaInput"
-                                    type="file"
-                                    accept="image/*"
-                                    class="hidden"
-                                    @change="onFirmaChange"
-                                />
-                                <span v-if="firmaPreview || staff?.firma_url" class="text-sm text-gray-500">
-                                    {{ firmaFileName || 'Firma actual' }}
-                                </span>
+                            <label class="block text-sm font-medium mb-2">Firma del Radiólogo</label>
+
+                            <!-- Firma actual -->
+                            <div v-if="staff?.firma_url && !firmaPreview" class="mb-3">
+                                <img :src="staff.firma_url" alt="Firma actual" class="max-h-20 border rounded p-1 bg-gray-50" />
+                                <p class="text-xs text-gray-400 mt-1">Firma actual — reemplaza con una nueva abajo</p>
                             </div>
-                            <div v-if="firmaPreview" class="mt-3">
-                                <img :src="firmaPreview" alt="Vista previa firma" class="max-h-24 border rounded p-1 bg-gray-50" />
+
+                            <!-- Tabs -->
+                            <div class="flex gap-2 mb-3">
+                                <button type="button" @click="firmaMode = 'upload'"
+                                    class="px-3 py-1.5 text-sm rounded-lg font-medium border transition-colors"
+                                    :class="firmaMode === 'upload' ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-600 border-gray-300 hover:bg-gray-50'">
+                                    <i class="pi pi-upload mr-1 text-xs" />Subir imagen
+                                </button>
+                                <button type="button" @click="firmaMode = 'draw'"
+                                    class="px-3 py-1.5 text-sm rounded-lg font-medium border transition-colors"
+                                    :class="firmaMode === 'draw' ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-600 border-gray-300 hover:bg-gray-50'">
+                                    <i class="pi pi-pencil mr-1 text-xs" />Dibujar firma
+                                </button>
                             </div>
-                            <div v-else-if="staff?.firma_url && !firmaPreview" class="mt-3">
-                                <img :src="staff.firma_url" alt="Firma actual" class="max-h-24 border rounded p-1 bg-gray-50" />
-                                <p class="text-xs text-gray-400 mt-1">Firma actual — sube una nueva imagen para reemplazarla</p>
+
+                            <!-- Subir imagen -->
+                            <div v-if="firmaMode === 'upload'">
+                                <div class="flex items-center gap-3">
+                                    <Button label="Buscar imagen..." icon="pi pi-image" severity="secondary"
+                                        type="button" @click="$refs.firmaInput.click()" />
+                                    <input ref="firmaInput" type="file" accept="image/*" class="hidden" @change="onFirmaChange" />
+                                    <span v-if="firmaPreview" class="text-sm text-gray-500">{{ firmaFileName }}</span>
+                                </div>
+                                <div v-if="firmaPreview" class="mt-3">
+                                    <img :src="firmaPreview" alt="Vista previa" class="max-h-20 border rounded p-1 bg-gray-50" />
+                                </div>
                             </div>
+
+                            <!-- Dibujar firma -->
+                            <div v-else>
+                                <div class="border-2 border-dashed border-gray-300 rounded-lg bg-white overflow-hidden" style="cursor:crosshair;">
+                                    <canvas ref="signatureCanvas" width="500" height="140"
+                                        style="display:block; touch-action:none; width:100%; height:140px;"
+                                        @mousedown="startDraw" @mousemove="draw" @mouseup="stopDraw" @mouseleave="stopDraw"
+                                        @touchstart.prevent="startDrawTouch" @touchmove.prevent="drawTouch" @touchend="stopDraw" />
+                                </div>
+                                <p class="text-xs text-gray-400 mt-1 mb-2">Dibuja tu firma con el mouse o dedo</p>
+                                <div class="flex gap-2">
+                                    <button type="button" @click="clearCanvas"
+                                        class="px-3 py-1.5 text-xs text-red-500 border border-red-200 rounded-lg hover:bg-red-50 transition-colors">
+                                        <i class="pi pi-trash mr-1" />Limpiar
+                                    </button>
+                                    <button type="button" @click="useCanvasAsFirma"
+                                        class="px-3 py-1.5 text-xs text-green-700 border border-green-300 rounded-lg hover:bg-green-50 transition-colors font-medium">
+                                        <i class="pi pi-check mr-1" />Usar esta firma
+                                    </button>
+                                </div>
+                                <div v-if="firmaPreview && firmaMode === 'draw'" class="mt-3">
+                                    <p class="text-xs text-gray-500 mb-1">Firma guardada:</p>
+                                    <img :src="firmaPreview" alt="Firma" class="max-h-20 border rounded p-1 bg-gray-50" />
+                                </div>
+                            </div>
+
                             <small class="text-red-500">{{ form.errors.firma }}</small>
                         </div>
 
@@ -439,8 +472,12 @@ const onRutBlur = () => {
 };
 
 // ── Firma ─────────────────────────────────────────────────────────────────────
-const firmaPreview  = ref(null);
-const firmaFileName = ref('');
+const firmaPreview     = ref(null);
+const firmaFileName    = ref('');
+const firmaMode        = ref('upload');
+const signatureCanvas  = ref(null);
+let isDrawing = false;
+let lastX = 0, lastY = 0;
 
 const onFirmaChange = (event) => {
     const file = event.target.files[0];
@@ -451,6 +488,70 @@ const onFirmaChange = (event) => {
     reader.onload = (e) => { firmaPreview.value = e.target.result; };
     reader.readAsDataURL(file);
 };
+
+function getCtx() {
+    const c = signatureCanvas.value;
+    if (!c) return null;
+    const ctx = c.getContext('2d');
+    ctx.strokeStyle = '#1e293b';
+    ctx.lineWidth   = 2;
+    ctx.lineCap     = 'round';
+    ctx.lineJoin    = 'round';
+    return ctx;
+}
+function coordsFromEvent(e, canvas) {
+    const r = canvas.getBoundingClientRect();
+    const scaleX = canvas.width  / r.width;
+    const scaleY = canvas.height / r.height;
+    return [(e.clientX - r.left) * scaleX, (e.clientY - r.top) * scaleY];
+}
+function startDraw(e) {
+    isDrawing = true;
+    [lastX, lastY] = coordsFromEvent(e, signatureCanvas.value);
+}
+function draw(e) {
+    if (!isDrawing) return;
+    const ctx = getCtx();
+    if (!ctx) return;
+    const [x, y] = coordsFromEvent(e, signatureCanvas.value);
+    ctx.beginPath(); ctx.moveTo(lastX, lastY); ctx.lineTo(x, y); ctx.stroke();
+    [lastX, lastY] = [x, y];
+}
+function stopDraw() { isDrawing = false; }
+function startDrawTouch(e) {
+    const t = e.touches[0];
+    isDrawing = true;
+    const r = signatureCanvas.value.getBoundingClientRect();
+    const c = signatureCanvas.value;
+    lastX = (t.clientX - r.left) * (c.width  / r.width);
+    lastY = (t.clientY - r.top)  * (c.height / r.height);
+}
+function drawTouch(e) {
+    if (!isDrawing) return;
+    const t = e.touches[0];
+    const ctx = getCtx();
+    if (!ctx) return;
+    const r = signatureCanvas.value.getBoundingClientRect();
+    const c = signatureCanvas.value;
+    const x = (t.clientX - r.left) * (c.width  / r.width);
+    const y = (t.clientY - r.top)  * (c.height / r.height);
+    ctx.beginPath(); ctx.moveTo(lastX, lastY); ctx.lineTo(x, y); ctx.stroke();
+    [lastX, lastY] = [x, y];
+}
+function clearCanvas() {
+    const c = signatureCanvas.value;
+    if (c) c.getContext('2d').clearRect(0, 0, c.width, c.height);
+}
+function useCanvasAsFirma() {
+    const c = signatureCanvas.value;
+    if (!c) return;
+    c.toBlob((blob) => {
+        if (!blob) return;
+        form.firma         = new File([blob], 'firma.png', { type: 'image/png' });
+        firmaFileName.value = 'firma_dibujada.png';
+        firmaPreview.value  = c.toDataURL('image/png');
+    }, 'image/png');
+}
 
 // ── Formulario ────────────────────────────────────────────────────────────────
 const form = useForm({
