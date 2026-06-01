@@ -393,7 +393,7 @@
 </template>
 
 <script setup>
-import { computed, reactive } from 'vue';
+import { computed, reactive, onMounted, onUnmounted } from 'vue';
 import { Link, router } from '@inertiajs/vue3';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import Button from 'primevue/button';
@@ -418,6 +418,24 @@ const props = defineProps({
 });
 
 const lightbox = reactive({ open: false, src: '', name: '' });
+
+// Auto-reload si hay archivos CBCT en estado procesando
+let pollingInterval = null;
+const hasProcessingFiles = computed(() =>
+    props.examenes?.some(ex => ex.archivos?.some(f => f.ruta_dcm === 'processing'))
+);
+
+onMounted(() => {
+    if (hasProcessingFiles.value) {
+        pollingInterval = setInterval(() => {
+            router.reload({ only: ['examenes'], preserveScroll: true });
+        }, 15000); // recarga cada 15 segundos
+    }
+});
+
+onUnmounted(() => {
+    if (pollingInterval) clearInterval(pollingInterval);
+});
 
 const showInforme = reactive(
     Object.fromEntries((props.examenes ?? []).map((_, i) => [i, false]))
