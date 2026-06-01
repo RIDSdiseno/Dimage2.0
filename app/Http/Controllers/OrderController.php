@@ -565,7 +565,8 @@ class OrderController extends Controller
             ->join('staffs as s', 's.id', '=', 'ose.staff_id')
             ->join('users as u', 'u.id', '=', 's.user_id')
             ->where('ose.order_id', $order->id)
-            ->select('s.id', 'u.name', 'ose.respondida')
+            ->select('s.id', 'u.name', DB::raw('MAX(ose.respondida) as respondida'))
+            ->groupBy('s.id', 'u.name')
             ->get();
 
         $odontologoRow = DB::table('staffs as s')
@@ -1837,7 +1838,7 @@ class OrderController extends Controller
             $staffId = (int) $a['radiologo_id'];
             $kindIds = $a['kind_ids'] ?? null;
             if (empty($kindIds)) {
-                DB::table('order_staff_exam')->insert([
+                DB::table('order_staff_exam')->insertOrIgnore([
                     'order_id'   => $orderId,
                     'staff_id'   => $staffId,
                     'group_exam' => 1,
@@ -1846,7 +1847,7 @@ class OrderController extends Controller
                 ]);
             } else {
                 foreach ((array) $kindIds as $kindId) {
-                    DB::table('order_staff_exam')->insert([
+                    DB::table('order_staff_exam')->insertOrIgnore([
                         'order_id'   => $orderId,
                         'staff_id'   => $staffId,
                         'group_exam' => 1,
