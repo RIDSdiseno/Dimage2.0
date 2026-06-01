@@ -262,7 +262,7 @@
 
             <!-- Contenido -->
             <main :class="sidebarOpen ? 'ml-56' : 'ml-0'"
-                class="flex-1 transition-all duration-200 min-h-screen">
+                class="flex-1 transition-all duration-200 min-h-screen min-w-0 overflow-x-hidden">
                 <slot />
             </main>
         </div>
