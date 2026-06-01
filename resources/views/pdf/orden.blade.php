@@ -91,14 +91,20 @@
 
         {{-- Retroalveolar: secciones Maxilar / Mandíbula + dientes --}}
         @elseif($isRetro)
-          @if(!empty($r['campo_2']) || !empty($r['campo_3']) || !empty($r['campo_4']))
+          @php
+            $maxDientes  = collect($maxilarN)->filter(fn($d) => !empty($r["diente_{$d}"]))->values();
+            $mandDientes = collect($mandibN)->filter(fn($d)  => !empty($r["diente_{$d}"]))->values();
+            $hasMaxilar  = !empty($r['campo_2']) || !empty($r['campo_3']) || !empty($r['campo_4']) || $maxDientes->isNotEmpty();
+            $hasMandib   = !empty($r['campo_5']) || !empty($r['campo_6']) || !empty($r['campo_7']) || $mandDientes->isNotEmpty();
+          @endphp
+
+          @if($hasMaxilar)
             <p style="font-weight:700;border-bottom:1px solid #e2e8f0;padding-bottom:3px;margin-bottom:6px;">Maxilar</p>
             @if(!empty($r['campo_2'])) <p><strong>Nivel Óseo Marginal:</strong> {{ $r['campo_2'] }}</p> @endif
             @if(!empty($r['campo_3'])) <p><strong>Cálculo dentario marginal:</strong> {{ $r['campo_3'] }}</p> @endif
             @if(!empty($r['campo_4'])) <p><strong>Observaciones:</strong> {{ $r['campo_4'] }}</p> @endif
-            @php $maxDientes = collect($maxilarN)->filter(fn($d) => !empty($r["diente_{$d}"]))->values(); @endphp
             @if($maxDientes->isNotEmpty())
-              <p style="margin-top:6px;font-weight:600;font-size:10px;">Dientes:</p>
+              <p style="margin-top:6px;font-weight:600;font-size:10px;">Dientes Maxilar:</p>
               <table style="width:100%;border-collapse:collapse;font-size:10px;margin-top:2px;">
                 @foreach($maxDientes->chunk(4) as $chunk)
                 <tr>
@@ -107,19 +113,22 @@
                     <strong>{{ floor($d/10).'.'.($d%10) }}</strong><br>{{ $r["diente_{$d}"] }}
                   </td>
                   @endforeach
+                  @for($fill = count($chunk); $fill < 4; $fill++)
+                  <td style="width:25%;"></td>
+                  @endfor
                 </tr>
                 @endforeach
               </table>
             @endif
           @endif
-          @if(!empty($r['campo_5']) || !empty($r['campo_6']) || !empty($r['campo_7']))
+
+          @if($hasMandib)
             <p style="font-weight:700;border-bottom:1px solid #e2e8f0;padding-bottom:3px;margin-bottom:6px;margin-top:10px;">Mandíbula</p>
             @if(!empty($r['campo_5'])) <p><strong>Nivel Óseo Marginal:</strong> {{ $r['campo_5'] }}</p> @endif
             @if(!empty($r['campo_6'])) <p><strong>Cálculo dentario marginal:</strong> {{ $r['campo_6'] }}</p> @endif
             @if(!empty($r['campo_7'])) <p><strong>Observaciones:</strong> {{ $r['campo_7'] }}</p> @endif
-            @php $mandDientes = collect($mandibN)->filter(fn($d) => !empty($r["diente_{$d}"]))->values(); @endphp
             @if($mandDientes->isNotEmpty())
-              <p style="margin-top:6px;font-weight:600;font-size:10px;">Dientes:</p>
+              <p style="margin-top:6px;font-weight:600;font-size:10px;">Dientes Mandíbula:</p>
               <table style="width:100%;border-collapse:collapse;font-size:10px;margin-top:2px;">
                 @foreach($mandDientes->chunk(4) as $chunk)
                 <tr>
@@ -128,13 +137,16 @@
                     <strong>{{ floor($d/10).'.'.($d%10) }}</strong><br>{{ $r["diente_{$d}"] }}
                   </td>
                   @endforeach
+                  @for($fill = count($chunk); $fill < 4; $fill++)
+                  <td style="width:25%;"></td>
+                  @endfor
                 </tr>
                 @endforeach
               </table>
             @endif
           @endif
+
           @if(!empty($r['campo_1'])) <p style="margin-top:8px;"><strong>Observaciones generales:</strong> {{ $r['campo_1'] }}</p> @endif
-          @if(!empty($r['campo_1']) && !$isRetro && empty($r['campo_2'])) <p>Sin informe de secciones.</p> @endif
 
         {{-- Examen estándar: campo_1/2/3 --}}
         @else
