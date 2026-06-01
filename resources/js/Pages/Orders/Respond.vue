@@ -653,7 +653,10 @@ const showCampos = reactive(
     props.examenes.map(ex => {
         const r = ex.respuesta ?? {};
         if (ex.kind_id === PANORAMICA_KIND_ID) {
-            return !!(r.informe_examen || r.informe_libre || r.informe_impresion);
+            const hasInforme  = !!(r.informe_examen || r.informe_libre || r.informe_impresion);
+            const hasCampos   = [1,2,3,4,5,6,7,8,9].some(i => !!r[`campo_${i}`]);
+            const hasDientes  = Object.keys(r).some(k => k.startsWith('diente_') && !!r[k]);
+            return hasInforme || hasCampos || hasDientes;
         }
         const teeth = getTeethForExam(ex);
         if (teeth.length > 0) {
