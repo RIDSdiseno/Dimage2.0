@@ -52,10 +52,11 @@
                         <div class="md:col-span-2">
                             <label class="block text-sm font-medium mb-1">Clínicas *</label>
                             <AutoComplete
+                                ref="clinicAutoRef"
                                 v-model="selectedClinics"
                                 :suggestions="clinicSuggestions"
                                 @complete="searchClinics"
-                                @focus="searchClinics({ query: '' })"
+                                @focus="onClinicFocus"
                                 optionLabel="name"
                                 multiple
                                 forceSelection
@@ -82,7 +83,7 @@
 </template>
 
 <script setup>
-import { ref, computed, watch, onMounted } from 'vue';
+import { ref, computed, watch, onMounted, nextTick } from 'vue';
 import { Link, useForm, usePage } from '@inertiajs/vue3';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import { useTerms } from '@/composables/useTerms.js';
@@ -117,6 +118,7 @@ const rawDate = ref(initRawDate(props.patient.dateofbirth));
 // AutoComplete para clínicas
 const selectedClinics   = ref([]);
 const clinicSuggestions = ref([]);
+const clinicAutoRef     = ref(null);
 
 onMounted(() => {
     // Pre-cargar clínicas ya asignadas al paciente
@@ -130,6 +132,11 @@ function searchClinics(event) {
     clinicSuggestions.value = q
         ? props.clinics.filter(c => c.name.toLowerCase().includes(q))
         : [...props.clinics];
+}
+
+function onClinicFocus() {
+    clinicSuggestions.value = [...props.clinics];
+    nextTick(() => clinicAutoRef.value?.show());
 }
 
 watch(selectedClinics, (val) => {

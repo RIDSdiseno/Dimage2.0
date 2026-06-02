@@ -64,10 +64,11 @@
                         <div class="md:col-span-2">
                             <label class="block text-sm font-medium mb-1">Pertenece a: *</label>
                             <AutoComplete
+                                ref="clinicAutoRef"
                                 v-model="selectedClinics"
                                 :suggestions="clinicSuggestions"
                                 @complete="searchClinics"
-                                @focus="searchClinics({ query: '' })"
+                                @focus="onClinicFocus"
                                 optionLabel="name"
                                 multiple
                                 forceSelection
@@ -94,7 +95,7 @@
 </template>
 
 <script setup>
-import { ref, computed, watch } from 'vue';
+import { ref, computed, watch, nextTick } from 'vue';
 import { Link, useForm, usePage } from '@inertiajs/vue3';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import InputText from 'primevue/inputtext';
@@ -116,12 +117,18 @@ const rutTouched = ref(false);
 
 const selectedClinics    = ref([]);
 const clinicSuggestions  = ref([]);
+const clinicAutoRef      = ref(null);
 
 function searchClinics(event) {
     const q = (event.query ?? '').toLowerCase().trim();
     clinicSuggestions.value = q
         ? props.clinics.filter(c => c.name.toLowerCase().includes(q))
         : [...props.clinics];
+}
+
+function onClinicFocus() {
+    clinicSuggestions.value = [...props.clinics];
+    nextTick(() => clinicAutoRef.value?.show());
 }
 
 const form = useForm({
