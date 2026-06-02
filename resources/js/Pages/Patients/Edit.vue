@@ -55,6 +55,7 @@
                                 v-model="selectedClinics"
                                 :suggestions="clinicSuggestions"
                                 @complete="searchClinics"
+                                @focus="searchClinics({ query: '' })"
                                 optionLabel="name"
                                 multiple
                                 forceSelection
@@ -125,10 +126,10 @@ onMounted(() => {
 });
 
 function searchClinics(event) {
-    const q = (event.query ?? '').toLowerCase();
-    clinicSuggestions.value = props.clinics.filter(c =>
-        c.name.toLowerCase().includes(q)
-    );
+    const q = (event.query ?? '').toLowerCase().trim();
+    clinicSuggestions.value = q
+        ? props.clinics.filter(c => c.name.toLowerCase().includes(q))
+        : [...props.clinics];
 }
 
 watch(selectedClinics, (val) => {
