@@ -766,13 +766,28 @@ function validate(action) {
         respuestas.forEach((_, i) => { respuestaErrors[i] = ''; });
         return true;
     }
-    // 'responder': al menos un campo de texto o archivo por examen
-    // Excepción: cefalométrico no requiere texto (adjuntan archivos aparte)
+    // 'responder': validación por tipo de examen
     let ok = true;
     respuestas.forEach((r, i) => {
         respuestaErrors[i] = '';
         const ex = props.examenes[i];
-        if (isCefalo(ex)) return; // cefalométrico exento: adjuntan archivos aparte
+
+        // Cefalométrico: exento (adjuntan archivos aparte)
+        if (isCefalo(ex)) return;
+
+        // Retroalveolar Unitaria: TODAS las piezas seleccionadas deben responderse
+        if (isRetro(ex) && ex.piezas) {
+            const piezas = parsePiezas(ex.piezas);
+            const missing = piezas.filter(p => !(r[`diente_${p}`] ?? '').trim());
+            if (missing.length > 0) {
+                const labels = missing.map(p => `${Math.floor(p/10)}.${p%10}`).join(', ');
+                respuestaErrors[i] = `Faltan dientes por responder: ${labels}`;
+                ok = false;
+            }
+            return;
+        }
+
+        // Retroalveolar Total y todos los demás: al menos un campo o archivo
         const hasText =
             [1,2,3,4,5,6,7,8,9].some(c => (r[`campo_${c}`] ?? '').trim().length > 0) ||
             Object.keys(r).some(k => k.startsWith('diente_') && (r[k] ?? '').trim().length > 0) ||
@@ -785,7 +800,7 @@ function validate(action) {
             ok = false;
         }
     });
-    if (!ok) form.errors.general = 'Completa al menos un campo en cada examen antes de enviar el informe.';
+    if (!ok) form.errors.general = 'Completa los campos requeridos antes de enviar el informe.';
     return ok;
 }
 
