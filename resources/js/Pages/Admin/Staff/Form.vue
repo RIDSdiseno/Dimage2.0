@@ -252,8 +252,8 @@
                     </div>
                 </div>
 
-                <!-- Permisos (solo operadores/técnicos) -->
-                <div v-if="esTecnico">
+                <!-- Permisos (técnico y odontólogo) -->
+                <div v-if="esOperador">
                     <h2 class="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-4 pb-2 border-b border-gray-100">
                         Permisos para este usuario
                     </h2>
@@ -322,8 +322,11 @@ const props = defineProps({
     kindsList:    Array,
 });
 
-const esRadiologo = computed(() => props.tipo?.type_staff === 3);
-const esTecnico   = computed(() => props.tipo?.type_staff === 11);
+const esRadiologo  = computed(() => props.tipo?.type_staff === 3);
+const esTecnico    = computed(() => props.tipo?.type_staff === 11);
+const esOdontologo = computed(() => props.tipo?.type_staff === 6);
+// Operador = técnico u odontólogo (ambos tienen los mismos permisos configurables)
+const esOperador   = computed(() => esTecnico.value || esOdontologo.value);
 
 // ── Códigos de país ───────────────────────────────────────────────────────────
 // iso: código ISO 3166-1 alpha-2 en minúsculas (usado por flag-icons: class="fi fi-{iso}")
