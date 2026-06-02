@@ -64,6 +64,7 @@
                         <div class="md:col-span-2">
                             <label class="block text-sm font-medium mb-1">Pertenece a: *</label>
                             <MultiSelect
+                                ref="clinicsRef"
                                 v-model="form.clinics"
                                 :options="clinics"
                                 optionLabel="name"
@@ -71,9 +72,9 @@
                                 placeholder="Selecciona clínica(s)"
                                 class="w-full"
                                 :class="{'p-invalid': form.errors.clinics}"
-                                closeOnSelect
                                 filter
                                 filterPlaceholder="Buscar clínica..."
+                                @change="clinicsRef?.hide()"
                             />
                             <small class="text-red-500">{{ form.errors.clinics }}</small>
                         </div>
