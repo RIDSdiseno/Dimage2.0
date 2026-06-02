@@ -69,6 +69,7 @@
                                 :suggestions="clinicSuggestions"
                                 @complete="searchClinics"
                                 @focus="onClinicFocus"
+                                @item-select="() => clinicAutoRef?.hide()"
                                 optionLabel="name"
                                 multiple
                                 forceSelection
