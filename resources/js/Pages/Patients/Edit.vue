@@ -51,18 +51,17 @@
 
                         <div class="md:col-span-2">
                             <label class="block text-sm font-medium mb-1">Clínicas *</label>
-                            <MultiSelect
-                                ref="clinicsRef"
-                                v-model="form.clinics"
-                                :options="clinics"
+                            <AutoComplete
+                                v-model="selectedClinics"
+                                :suggestions="clinicSuggestions"
+                                @complete="searchClinics"
                                 optionLabel="name"
-                                optionValue="id"
-                                placeholder="Selecciona clínica(s)"
+                                multiple
+                                forceSelection
+                                dropdown
+                                placeholder="Buscar clínica..."
                                 class="w-full"
                                 :class="{'p-invalid': form.errors.clinics}"
-                                filter
-                                filterPlaceholder="Buscar clínica..."
-                                @change="clinicsRef?.hide()"
                             />
                             <small class="text-red-500">{{ form.errors.clinics }}</small>
                         </div>
@@ -82,7 +81,7 @@
 </template>
 
 <script setup>
-import { ref, computed } from 'vue';
+import { ref, computed, watch, onMounted } from 'vue';
 import { Link, useForm, usePage } from '@inertiajs/vue3';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import { useTerms } from '@/composables/useTerms.js';
@@ -92,7 +91,7 @@ const page = usePage();
 const puedeDerivacion = computed(() => !!page.props.auth?.user?.puede_derivacion_clinica);
 import InputText from 'primevue/inputtext';
 import InputMask from 'primevue/inputmask';
-import MultiSelect from 'primevue/multiselect';
+import AutoComplete from 'primevue/autocomplete';
 import Button from 'primevue/button';
 import Message from 'primevue/message';
 
@@ -113,6 +112,28 @@ function initRawDate(dateStr) {
 }
 
 const rawDate = ref(initRawDate(props.patient.dateofbirth));
+
+// AutoComplete para clínicas
+const selectedClinics   = ref([]);
+const clinicSuggestions = ref([]);
+
+onMounted(() => {
+    // Pre-cargar clínicas ya asignadas al paciente
+    selectedClinics.value = (props.selectedClinics ?? [])
+        .map(id => props.clinics.find(c => c.id === id))
+        .filter(Boolean);
+});
+
+function searchClinics(event) {
+    const q = (event.query ?? '').toLowerCase();
+    clinicSuggestions.value = props.clinics.filter(c =>
+        c.name.toLowerCase().includes(q)
+    );
+}
+
+watch(selectedClinics, (val) => {
+    form.clinics = val.map(c => c.id);
+});
 
 const form = useForm({
     name:        props.patient.name,

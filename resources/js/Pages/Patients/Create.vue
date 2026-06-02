@@ -63,18 +63,17 @@
 
                         <div class="md:col-span-2">
                             <label class="block text-sm font-medium mb-1">Pertenece a: *</label>
-                            <MultiSelect
-                                ref="clinicsRef"
-                                v-model="form.clinics"
-                                :options="clinics"
+                            <AutoComplete
+                                v-model="selectedClinics"
+                                :suggestions="clinicSuggestions"
+                                @complete="searchClinics"
                                 optionLabel="name"
-                                optionValue="id"
-                                placeholder="Selecciona clínica(s)"
+                                multiple
+                                forceSelection
+                                dropdown
+                                placeholder="Buscar clínica..."
                                 class="w-full"
                                 :class="{'p-invalid': form.errors.clinics}"
-                                filter
-                                filterPlaceholder="Buscar clínica..."
-                                @change="clinicsRef?.hide()"
                             />
                             <small class="text-red-500">{{ form.errors.clinics }}</small>
                         </div>
@@ -99,7 +98,7 @@ import { Link, useForm, usePage } from '@inertiajs/vue3';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import InputText from 'primevue/inputtext';
 import DatePicker from 'primevue/datepicker';
-import MultiSelect from 'primevue/multiselect';
+import AutoComplete from 'primevue/autocomplete';
 import Button from 'primevue/button';
 import Checkbox from 'primevue/checkbox';
 
@@ -114,12 +113,26 @@ const dateValue  = ref(null);
 const isPassport = ref(false);
 const rutTouched = ref(false);
 
+const selectedClinics    = ref([]);
+const clinicSuggestions  = ref([]);
+
+function searchClinics(event) {
+    const q = (event.query ?? '').toLowerCase();
+    clinicSuggestions.value = props.clinics.filter(c =>
+        c.name.toLowerCase().includes(q)
+    );
+}
+
 const form = useForm({
     name:        '',
     rut:         '',
     email:       '',
     clinics:     [],
     derivado_de: '',
+});
+
+watch(selectedClinics, (val) => {
+    form.clinics = val.map(c => c.id);
 });
 
 watch(isPassport, () => {
