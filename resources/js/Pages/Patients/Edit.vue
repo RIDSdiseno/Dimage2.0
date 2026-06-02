@@ -44,6 +44,11 @@
                             <small class="text-red-500">{{ form.errors.email }}</small>
                         </div>
 
+                        <div v-if="puedeDerivacion" class="md:col-span-2">
+                            <label class="block text-sm font-medium mb-1">Paciente derivado de</label>
+                            <InputText v-model="form.derivado_de" placeholder="Clínica o médico derivador" class="w-full" />
+                        </div>
+
                         <div class="md:col-span-2">
                             <label class="block text-sm font-medium mb-1">Clínicas *</label>
                             <MultiSelect
@@ -54,6 +59,7 @@
                                 placeholder="Selecciona clínica(s)"
                                 class="w-full"
                                 :class="{'p-invalid': form.errors.clinics}"
+                                closeOnSelect
                             />
                             <small class="text-red-500">{{ form.errors.clinics }}</small>
                         </div>
@@ -73,12 +79,14 @@
 </template>
 
 <script setup>
-import { ref } from 'vue';
-import { Link, useForm } from '@inertiajs/vue3';
+import { ref, computed } from 'vue';
+import { Link, useForm, usePage } from '@inertiajs/vue3';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import { useTerms } from '@/composables/useTerms.js';
 
 const { terms } = useTerms();
+const page = usePage();
+const puedeDerivacion = computed(() => !!page.props.auth?.user?.puede_derivacion_clinica);
 import InputText from 'primevue/inputtext';
 import InputMask from 'primevue/inputmask';
 import MultiSelect from 'primevue/multiselect';

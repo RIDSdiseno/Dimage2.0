@@ -39,6 +39,10 @@
                             <InputText v-model="form.username" class="w-full" :class="{ 'p-invalid': form.errors.username }" />
                             <small class="text-red-500">{{ form.errors.username }}</small>
                         </div>
+                        <div v-else>
+                            <label class="block text-sm font-medium mb-1">Usuario</label>
+                            <InputText :value="clinica.username" class="w-full" disabled />
+                        </div>
 
                         <div>
                             <label class="block text-sm font-medium mb-1">{{ clinica ? 'Nueva Contraseña (opcional)' : 'Contraseña *' }}</label>
@@ -65,6 +69,17 @@
 
                     </div>
 
+                    <!-- Permisos -->
+                    <div class="mt-6 pt-5 border-t border-gray-100">
+                        <h2 class="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-4">
+                            Permisos para este usuario
+                        </h2>
+                        <div class="flex items-center gap-3">
+                            <Checkbox v-model="form.puede_ver_menu_busqueda" :binary="true" inputId="clinica_busqueda" />
+                            <label for="clinica_busqueda" class="text-sm cursor-pointer">Permiso para ver menú de búsqueda de orden</label>
+                        </div>
+                    </div>
+
                     <div class="flex justify-end gap-3 mt-6">
                         <Link :href="route('admin.clinicas')">
                             <Button label="Cancelar" severity="secondary" type="button" />
@@ -88,6 +103,7 @@
 import { Link, useForm } from '@inertiajs/vue3';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import Button from 'primevue/button';
+import Checkbox from 'primevue/checkbox';
 import InputText from 'primevue/inputtext';
 import Select from 'primevue/select';
 import Message from 'primevue/message';
@@ -98,12 +114,13 @@ const props = defineProps({
 });
 
 const form = useForm({
-    name:         props.clinica?.name ?? '',
-    username:     props.clinica?.username ?? '',
-    password:     '',
-    holding_id:   props.clinica?.holding_id ?? null,
-    address:      props.clinica?.address ?? '',
-    telephoneone: props.clinica?.telephoneone ?? '',
+    name:                    props.clinica?.name ?? '',
+    username:                props.clinica?.username ?? '',
+    password:                '',
+    holding_id:              props.clinica?.holding_id ?? null,
+    address:                 props.clinica?.address ?? '',
+    telephoneone:            props.clinica?.telephoneone ?? '',
+    puede_ver_menu_busqueda: props.clinica?.puede_ver_menu_busqueda ?? false,
 });
 
 const submit = () => {
