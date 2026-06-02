@@ -60,6 +60,8 @@
                                 class="w-full"
                                 :class="{'p-invalid': form.errors.clinics}"
                                 closeOnSelect
+                                filter
+                                filterPlaceholder="Buscar clínica..."
                             />
                             <small class="text-red-500">{{ form.errors.clinics }}</small>
                         </div>
