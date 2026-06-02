@@ -57,7 +57,7 @@
                                 :suggestions="clinicSuggestions"
                                 @complete="searchClinics"
                                 @focus="onClinicFocus"
-                                @item-select="() => clinicAutoRef?.hide()"
+                                @item-select="onClinicSelect"
                                 optionLabel="name"
                                 multiple
                                 forceSelection
@@ -135,9 +135,17 @@ function searchClinics(event) {
         : [...props.clinics];
 }
 
+let clinicJustSelected = false;
+
 function onClinicFocus() {
+    if (clinicJustSelected) { clinicJustSelected = false; return; }
     clinicSuggestions.value = [...props.clinics];
     nextTick(() => clinicAutoRef.value?.show());
+}
+
+function onClinicSelect() {
+    clinicJustSelected = true;
+    clinicAutoRef.value?.hide();
 }
 
 watch(selectedClinics, (val) => {
