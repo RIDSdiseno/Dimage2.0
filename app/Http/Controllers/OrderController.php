@@ -1620,18 +1620,21 @@ class OrderController extends Controller
         }
     }
 
-    /** Generate a 60-minute pre-signed S3 URL for a given path. */
+    /** Generate a 60-minute pre-signed S3 URL for a given path (cached 55 min). */
     private function signedUrl(?string $ruta): ?string
     {
         if (!$ruta || $ruta === '0') {
             return null;
         }
-        try {
-            return \Illuminate\Support\Facades\Storage::disk('s3')
-                ->temporaryUrl($ruta, now()->addMinutes(60));
-        } catch (\Throwable) {
-            return null;
-        }
+        $key = 's3_url_' . md5($ruta);
+        return \Illuminate\Support\Facades\Cache::remember($key, 3300, function () use ($ruta) {
+            try {
+                return \Illuminate\Support\Facades\Storage::disk('s3')
+                    ->temporaryUrl($ruta, now()->addMinutes(60));
+            } catch (\Throwable) {
+                return null;
+            }
+        });
     }
 
     /**
