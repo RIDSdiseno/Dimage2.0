@@ -1627,14 +1627,19 @@ class OrderController extends Controller
             return null;
         }
         $key = 's3_url_' . md5($ruta);
-        return \Illuminate\Support\Facades\Cache::remember($key, 3300, function () use ($ruta) {
+        try {
+            return \Illuminate\Support\Facades\Cache::remember($key, 3300, function () use ($ruta) {
+                return \Illuminate\Support\Facades\Storage::disk('s3')
+                    ->temporaryUrl($ruta, now()->addMinutes(60));
+            });
+        } catch (\Throwable) {
             try {
                 return \Illuminate\Support\Facades\Storage::disk('s3')
                     ->temporaryUrl($ruta, now()->addMinutes(60));
             } catch (\Throwable) {
                 return null;
             }
-        });
+        }
     }
 
     /**

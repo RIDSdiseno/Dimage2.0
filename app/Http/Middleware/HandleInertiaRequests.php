@@ -24,13 +24,21 @@ class HandleInertiaRequests extends Middleware
             'auth' => [
                 'user' => $request->user() ? (function () use ($request) {
                     $u     = $request->user();
-                    $staff = Cache::remember("user_staff_{$u->id}", 300, fn () =>
-                        DB::table('staffs')->where('user_id', $u->id)->first([
+                    try {
+                        $staff = Cache::remember("user_staff_{$u->id}", 300, fn () =>
+                            DB::table('staffs')->where('user_id', $u->id)->first([
+                                'puede_ver_menu_busqueda',
+                                'puede_sin_diagnostico',
+                                'puede_derivacion_clinica',
+                            ])
+                        );
+                    } catch (\Throwable) {
+                        $staff = DB::table('staffs')->where('user_id', $u->id)->first([
                             'puede_ver_menu_busqueda',
                             'puede_sin_diagnostico',
                             'puede_derivacion_clinica',
-                        ])
-                    );
+                        ]);
+                    }
                     return [
                         'id'                      => $u->id,
                         'name'                    => $u->name,
