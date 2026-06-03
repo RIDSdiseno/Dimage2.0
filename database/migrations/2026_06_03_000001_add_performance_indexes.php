@@ -12,10 +12,12 @@ return new class extends Migration {
             if (!$this->hasIndex('orders', 'idx_orders_clinic')) $t->index('clinic_id', 'idx_orders_clinic');
             if (!$this->hasIndex('orders', 'idx_orders_created')) $t->index('created_at', 'idx_orders_created');
         });
-        // examination_order uses raw SQL to avoid strict mode issues
+        // Disable strict mode temporarily (table has 0000-00-00 datetime defaults)
+        \Illuminate\Support\Facades\DB::statement("SET SESSION sql_mode = ''");
         if (!$this->hasIndex('examination_order', 'idx_eo_order')) {
             \Illuminate\Support\Facades\DB::statement('ALTER TABLE `examination_order` ADD INDEX `idx_eo_order` (`order_id`)');
         }
+        \Illuminate\Support\Facades\DB::statement("SET SESSION sql_mode = 'STRICT_TRANS_TABLES,NO_ZERO_IN_DATE,NO_ZERO_DATE,ERROR_FOR_DIVISION_BY_ZERO,NO_ENGINE_SUBSTITUTION'");
         Schema::table('files', function (Blueprint $t) {
             if (!$this->hasIndex('files', 'idx_files_exam')) $t->index('examination_id', 'idx_files_exam');
         });
