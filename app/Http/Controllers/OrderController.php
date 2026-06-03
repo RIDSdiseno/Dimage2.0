@@ -1615,8 +1615,9 @@ class OrderController extends Controller
                 examen:          $examen ?: 'Sin especificar',
                 prioridad:       $orden->prioridad ?? 'Normal',
             ));
-        } catch (\Throwable) {
-            // No interrumpir el flujo si el correo falla
+            \Illuminate\Support\Facades\Log::info("Email enviado al radiólogo {$radiologo->name} ({$radiologo->mail}) para orden #{$orden->id}");
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::error("Error enviando email al radiólogo #{$staffId}: " . $e->getMessage());
         }
     }
 
