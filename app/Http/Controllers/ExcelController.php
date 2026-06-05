@@ -138,21 +138,41 @@ class ExcelController extends Controller
             $sheet->setCellValue([$col + 1, 1], $heading);
         }
 
+        // Build expanded rows: one row per cefalométrico analysis, one row for other exams
+        $expandedRows = [];
+        foreach ($rows as $r) {
+            $exams = $examTypes[$r->id] ?? collect();
+            $otherTypes = [];
+            $cefaloLines = [];
+
+            foreach ($exams->unique('descipcion') as $exam) {
+                $desc = $exam->descipcion ?? '';
+                if (str_contains(strtolower($desc), 'cefalom') && !empty($exam->url_texto)) {
+                    foreach (explode(',', $exam->url_texto) as $analysis) {
+                        $analysis = trim($analysis);
+                        if ($analysis) $cefaloLines[] = $desc . ' - ' . $analysis;
+                    }
+                } else {
+                    $otherTypes[] = $desc;
+                }
+            }
+
+            $otherStr = implode(', ', array_unique($otherTypes));
+
+            if (!empty($cefaloLines)) {
+                foreach ($cefaloLines as $line) {
+                    $expandedRows[] = ['row' => $r, 'tipos' => $otherStr ? $otherStr . ', ' . $line : $line];
+                }
+            } else {
+                $expandedRows[] = ['row' => $r, 'tipos' => $otherStr];
+            }
+        }
+
         // Write data rows
         $rowNum = 2;
-        foreach ($rows as $r) {
-            $tipos = ($examTypes[$r->id] ?? collect())->map(function ($e) {
-                $desc = $e->descipcion ?? '';
-                if (!empty($e->url_texto) && str_contains(strtolower($desc), 'cefalom')) {
-                    // Append analysis types for cefalométrico
-                    $analyses = collect(explode(',', $e->url_texto))
-                        ->map(fn($s) => trim($s))
-                        ->filter()
-                        ->implode(', ');
-                    return $desc . ' (' . $analyses . ')';
-                }
-                return $desc;
-            })->unique()->implode(', ');
+        foreach ($expandedRows as $item) {
+            $r     = $item['row'];
+            $tipos = $item['tipos'];
 
             $sheet->setCellValue([1,  $rowNum], $r->id);
             $sheet->setCellValue([2,  $rowNum], $r->clinica);
