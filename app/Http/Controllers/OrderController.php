@@ -93,7 +93,8 @@ class OrderController extends Controller
         $perPage = (int) $request->get('per_page', 15);
         $perPage = $perPage > 0 ? min($perPage, 100) : 15;
 
-        $currentStaffId = DB::table('staffs')->where('user_id', $user->id)->value('id');
+        $currentStaffId     = DB::table('staffs')->where('user_id', $user->id)->value('id');
+        $operatorClinicIds  = $currentStaffId ? $this->clinicIdsForStaff((int) $currentStaffId) : collect();
 
         $query = Order::query()
             ->select([
@@ -172,7 +173,10 @@ class OrderController extends Controller
                 'respondida' => $o->respondida   ? Carbon::parse($o->respondida)->format('d/m/Y')  : '-',
                 'estado'     => self::ESTADOS[(int) $o->estadoradiologo] ?? ['label' => 'Desconocido', 'color' => 'secondary'],
                 'prioridad'  => $o->prioridad,
-                'es_mia'     => $currentStaffId && !is_null($o->operator_id ?? null) && (int) $o->operator_id === (int) $currentStaffId,
+                'es_mia'     => $currentStaffId && (
+                    (!is_null($o->operator_id ?? null) && (int) $o->operator_id === (int) $currentStaffId) ||
+                    $operatorClinicIds->contains($o->clinic_id)
+                ),
             ];
         });
 
@@ -1197,11 +1201,13 @@ class OrderController extends Controller
         $staffId = $user->staff?->id;
         if (!$staffId) return false;
 
-        // Órdenes antiguas sin operator_id: cualquier operador válido puede editar
-        if (is_null($order->operator_id)) return true;
+        // El creador siempre puede editar su propia orden
+        if (!is_null($order->operator_id) && (int) $order->operator_id === (int) $staffId) return true;
 
-        // Órdenes nuevas: solo el creador puede editar
-        return (int) $order->operator_id === (int) $staffId;
+        // Operadores asociados a la misma clínica pueden editar borradores
+        // (cubre órdenes creadas por perfil clínica u odontólogo)
+        $clinicIds = $this->clinicIdsForStaff($staffId);
+        return $clinicIds->contains($order->clinic_id);
     }
 
     public function edit(Order $order): Response|RedirectResponse
