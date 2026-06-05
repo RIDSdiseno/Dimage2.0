@@ -79,12 +79,12 @@ class ExcelController extends Controller
 
         $orderIds = $rows->pluck('id');
 
-        // Exam types per order
+        // Exam types per order (including url_texto for cefalométrico analysis types)
         $examTypes = DB::table('examination_order as eo')
             ->join('examinations as e', 'e.id', '=', 'eo.examination_id')
             ->join('kinds as k', 'k.id', '=', 'e.kind_id')
             ->whereIn('eo.order_id', $orderIds)
-            ->select('eo.order_id', 'k.descipcion')
+            ->select('eo.order_id', 'k.descipcion', 'e.url_texto')
             ->get()
             ->groupBy('order_id');
 
@@ -137,7 +137,18 @@ class ExcelController extends Controller
         // Write data rows
         $rowNum = 2;
         foreach ($rows as $r) {
-            $tipos = ($examTypes[$r->id] ?? collect())->pluck('descipcion')->unique()->implode(', ');
+            $tipos = ($examTypes[$r->id] ?? collect())->map(function ($e) {
+                $desc = $e->descipcion ?? '';
+                if (!empty($e->url_texto) && str_contains(strtolower($desc), 'cefalom')) {
+                    // Append analysis types for cefalométrico
+                    $analyses = collect(explode(',', $e->url_texto))
+                        ->map(fn($s) => trim($s))
+                        ->filter()
+                        ->implode(', ');
+                    return $desc . ' (' . $analyses . ')';
+                }
+                return $desc;
+            })->unique()->implode(', ');
 
             $sheet->setCellValue([1,  $rowNum], $r->id);
             $sheet->setCellValue([2,  $rowNum], $r->clinica);
