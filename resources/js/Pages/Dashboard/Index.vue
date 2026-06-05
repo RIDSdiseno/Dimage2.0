@@ -25,6 +25,84 @@
                 </form>
             </div>
 
+            <!-- Alertas por vencer / vencidas -->
+            <div v-if="props.alertas" class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
+                <div class="bg-white rounded-xl border border-gray-100 shadow-sm p-4 flex items-center gap-4">
+                    <div class="w-10 h-10 rounded-full bg-blue-50 flex items-center justify-center flex-shrink-0">
+                        <i class="pi pi-clock text-blue-500" />
+                    </div>
+                    <div>
+                        <p class="text-xs text-gray-400 uppercase tracking-wide">Pendientes</p>
+                        <p class="text-2xl font-bold text-blue-600">{{ props.alertas.pendientes ?? 0 }}</p>
+                        <p class="text-xs text-gray-400">Sin respuesta</p>
+                    </div>
+                </div>
+                <div class="bg-amber-50 rounded-xl border border-amber-100 shadow-sm p-4 flex items-center gap-4 cursor-pointer"
+                    @click="showPorVencer = !showPorVencer">
+                    <div class="w-10 h-10 rounded-full bg-amber-100 flex items-center justify-center flex-shrink-0">
+                        <i class="pi pi-exclamation-triangle text-amber-500" />
+                    </div>
+                    <div>
+                        <p class="text-xs text-amber-600 uppercase tracking-wide">Por Vencer</p>
+                        <p class="text-2xl font-bold text-amber-600">{{ props.alertas.porVencer?.length ?? 0 }}</p>
+                        <p class="text-xs text-amber-500">Vencen hoy o mañana · click para ver</p>
+                    </div>
+                </div>
+                <div class="bg-red-50 rounded-xl border border-red-100 shadow-sm p-4 flex items-center gap-4 cursor-pointer"
+                    @click="showVencidas = !showVencidas">
+                    <div class="w-10 h-10 rounded-full bg-red-100 flex items-center justify-center flex-shrink-0">
+                        <i class="pi pi-times-circle text-red-500" />
+                    </div>
+                    <div>
+                        <p class="text-xs text-red-600 uppercase tracking-wide">Vencidas</p>
+                        <p class="text-2xl font-bold text-red-600">{{ props.alertas.vencidas?.length ?? 0 }}</p>
+                        <p class="text-xs text-red-400">Plazo superado · click para ver</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Detalle Por Vencer -->
+            <div v-if="showPorVencer && props.alertas?.porVencer?.length" class="bg-white rounded-xl border border-amber-200 shadow-sm p-4 mb-4">
+                <p class="text-sm font-semibold text-amber-700 mb-3">Órdenes por vencer</p>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-xs">
+                        <thead><tr class="text-gray-400 uppercase">
+                            <th class="text-left py-1 pr-3">N°</th><th class="text-left py-1 pr-3">Paciente</th>
+                            <th class="text-left py-1 pr-3">Clínica</th><th class="text-left py-1">Vence</th>
+                        </tr></thead>
+                        <tbody>
+                            <tr v-for="o in props.alertas.porVencer" :key="o.id" class="border-t border-gray-50">
+                                <td class="py-1 pr-3 font-mono">{{ o.id }}</td>
+                                <td class="py-1 pr-3">{{ o.paciente }}</td>
+                                <td class="py-1 pr-3">{{ o.clinica }}</td>
+                                <td class="py-1 text-amber-600 font-medium">{{ o.deadline }}</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Detalle Vencidas -->
+            <div v-if="showVencidas && props.alertas?.vencidas?.length" class="bg-white rounded-xl border border-red-200 shadow-sm p-4 mb-4">
+                <p class="text-sm font-semibold text-red-700 mb-3">Órdenes vencidas</p>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-xs">
+                        <thead><tr class="text-gray-400 uppercase">
+                            <th class="text-left py-1 pr-3">N°</th><th class="text-left py-1 pr-3">Paciente</th>
+                            <th class="text-left py-1 pr-3">Clínica</th><th class="text-left py-1">Días vencida</th>
+                        </tr></thead>
+                        <tbody>
+                            <tr v-for="o in props.alertas.vencidas" :key="o.id" class="border-t border-gray-50">
+                                <td class="py-1 pr-3 font-mono">{{ o.id }}</td>
+                                <td class="py-1 pr-3">{{ o.paciente }}</td>
+                                <td class="py-1 pr-3">{{ o.clinica }}</td>
+                                <td class="py-1 text-red-600 font-medium">{{ o.dias_vencida }} días</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
             <!-- Stats row 1: Órdenes -->
             <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-4">
                 <div v-for="s in ordenStats" :key="s.label"
@@ -160,6 +238,7 @@ Chart.register(...registerables, ChartDataLabels);
 const props = defineProps({
     fechaDesde:                   String,
     fechaHasta:                   String,
+    alertas:                      Object,
     totalesOrdenes:               Object,
     totalesExamenes:              Object,
     radiologos:                   Array,
@@ -172,6 +251,10 @@ const props = defineProps({
     radiologoTiempoChartData:     Object,
     radiologoRespuestasChartData: Object,
 });
+
+// ── Alertas toggle ───────────────────────────────────────────────────────
+const showPorVencer = ref(false);
+const showVencidas  = ref(false);
 
 // ── Date filter ──────────────────────────────────────────────────────────
 const localDesde = ref(props.fechaDesde);

@@ -18,8 +18,22 @@ class DashboardController extends Controller
         $user = Auth::user();
 
         $holdingId = null;
+        $staffId   = null;
+        $clinicIds = null;
+
         if ($user->hasRole('holding') && $user->holding) {
             $holdingId = $user->holding->id;
+        } elseif ($user->hasRole('radiologo') && $user->staff) {
+            $staffId = (int) $user->staff->id;
+        } elseif ($user->hasAnyRole(['clinica', 'odontologo', 'tecnico'])) {
+            if ($user->hasRole('clinica') && $user->clinic) {
+                $clinicIds = [$user->clinic->id];
+            } elseif ($user->staff) {
+                $clinicIds = DB::table('clinic_staff')
+                    ->where('staff_id', $user->staff->id)
+                    ->pluck('clinic_id')->toArray();
+            }
+            if (empty($clinicIds)) $clinicIds = [-1];
         }
 
         // Date range (default: current month)
@@ -36,12 +50,15 @@ class DashboardController extends Controller
             $finDate = $inicioDate->copy()->endOfDay();
         }
 
-        $totalesOrdenes    = $this->totalesOrdenes($inicioDate, $finDate, $holdingId);
-        $totalesExamenes   = $this->totalesExamenes($inicioDate, $finDate, $holdingId);
-        $examenesRadiologo = $this->examenes($inicioDate, $finDate, 'radiologo', $holdingId);
-        $examenesClinica   = $this->examenes($inicioDate, $finDate, 'clinica', $holdingId);
-        $examenesHolding   = $this->examenes($inicioDate, $finDate, 'holding', $holdingId);
-        $examenesRespondidos = $this->examenesRespondidos($inicioDate, $finDate, $holdingId);
+        // Alertas por vencer/vencidas (filtradas por rol)
+        $alertas = $this->calcularAlertas($user, $holdingId);
+
+        $totalesOrdenes    = $this->totalesOrdenes($inicioDate, $finDate, $holdingId, $staffId, $clinicIds);
+        $totalesExamenes   = $this->totalesExamenes($inicioDate, $finDate, $holdingId, $staffId, $clinicIds);
+        $examenesRadiologo = $this->examenes($inicioDate, $finDate, 'radiologo', $holdingId, $staffId, $clinicIds);
+        $examenesClinica   = $this->examenes($inicioDate, $finDate, 'clinica', $holdingId, $staffId, $clinicIds);
+        $examenesHolding   = $this->examenes($inicioDate, $finDate, 'holding', $holdingId, $staffId, $clinicIds);
+        $examenesRespondidos = $this->examenesRespondidos($inicioDate, $finDate, $holdingId, $staffId, $clinicIds);
 
         $gruposExamenes = [
             0 => 'Retroalveolares',
@@ -196,6 +213,7 @@ class DashboardController extends Controller
         return Inertia::render('Dashboard/Index', [
             'fechaDesde'                   => $inicioDate->format('Y-m-d'),
             'fechaHasta'                   => $finDate->format('Y-m-d'),
+            'alertas'                      => $alertas,
             'totalesOrdenes'               => $totalesOrdenes,
             'totalesExamenes'              => $totalesExamenes,
             'radiologos'                   => $radiologos,
@@ -212,14 +230,27 @@ class DashboardController extends Controller
 
     // ── Private query helpers ─────────────────────────────────────────────
 
-    private function totalesOrdenes(Carbon $desde, Carbon $hasta, $holdingId): array
+    private function scopeWhere($holdingId, $staffId, $clinicIds, &$params): string
+    {
+        if ($holdingId !== null) {
+            $params['holding_id'] = $holdingId;
+            return ' AND o.clinic_id IN (SELECT c.id FROM holdings h INNER JOIN clinics c ON h.id = c.holding_id WHERE h.id = :holding_id)';
+        }
+        if ($staffId !== null) {
+            $params['staff_id'] = $staffId;
+            return ' AND EXISTS (SELECT 1 FROM order_staff_exam ose2 WHERE ose2.order_id = o.id AND ose2.staff_id = :staff_id)';
+        }
+        if ($clinicIds !== null) {
+            $ids = implode(',', array_map('intval', $clinicIds));
+            return " AND o.clinic_id IN ($ids)";
+        }
+        return '';
+    }
+
+    private function totalesOrdenes(Carbon $desde, Carbon $hasta, $holdingId, $staffId = null, $clinicIds = null): array
     {
         $params = ['desde' => $desde->toDateTimeString(), 'hasta' => $hasta->toDateTimeString()];
-        $w = '';
-        if ($holdingId !== null) {
-            $w = ' AND o.clinic_id IN (SELECT c.id FROM holdings h INNER JOIN clinics c ON h.id = c.holding_id WHERE h.id = :holding_id)';
-            $params['holding_id'] = $holdingId;
-        }
+        $w = $this->scopeWhere($holdingId, $staffId, $clinicIds, $params);
         $sql = "SELECT COUNT(1) AS total_creadas,
                        SUM(IF(o.enviada IS NOT NULL, 1, 0))    AS total_enviadas,
                        SUM(IF(o.respondida IS NOT NULL, 1, 0)) AS total_respondidas
@@ -229,14 +260,12 @@ class DashboardController extends Controller
         return isset($r[0]) ? (array) $r[0] : ['total_creadas' => 0, 'total_enviadas' => 0, 'total_respondidas' => 0];
     }
 
-    private function totalesExamenes(Carbon $desde, Carbon $hasta, $holdingId): array
+    private function totalesExamenes(Carbon $desde, Carbon $hasta, $holdingId, $staffId = null, $clinicIds = null): array
     {
         $params = ['desde' => $desde->toDateTimeString(), 'hasta' => $hasta->toDateTimeString()];
-        $w = '';
-        if ($holdingId !== null) {
-            $w = ' AND o.clinic_id IN (SELECT c.id FROM holdings h INNER JOIN clinics c ON h.id = c.holding_id WHERE h.id = :holding_id)';
-            $params['holding_id'] = $holdingId;
-        }
+        $w = $this->scopeWhere($holdingId, $staffId, $clinicIds, $params);
+        $staffJoin = $staffId !== null ? " AND ose.staff_id = :staff_id2" : '';
+        if ($staffId !== null) $params['staff_id2'] = $staffId;
         $sql = "SELECT COUNT(1)                                     AS total_examenes,
                        SUM(IF(k.`group` != 4, 1, 0))               AS total_2d,
                        SUM(IF(k.`group`  = 4, 1, 0))               AS total_3d,
@@ -245,19 +274,19 @@ class DashboardController extends Controller
                 INNER JOIN examination_order eo  ON o.id = eo.order_id
                 INNER JOIN examinations e        ON eo.examination_id = e.id
                 INNER JOIN kinds k               ON e.kind_id = k.id
-                LEFT  JOIN order_staff_exam ose  ON o.id = ose.order_id AND ose.group_exam = k.`group`
+                LEFT  JOIN order_staff_exam ose  ON o.id = ose.order_id AND ose.group_exam = k.`group` $staffJoin
                 WHERE o.created_at BETWEEN :desde AND :hasta $w";
         $r = DB::select($sql, $params);
         return isset($r[0]) ? (array) $r[0] : ['total_examenes' => 0, 'total_2d' => 0, 'total_3d' => 0, 'total_respondidos' => 0];
     }
 
-    private function examenes(Carbon $desde, Carbon $hasta, string $agrupador, $holdingId): array
+    private function examenes(Carbon $desde, Carbon $hasta, string $agrupador, $holdingId, $staffId = null, $clinicIds = null): array
     {
         $params = ['desde' => $desde->toDateTimeString(), 'hasta' => $hasta->toDateTimeString()];
-        $w = '';
-        if ($holdingId !== null) {
-            $w = ' AND o.clinic_id IN (SELECT c.id FROM holdings h INNER JOIN clinics c ON h.id = c.holding_id WHERE h.id = :holding_id)';
-            $params['holding_id'] = $holdingId;
+        $w = $this->scopeWhere($holdingId, $staffId, $clinicIds, $params);
+        if ($staffId !== null) {
+            $w .= ' AND ose.staff_id = :staff_id_exam';
+            $params['staff_id_exam'] = $staffId;
         }
         [$extraSelect, $groupBy] = match ($agrupador) {
             'holding'  => [', c.holding_id, uh.name', ', c.holding_id, uh.name'],
@@ -281,14 +310,10 @@ class DashboardController extends Controller
         return DB::select($sql, $params);
     }
 
-    private function examenesRespondidos(Carbon $desde, Carbon $hasta, $holdingId): array
+    private function examenesRespondidos(Carbon $desde, Carbon $hasta, $holdingId, $staffId = null, $clinicIds = null): array
     {
         $params = ['desde' => $desde->toDateTimeString(), 'hasta' => $hasta->toDateTimeString()];
-        $w = '';
-        if ($holdingId !== null) {
-            $w = ' AND o.clinic_id IN (SELECT c.id FROM holdings h INNER JOIN clinics c ON h.id = c.holding_id WHERE h.id = :holding_id)';
-            $params['holding_id'] = $holdingId;
-        }
+        $w = $this->scopeWhere($holdingId, $staffId, $clinicIds, $params);
         $sql = "SELECT e.kind_id AS id_tipo_examen,
                        k.descipcion AS tipo_examen,
                        AVG(TIMESTAMPDIFF(SECOND, o.enviada, o.respondida)) AS tiempo_respuesta,
