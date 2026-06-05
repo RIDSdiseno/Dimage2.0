@@ -75,6 +75,10 @@
                             Permisos para este usuario
                         </h2>
                         <div class="flex items-center gap-3">
+                            <Checkbox v-model="form.puede_seleccionar_radiologo" :binary="true" inputId="clinica_radiologo" />
+                            <label for="clinica_radiologo" class="text-sm cursor-pointer">Permiso para seleccionar Radiólogo</label>
+                        </div>
+                        <div class="flex items-center gap-3 mt-3">
                             <Checkbox v-model="form.puede_ver_menu_busqueda" :binary="true" inputId="clinica_busqueda" />
                             <label for="clinica_busqueda" class="text-sm cursor-pointer">Permiso para ver menú de búsqueda de orden</label>
                         </div>
@@ -120,6 +124,7 @@ const form = useForm({
     holding_id:              props.clinica?.holding_id ?? null,
     address:                 props.clinica?.address ?? '',
     telephoneone:            props.clinica?.telephoneone ?? '',
+    puede_seleccionar_radiologo: props.clinica?.puede_seleccionar_radiologo ?? false,
     puede_ver_menu_busqueda: props.clinica?.puede_ver_menu_busqueda ?? false,
 });
 

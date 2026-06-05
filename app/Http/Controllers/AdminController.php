@@ -1053,12 +1053,13 @@ class AdminController extends Controller
 
             // Guardar permisos en staffs (type_staff=4 para clínica)
             DB::table('staffs')->insertOrIgnore([
-                'user_id'                => $userId,
-                'type_staff'             => 4,
-                'activo'                 => 1,
-                'puede_ver_menu_busqueda'=> $request->boolean('puede_ver_menu_busqueda') ? 1 : 0,
-                'created_at'             => now(),
-                'updated_at'             => now(),
+                'user_id'                    => $userId,
+                'type_staff'                 => 4,
+                'activo'                     => 1,
+                'puede_seleccionar_radiologo'=> $request->boolean('puede_seleccionar_radiologo') ? 1 : 0,
+                'puede_ver_menu_busqueda'    => $request->boolean('puede_ver_menu_busqueda') ? 1 : 0,
+                'created_at'                 => now(),
+                'updated_at'                 => now(),
             ]);
         });
 
@@ -1095,18 +1096,19 @@ class AdminController extends Controller
             ->get()
             ->map(fn ($h) => ['value' => $h->id, 'label' => $h->name]);
 
-        $staffPerms = DB::table('staffs')->where('user_id', $c->user_id)->first(['puede_ver_menu_busqueda']);
+        $staffPerms = DB::table('staffs')->where('user_id', $c->user_id)->first(['puede_ver_menu_busqueda','puede_seleccionar_radiologo']);
 
         return Inertia::render('Admin/Clinicas/Form', [
             'clinica' => [
-                'id'                      => $c->id,
-                'user_id'                 => $c->user_id,
-                'name'                    => $c->name,
-                'username'                => $c->username,
-                'holding_id'              => $c->holding_id,
-                'address'                 => $c->address,
-                'telephoneone'            => $c->telephoneone,
-                'puede_ver_menu_busqueda' => (bool) ($staffPerms->puede_ver_menu_busqueda ?? false),
+                'id'                          => $c->id,
+                'user_id'                     => $c->user_id,
+                'name'                        => $c->name,
+                'username'                    => $c->username,
+                'holding_id'                  => $c->holding_id,
+                'address'                     => $c->address,
+                'telephoneone'                => $c->telephoneone,
+                'puede_seleccionar_radiologo' => (bool) ($staffPerms->puede_seleccionar_radiologo ?? false),
+                'puede_ver_menu_busqueda'     => (bool) ($staffPerms->puede_ver_menu_busqueda     ?? false),
             ],
             'holdingsList' => $holdingsList,
         ]);
@@ -1144,17 +1146,19 @@ class AdminController extends Controller
             $existsStaff = DB::table('staffs')->where('user_id', $c->user_id)->exists();
             if ($existsStaff) {
                 DB::table('staffs')->where('user_id', $c->user_id)->update([
-                    'puede_ver_menu_busqueda' => $request->boolean('puede_ver_menu_busqueda') ? 1 : 0,
-                    'updated_at' => now(),
+                    'puede_seleccionar_radiologo' => $request->boolean('puede_seleccionar_radiologo') ? 1 : 0,
+                    'puede_ver_menu_busqueda'     => $request->boolean('puede_ver_menu_busqueda') ? 1 : 0,
+                    'updated_at'                  => now(),
                 ]);
             } else {
                 DB::table('staffs')->insertOrIgnore([
-                    'user_id'                => $c->user_id,
-                    'type_staff'             => 4,
-                    'activo'                 => 1,
-                    'puede_ver_menu_busqueda'=> $request->boolean('puede_ver_menu_busqueda') ? 1 : 0,
-                    'created_at'             => now(),
-                    'updated_at'             => now(),
+                    'user_id'                    => $c->user_id,
+                    'type_staff'                 => 4,
+                    'activo'                     => 1,
+                    'puede_seleccionar_radiologo'=> $request->boolean('puede_seleccionar_radiologo') ? 1 : 0,
+                    'puede_ver_menu_busqueda'    => $request->boolean('puede_ver_menu_busqueda') ? 1 : 0,
+                    'created_at'                 => now(),
+                    'updated_at'                 => now(),
                 ]);
             }
         });
