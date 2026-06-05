@@ -1230,7 +1230,7 @@ class OrderController extends Controller
             ->join('examination_order', 'examination_order.examination_id', '=', 'examinations.id')
             ->join('kinds', 'kinds.id', '=', 'examinations.kind_id')
             ->where('examination_order.order_id', $order->id)
-            ->select(['examinations.id as id', 'kinds.id as kind_id', 'kinds.descipcion as descripcion', 'kinds.group as grupo', 'examinations.piezas'])
+            ->select(['examinations.id as id', 'kinds.id as kind_id', 'kinds.descipcion as descripcion', 'kinds.group as grupo', 'examinations.piezas', 'examinations.url_texto'])
             ->get()
             ->map(function ($e) {
                 $archivos = DB::table('files')
@@ -1245,7 +1245,7 @@ class OrderController extends Controller
                         'nombre_dcm'=> $f->nombre_dcm,
                         'url'       => $this->signedUrl($f->ruta),
                     ]);
-                return ['id' => $e->id, 'kind_id' => $e->kind_id, 'descripcion' => $e->descripcion, 'grupo' => (int) $e->grupo, 'archivos' => $archivos, 'piezas' => $e->piezas];
+                return ['id' => $e->id, 'kind_id' => $e->kind_id, 'descripcion' => $e->descripcion, 'grupo' => (int) $e->grupo, 'archivos' => $archivos, 'piezas' => $e->piezas, 'url_texto' => $e->url_texto];
             });
 
         $radiologoId = DB::table('order_staff_exam')->where('order_id', $order->id)->value('staff_id');
@@ -1331,6 +1331,14 @@ class OrderController extends Controller
                 'estadoodontologo' => $enviar ? 0 : ($yaEstabaEnviada ? 0 : 1),
                 'enviada'          => $enviar && !$order->enviada ? now() : $order->enviada,
             ]);
+
+            // Actualizar url_texto de exámenes existentes (ej: análisis cefalométrico)
+            foreach ((array) $request->input('url_texto_existente', []) as $examinationId => $urlTexto) {
+                DB::table('examinations')->where('id', (int) $examinationId)->update([
+                    'url_texto'  => $urlTexto ?: null,
+                    'updated_at' => now(),
+                ]);
+            }
 
             // Subir nuevos archivos a exámenes existentes
             $existingIds = DB::table('examination_order')

@@ -129,6 +129,28 @@
                                     </button>
                                 </div>
 
+                                <!-- Análisis cefalométrico: selector editable -->
+                                <div v-if="isCefaloExam(examen)" class="mb-3">
+                                    <p class="text-xs font-semibold text-gray-500 uppercase mb-2">Análisis solicitados</p>
+                                    <div class="space-y-1">
+                                        <div v-for="sub in CEFALO_SUBS" :key="sub" class="flex items-center gap-2">
+                                            <Checkbox
+                                                :inputId="`cefalo_${examen.id}_${sub}`"
+                                                :value="sub"
+                                                v-model="cefaloSeleccion[examen.id]"
+                                            />
+                                            <label :for="`cefalo_${examen.id}_${sub}`" class="text-sm cursor-pointer">{{ sub }}</label>
+                                        </div>
+                                        <div v-if="cefaloSeleccion[examen.id]?.includes('Otros')" class="mt-2">
+                                            <InputText
+                                                v-model="cefaloOtrosTexto[examen.id]"
+                                                placeholder="Especifique el tipo de análisis..."
+                                                class="w-full text-sm"
+                                            />
+                                        </div>
+                                    </div>
+                                </div>
+
                                 <!-- Archivos actuales -->
                                 <div v-if="examen.archivos.length" class="flex flex-wrap gap-3 mb-3">
                                     <div v-for="f in examen.archivos" :key="f.id" class="relative group">
@@ -339,12 +361,32 @@ import Select from 'primevue/select';
 import Textarea from 'primevue/textarea';
 import Checkbox from 'primevue/checkbox';
 import FileUpload from 'primevue/fileupload';
+import InputText from 'primevue/inputtext';
 import { useTerms } from '@/composables/useTerms.js';
 import EditExamCol from '@/Components/EditExamCol.vue';
 import FileThumbnail from '@/Components/FileThumbnail.vue';
 import ImageViewer   from '@/Components/ImageViewer.vue';
 
 const { examLabel } = useTerms();
+
+const CEFALO_SUBS = ['Análisis Rickets','Análisis Roth','Análisis Jaraback','Análisis Steiner','Análisis Mcnamara','Otros'];
+
+function isCefaloExam(ex) { return /cefalom/i.test(ex?.descripcion ?? ''); }
+
+// Inicializar selección de análisis desde url_texto existente
+const cefaloSeleccion  = reactive({});
+const cefaloOtrosTexto = reactive({});
+
+props.examenes.forEach(ex => {
+    if (!isCefaloExam(ex)) return;
+    if (!ex.url_texto) { cefaloSeleccion[ex.id] = []; return; }
+    const parts = ex.url_texto.split(',').map(s => s.trim());
+    cefaloSeleccion[ex.id] = parts
+        .map(p => p.startsWith('Otros:') ? 'Otros' : p)
+        .filter(p => CEFALO_SUBS.includes(p));
+    const otrosPart = parts.find(p => p.startsWith('Otros:'));
+    if (otrosPart) cefaloOtrosTexto[ex.id] = otrosPart.replace('Otros:', '').trim();
+});
 
 const lightbox = reactive({ open: false, src: '', name: '' });
 
@@ -465,6 +507,15 @@ const submitAction = (action) => {
     Object.entries(existingExamPiezas).forEach(([examId, piezas]) => {
         data.append(`piezas_existente_${examId}_update`, '1');
         if (piezas?.length) piezas.forEach(p => data.append(`piezas_existente_${examId}[]`, p));
+    });
+
+    // url_texto actualizado para exámenes cefalométricos existentes
+    Object.entries(cefaloSeleccion).forEach(([exId, subs]) => {
+        const parts = subs.map(s => {
+            if (s === 'Otros' && cefaloOtrosTexto[exId]) return `Otros: ${cefaloOtrosTexto[exId]}`;
+            return s;
+        });
+        data.append(`url_texto_existente[${exId}]`, parts.join(','));
     });
 
     // Nuevos exámenes
