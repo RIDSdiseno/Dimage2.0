@@ -377,17 +377,6 @@ function isCefaloExam(ex) { return /cefalom/i.test(ex?.descripcion ?? ''); }
 const cefaloSeleccion  = reactive({});
 const cefaloOtrosTexto = reactive({});
 
-props.examenes.forEach(ex => {
-    if (!isCefaloExam(ex)) return;
-    if (!ex.url_texto) { cefaloSeleccion[ex.id] = []; return; }
-    const parts = ex.url_texto.split(',').map(s => s.trim());
-    cefaloSeleccion[ex.id] = parts
-        .map(p => p.startsWith('Otros:') ? 'Otros' : p)
-        .filter(p => CEFALO_SUBS.includes(p));
-    const otrosPart = parts.find(p => p.startsWith('Otros:'));
-    if (otrosPart) cefaloOtrosTexto[ex.id] = otrosPart.replace('Otros:', '').trim();
-});
-
 const lightbox = reactive({ open: false, src: '', name: '' });
 
 function openLightbox(file) {
@@ -467,6 +456,18 @@ const onNewUrlTextChange   = (kindId, v) => { newExamUrlTexts[kindId] = v; };
 props.examenes.forEach(e => {
     if (!isUnitaria(e.descripcion)) return;
     existingExamPiezas[e.id] = e.piezas ? e.piezas.split(',').map(Number) : [];
+});
+
+// Inicializar selección cefalométrico desde url_texto
+props.examenes.forEach(ex => {
+    if (!isCefaloExam(ex)) return;
+    if (!ex.url_texto) { cefaloSeleccion[ex.id] = []; return; }
+    const parts = ex.url_texto.split(',').map(s => s.trim());
+    cefaloSeleccion[ex.id] = parts
+        .map(p => p.startsWith('Otros:') ? 'Otros' : p)
+        .filter(p => CEFALO_SUBS.includes(p));
+    const otrosPart = parts.find(p => p.startsWith('Otros:'));
+    if (otrosPart) cefaloOtrosTexto[ex.id] = otrosPart.replace('Otros:', '').trim();
 });
 
 // Load odontólogos y radiólogos for current clinic
