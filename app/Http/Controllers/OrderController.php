@@ -255,8 +255,12 @@ class OrderController extends Controller
         if ($user->hasAnyRole(['admin', 'secretaria', 'holding', 'contralor'])) {
             return true;
         }
-        // Clínica, odontólogo y técnico: depende del permiso puede_seleccionar_radiologo
-        if ($user->hasAnyRole(['clinica', 'odontologo', 'tecnico']) || in_array((int) ($user->type_id ?? 0), [4, 6, 11])) {
+        // Clínica y odontólogo: SIEMPRE auto-asignación aleatoria
+        if ($user->hasAnyRole(['clinica', 'odontologo']) || in_array((int) ($user->type_id ?? 0), [4, 6])) {
+            return false;
+        }
+        // Técnico: depende del permiso puede_seleccionar_radiologo
+        if ($user->hasRole('tecnico') || (int) ($user->type_id ?? 0) === 11) {
             $staff = DB::table('staffs')->where('user_id', $user->id)->first(['puede_seleccionar_radiologo']);
             return (bool) ($staff->puede_seleccionar_radiologo ?? false);
         }
