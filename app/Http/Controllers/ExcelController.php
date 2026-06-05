@@ -58,14 +58,16 @@ class ExcelController extends Controller
             ->join('users as uc', 'uc.id', '=', 'c.user_id')
             ->leftJoin('staffs as od', 'od.id', '=', 'orders.odontologo_id')
             ->leftJoin('users as uod', 'uod.id', '=', 'od.user_id')
-            ->leftJoin('staffs as rad', 'rad.id', '=', 'orders.radiologo_id')
+            // Use order_staff_exam for radiologist (matches platform filtering)
+            ->leftJoin('order_staff_exam as ose', 'ose.order_id', '=', 'orders.id')
+            ->leftJoin('staffs as rad', 'rad.id', '=', 'ose.staff_id')
             ->leftJoin('users as urad', 'urad.id', '=', 'rad.user_id')
             ->whereBetween($dateColumn, [$desde, $hasta])
-            ->when($restrictedId, fn ($q) => $q->where('orders.radiologo_id', $restrictedId))
+            ->when($restrictedId, fn ($q) => $q->where('ose.staff_id', $restrictedId))
             ->select(
                 'orders.id',
                 'uc.name as clinica',
-                'urad.name as radiologo',
+                DB::raw('GROUP_CONCAT(DISTINCT urad.name ORDER BY urad.name SEPARATOR ", ") as radiologo'),
                 'p.rut',
                 'p.name as paciente',
                 'uod.name as odontologo',
@@ -74,6 +76,8 @@ class ExcelController extends Controller
                 'orders.enviada',
                 'orders.respondida'
             )
+            ->groupBy('orders.id', 'uc.name', 'p.rut', 'p.name', 'uod.name',
+                      'orders.estadoradiologo', 'orders.created_at', 'orders.enviada', 'orders.respondida')
             ->orderByDesc('orders.created_at')
             ->get();
 
