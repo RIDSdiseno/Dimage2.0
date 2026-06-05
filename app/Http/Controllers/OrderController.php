@@ -620,12 +620,14 @@ class OrderController extends Controller
         ];
 
         $esRadiologoAsignado = $user->hasRole('radiologo') && $radiologos->contains('id', $user->staff?->id);
+        // Si ningún radiólogo está asignado y la orden está pendiente, cualquier radiólogo puede responder
+        $sinAsignar = $radiologos->isEmpty() && (int) $order->estadoradiologo === 0;
         $puedeResponder = $user->hasAnyRole(['radiologo', 'admin', 'secretaria'])
             && (
                 in_array((int) $order->estadoradiologo, [0, 4]) ||
                 ($user->hasAnyRole(['admin', 'secretaria']) && in_array((int) $order->estadoradiologo, [1, 2]))
             )
-            && ($user->hasAnyRole(['admin', 'secretaria']) || $esRadiologoAsignado);
+            && ($user->hasAnyRole(['admin', 'secretaria']) || $esRadiologoAsignado || ($user->hasRole('radiologo') && $sinAsignar));
 
         return Inertia::render('Orders/Show', [
             'order' => [
@@ -1193,10 +1195,18 @@ class OrderController extends Controller
     private function operadorPuedeEditar(Order $order, $user): bool
     {
         if ($user->hasRole('radiologo')) return false;
-        if (!$user->hasAnyRole(['tecnico', 'odontologo'])) return true; // admin/secretaria sin restricción
 
+        // Admin/secretaria/holding sin restricción de borrador
+        if ($user->hasAnyRole(['admin', 'secretaria', 'holding', 'contralor'])) return true;
+
+        // Clínica, técnico y odontólogo: solo pueden editar borradores nunca enviados o correcciones
         $estado = (int) $order->estadoradiologo;
         if (!($estado === 2 || ($estado === 4 && is_null($order->enviada)))) return false;
+
+        // Perfil clínica: solo puede editar órdenes de su propia clínica
+        if ($user->hasRole('clinica') || (int) ($user->type_id ?? 0) === 4) {
+            return (int) $order->clinic_id === (int) ($user->clinic?->id ?? 0);
+        }
 
         $staffId = $user->staff?->id;
         if (!$staffId) return false;
@@ -1205,7 +1215,6 @@ class OrderController extends Controller
         if (!is_null($order->operator_id) && (int) $order->operator_id === (int) $staffId) return true;
 
         // Operadores asociados a la misma clínica pueden editar borradores
-        // (cubre órdenes creadas por perfil clínica u odontólogo)
         $clinicIds = $this->clinicIdsForStaff($staffId);
         return $clinicIds->contains($order->clinic_id);
     }
