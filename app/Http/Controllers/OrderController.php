@@ -159,7 +159,7 @@ class OrderController extends Controller
             ->orderByDesc('orders.created_at')
             ->paginate($perPage, ['*'], 'page', $page);
 
-        $items = collect($orders->items())->map(function ($o) use ($currentStaffId) {
+        $items = collect($orders->items())->map(function ($o) use ($currentStaffId, $operatorClinicIds) {
             return [
                 'id'         => $o->id,
                 'paciente'   => $o->paciente,
