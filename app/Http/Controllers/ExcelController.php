@@ -86,40 +86,26 @@ class ExcelController extends Controller
 
         $orderIds = $rows->pluck('id');
 
-        // Exam types per order (including url_texto for cefalométrico analysis types)
-        $examTypes = DB::table('examination_order as eo')
+        // One row per examination with piezas and url_texto
+        $examinationsData = DB::table('examination_order as eo')
             ->join('examinations as e', 'e.id', '=', 'eo.examination_id')
             ->join('kinds as k', 'k.id', '=', 'e.kind_id')
             ->whereIn('eo.order_id', $orderIds)
-            ->select('eo.order_id', 'k.descipcion', 'e.url_texto')
+            ->select('eo.order_id', 'e.id as exam_id', 'k.descipcion', 'e.piezas', 'e.url_texto')
             ->get()
             ->groupBy('order_id');
 
-        // Count of examinations per order (Cant. de Informes)
-        $examCounts = DB::table('examination_order as eo')
-            ->whereIn('eo.order_id', $orderIds)
-            ->select('eo.order_id', DB::raw('count(*) as cnt'))
-            ->groupBy('eo.order_id')
-            ->pluck('cnt', 'order_id');
-
-        // Count of Rx files per order (Cant. de Rx)
-        $fileCounts = DB::table('files as f')
-            ->join('examinations as e', 'e.id', '=', 'f.examination_id')
-            ->join('examination_order as eo', 'eo.examination_id', '=', 'e.id')
-            ->whereIn('eo.order_id', $orderIds)
+        // Rx file count per examination (Cant. de Rx = files uploaded by clinic, not informe)
+        $fileCountsPerExam = DB::table('files as f')
+            ->whereIn('f.examination_id', function ($q) use ($orderIds) {
+                $q->select('eo.examination_id')
+                  ->from('examination_order as eo')
+                  ->whereIn('eo.order_id', $orderIds);
+            })
             ->where('f.desde_informar', '!=', 1)
-            ->select('eo.order_id', DB::raw('count(*) as cnt'))
-            ->groupBy('eo.order_id')
-            ->pluck('cnt', 'order_id');
-
-        // Piezas: total files (image + report) per order
-        $piezas = DB::table('files as f')
-            ->join('examinations as e', 'e.id', '=', 'f.examination_id')
-            ->join('examination_order as eo', 'eo.examination_id', '=', 'e.id')
-            ->whereIn('eo.order_id', $orderIds)
-            ->select('eo.order_id', DB::raw('count(*) as cnt'))
-            ->groupBy('eo.order_id')
-            ->pluck('cnt', 'order_id');
+            ->select('f.examination_id', DB::raw('count(f.id) as cnt'))
+            ->groupBy('f.examination_id')
+            ->pluck('cnt', 'examination_id');
 
         // ── Build spreadsheet ────────────────────────────────────────────────
 
@@ -136,46 +122,65 @@ class ExcelController extends Controller
             'Fecha de respuesta', 'Hora de respuesta',
         ];
 
-        // Write headers in row 1
         foreach ($headers as $col => $heading) {
             $sheet->setCellValue([$col + 1, 1], $heading);
         }
 
-        // Build expanded rows: one row per cefalométrico analysis, one row for other exams
+        // One row per exam per order:
+        // - Cefalométrico with url_texto → one row per analysis type
+        // - Retroalveolar → cantInformes = pieza count, cantPiezas = pieza count
+        // - Everything else → cantInformes = 1, cantPiezas = blank
         $expandedRows = [];
         foreach ($rows as $r) {
-            $exams = $examTypes[$r->id] ?? collect();
-            $otherTypes = [];
-            $cefaloLines = [];
+            $exams = $examinationsData[$r->id] ?? collect();
 
-            foreach ($exams->unique('descipcion') as $exam) {
-                $desc = $exam->descipcion ?? '';
-                if (str_contains(strtolower($desc), 'cefalom') && !empty($exam->url_texto)) {
-                    foreach (explode(',', $exam->url_texto) as $analysis) {
-                        $analysis = trim($analysis);
-                        if ($analysis) $cefaloLines[] = $desc . ' - ' . $analysis;
-                    }
-                } else {
-                    $otherTypes[] = $desc;
-                }
+            if ($exams->isEmpty()) {
+                $expandedRows[] = ['row' => $r, 'tipo' => '', 'cantInformes' => 0, 'cantRx' => 0, 'cantPiezas' => null];
+                continue;
             }
 
-            $otherStr = implode(', ', array_unique($otherTypes));
+            foreach ($exams as $exam) {
+                $desc      = $exam->descipcion ?? '';
+                $piezasStr = $exam->piezas ?? '';
+                $urlTexto  = $exam->url_texto ?? '';
+                $fileCount = (int) ($fileCountsPerExam[$exam->exam_id] ?? 0);
+                $isRetro   = str_contains(strtolower($desc), 'retroalveolar');
+                $isCefalo  = str_contains(strtolower($desc), 'cefalom');
 
-            if (!empty($cefaloLines)) {
-                foreach ($cefaloLines as $line) {
-                    $expandedRows[] = ['row' => $r, 'tipos' => $otherStr ? $otherStr . ', ' . $line : $line];
+                $piezaCount = 0;
+                if ($isRetro && !empty($piezasStr)) {
+                    $piezaCount = count(array_filter(array_map('trim', explode(',', $piezasStr))));
                 }
-            } else {
-                $expandedRows[] = ['row' => $r, 'tipos' => $otherStr];
+
+                if ($isCefalo && !empty($urlTexto)) {
+                    foreach (explode(',', $urlTexto) as $analysis) {
+                        $analysis = trim($analysis);
+                        if ($analysis) {
+                            $expandedRows[] = [
+                                'row'          => $r,
+                                'tipo'         => $desc . ' - ' . $analysis,
+                                'cantInformes' => 1,
+                                'cantRx'       => $fileCount,
+                                'cantPiezas'   => null,
+                            ];
+                        }
+                    }
+                } else {
+                    $expandedRows[] = [
+                        'row'          => $r,
+                        'tipo'         => $desc,
+                        'cantInformes' => $isRetro ? max($piezaCount, 1) : 1,
+                        'cantRx'       => $fileCount,
+                        'cantPiezas'   => $isRetro ? $piezaCount : null,
+                    ];
+                }
             }
         }
 
         // Write data rows
         $rowNum = 2;
         foreach ($expandedRows as $item) {
-            $r     = $item['row'];
-            $tipos = $item['tipos'];
+            $r = $item['row'];
 
             $sheet->setCellValue([1,  $rowNum], $r->id);
             $sheet->setCellValue([2,  $rowNum], $r->clinica);
@@ -184,10 +189,10 @@ class ExcelController extends Controller
             $sheet->setCellValue([5,  $rowNum], $r->paciente);
             $sheet->setCellValue([6,  $rowNum], $r->odontologo ?? '');
             $sheet->setCellValue([7,  $rowNum], $this->estados[(int) $r->estadoradiologo] ?? 'Desconocido');
-            $sheet->setCellValue([8,  $rowNum], $tipos ?: '');
-            $sheet->setCellValue([9,  $rowNum], (int) ($examCounts[$r->id] ?? 0));
-            $sheet->setCellValue([10, $rowNum], (int) ($fileCounts[$r->id] ?? 0));
-            $sheet->setCellValue([11, $rowNum], (int) ($piezas[$r->id] ?? 0));
+            $sheet->setCellValue([8,  $rowNum], $item['tipo']);
+            $sheet->setCellValue([9,  $rowNum], (int) $item['cantInformes']);
+            $sheet->setCellValue([10, $rowNum], (int) $item['cantRx']);
+            $sheet->setCellValue([11, $rowNum], $item['cantPiezas'] !== null ? (int) $item['cantPiezas'] : '');
             $sheet->setCellValue([12, $rowNum], $r->created_at ? Carbon::parse($r->created_at)->format('d/m/Y') : '');
             $sheet->setCellValue([13, $rowNum], $r->created_at ? Carbon::parse($r->created_at)->format('H:i')   : '');
             $sheet->setCellValue([14, $rowNum], $r->enviada    ? Carbon::parse($r->enviada)->format('d/m/Y')    : '');
