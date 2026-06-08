@@ -419,11 +419,11 @@ class ExcelController extends Controller
         $restrictedId   = $this->radiologoRestringidoId();
         $clinicStaffIds = $this->clinicaStaffIds();
 
-        $rows = DB::table('examination_order as eo')
+        // ── Hoja 1: Resumen por tipo ─────────────────────────────────────────
+        $summary = DB::table('examination_order as eo')
             ->join('orders', 'orders.id', '=', 'eo.order_id')
             ->join('examinations as e', 'e.id', '=', 'eo.examination_id')
             ->join('kinds as k', 'k.id', '=', 'e.kind_id')
-            // Join order_staff_exam to filter by radiologist correctly
             ->leftJoin('order_staff_exam as ose', 'ose.order_id', '=', 'orders.id')
             ->whereBetween($dateCol, [$desde, $hasta])
             ->when($restrictedId, fn ($q) => $q->where('ose.staff_id', $restrictedId))
@@ -431,8 +431,6 @@ class ExcelController extends Controller
             ->select(
                 'k.descipcion as tipo',
                 DB::raw('COUNT(DISTINCT eo.order_id) as total_ordenes'),
-                // Use COUNT(DISTINCT CASE WHEN ...) to avoid double-counting
-                // when an order has multiple examinations of the same type
                 DB::raw('COUNT(DISTINCT CASE WHEN orders.estadoradiologo = 1 THEN eo.order_id END) as informadas'),
                 DB::raw('COUNT(DISTINCT CASE WHEN orders.estadoradiologo != 1 THEN eo.order_id END) as no_informadas'),
                 DB::raw('COUNT(DISTINCT eo.id) as total_examenes')
@@ -441,37 +439,120 @@ class ExcelController extends Controller
             ->orderBy('k.descipcion')
             ->get();
 
-        $headers = ['Tipo de Examen', 'Total Órdenes', 'Informadas', 'No Informadas', 'Total Exámenes'];
+        // ── Hoja 2: Detalle por orden ────────────────────────────────────────
+        $detail = DB::table('examination_order as eo')
+            ->join('orders', 'orders.id', '=', 'eo.order_id')
+            ->join('examinations as e', 'e.id', '=', 'eo.examination_id')
+            ->join('kinds as k', 'k.id', '=', 'e.kind_id')
+            ->join('patients as p', 'p.id', '=', 'orders.patient_id')
+            ->join('clinics as c', 'c.id', '=', 'orders.clinic_id')
+            ->join('users as uc', 'uc.id', '=', 'c.user_id')
+            ->leftJoin('staffs as od', 'od.id', '=', 'orders.odontologo_id')
+            ->leftJoin('users as uod', 'uod.id', '=', 'od.user_id')
+            ->leftJoin('order_staff_exam as ose', 'ose.order_id', '=', 'orders.id')
+            ->leftJoin('staffs as rad', 'rad.id', '=', 'ose.staff_id')
+            ->leftJoin('users as urad', 'urad.id', '=', 'rad.user_id')
+            ->whereBetween($dateCol, [$desde, $hasta])
+            ->when($restrictedId, fn ($q) => $q->where('ose.staff_id', $restrictedId))
+            ->when($clinicStaffIds, fn ($q) => $q->whereIn('ose.staff_id', $clinicStaffIds))
+            ->select(
+                'k.descipcion as tipo',
+                'orders.id as orden_id',
+                'uc.name as clinica',
+                DB::raw('GROUP_CONCAT(DISTINCT urad.name ORDER BY urad.name SEPARATOR ", ") as radiologo'),
+                'p.rut',
+                'p.name as paciente',
+                'uod.name as odontologo',
+                'orders.estadoradiologo',
+                'orders.created_at',
+                'orders.enviada',
+                'orders.respondida'
+            )
+            ->groupBy(
+                'k.id', 'k.descipcion', 'orders.id', 'uc.name',
+                'p.rut', 'p.name', 'uod.name',
+                'orders.estadoradiologo', 'orders.created_at', 'orders.enviada', 'orders.respondida'
+            )
+            ->orderBy('k.descipcion')
+            ->orderBy('orders.id')
+            ->get();
 
+        // ── Spreadsheet ───────────────────────────────────────────────────────
         $spreadsheet = new Spreadsheet();
-        $sheet       = $spreadsheet->getActiveSheet();
-        $sheet->setTitle('Por Tipo de Examen');
 
-        foreach ($headers as $col => $h) {
-            $sheet->setCellValue([$col + 1, 1], $h);
+        // Hoja 1 — Resumen
+        $sheet1 = $spreadsheet->getActiveSheet();
+        $sheet1->setTitle('Resumen');
+
+        $hResumen = ['Tipo de Examen', 'Total Órdenes', 'Informadas', 'No Informadas', 'Total Exámenes'];
+        foreach ($hResumen as $col => $h) {
+            $sheet1->setCellValue([$col + 1, 1], $h);
         }
-
         $rowNum = 2;
-        foreach ($rows as $r) {
-            $sheet->setCellValue([1, $rowNum], $r->tipo);
-            $sheet->setCellValue([2, $rowNum], (int) $r->total_ordenes);
-            $sheet->setCellValue([3, $rowNum], (int) $r->informadas);
-            $sheet->setCellValue([4, $rowNum], (int) $r->no_informadas);
-            $sheet->setCellValue([5, $rowNum], (int) $r->total_examenes);
+        foreach ($summary as $r) {
+            $sheet1->setCellValue([1, $rowNum], $r->tipo);
+            $sheet1->setCellValue([2, $rowNum], (int) $r->total_ordenes);
+            $sheet1->setCellValue([3, $rowNum], (int) $r->informadas);
+            $sheet1->setCellValue([4, $rowNum], (int) $r->no_informadas);
+            $sheet1->setCellValue([5, $rowNum], (int) $r->total_examenes);
             $rowNum++;
         }
-
-        $lastRow = max($rowNum - 1, 1);
-        $lastColLetter = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex(count($headers));
-        $range = "A1:{$lastColLetter}{$lastRow}";
-
-        $this->applyTable($sheet, $range, 'TablaTipoExamen');
-        $this->styleHeaderRow($sheet, "A1:{$lastColLetter}1");
-
-        foreach (['A' => 30, 'B' => 15, 'C' => 13, 'D' => 15, 'E' => 15] as $col => $width) {
-            $sheet->getColumnDimension($col)->setWidth($width);
+        $lastRow1  = max($rowNum - 1, 1);
+        $lastCol1L = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex(count($hResumen));
+        $this->applyTable($sheet1, "A1:{$lastCol1L}{$lastRow1}", 'TablaResumen');
+        $this->styleHeaderRow($sheet1, "A1:{$lastCol1L}1");
+        foreach (['A' => 32, 'B' => 15, 'C' => 13, 'D' => 15, 'E' => 15] as $col => $w) {
+            $sheet1->getColumnDimension($col)->setWidth($w);
         }
-        $sheet->freezePane('A2');
+        $sheet1->freezePane('A2');
+
+        // Hoja 2 — Detalle
+        $sheet2 = $spreadsheet->createSheet();
+        $sheet2->setTitle('Detalle por Orden');
+
+        $hDetalle = [
+            'Tipo de Examen', 'N° de Orden', 'Sucursal', 'Radiólogo',
+            'Rut', 'Paciente', 'Odontólogo', 'Estado del informe',
+            'Fecha creación', 'Hora creación',
+            'Fecha envío', 'Hora envío',
+            'Fecha respuesta', 'Hora respuesta',
+        ];
+        foreach ($hDetalle as $col => $h) {
+            $sheet2->setCellValue([$col + 1, 1], $h);
+        }
+        $rowNum = 2;
+        foreach ($detail as $r) {
+            $sheet2->setCellValue([1,  $rowNum], $r->tipo);
+            $sheet2->setCellValue([2,  $rowNum], $r->orden_id);
+            $sheet2->setCellValue([3,  $rowNum], $r->clinica);
+            $sheet2->setCellValue([4,  $rowNum], $r->radiologo ?? '');
+            $sheet2->setCellValue([5,  $rowNum], $r->rut);
+            $sheet2->setCellValue([6,  $rowNum], $r->paciente);
+            $sheet2->setCellValue([7,  $rowNum], $r->odontologo ?? '');
+            $sheet2->setCellValue([8,  $rowNum], $this->estados[(int) $r->estadoradiologo] ?? '');
+            $sheet2->setCellValue([9,  $rowNum], $r->created_at ? Carbon::parse($r->created_at)->format('d/m/Y') : '');
+            $sheet2->setCellValue([10, $rowNum], $r->created_at ? Carbon::parse($r->created_at)->format('H:i')   : '');
+            $sheet2->setCellValue([11, $rowNum], $r->enviada    ? Carbon::parse($r->enviada)->format('d/m/Y')    : '');
+            $sheet2->setCellValue([12, $rowNum], $r->enviada    ? Carbon::parse($r->enviada)->format('H:i')      : '');
+            $sheet2->setCellValue([13, $rowNum], $r->respondida ? Carbon::parse($r->respondida)->format('d/m/Y') : '');
+            $sheet2->setCellValue([14, $rowNum], $r->respondida ? Carbon::parse($r->respondida)->format('H:i')   : '');
+            $rowNum++;
+        }
+        $lastRow2  = max($rowNum - 1, 1);
+        $lastCol2L = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex(count($hDetalle));
+        $this->applyTable($sheet2, "A1:{$lastCol2L}{$lastRow2}", 'TablaDetalle');
+        $this->styleHeaderRow($sheet2, "A1:{$lastCol2L}1");
+
+        $widths2 = ['A' => 30, 'B' => 11, 'C' => 22, 'D' => 22, 'E' => 14,
+                    'F' => 28, 'G' => 22, 'H' => 18, 'I' => 14, 'J' => 12,
+                    'K' => 12, 'L' => 12, 'M' => 15, 'N' => 13];
+        foreach ($widths2 as $col => $w) {
+            $sheet2->getColumnDimension($col)->setWidth($w);
+        }
+        $sheet2->freezePane('A2');
+
+        // Activar hoja 1 al abrir
+        $spreadsheet->setActiveSheetIndex(0);
 
         return $this->streamXlsx($spreadsheet, 'por_tipo_examen_' . $request->input('desde') . '_' . $request->input('hasta') . '.xlsx');
     }
