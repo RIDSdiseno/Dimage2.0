@@ -97,6 +97,7 @@ import InputText from 'primevue/inputtext';
 
 const props = defineProps({
     esRadiologoRestringido: { type: Boolean, default: false },
+    esClinica:              { type: Boolean, default: false },
 });
 
 const allReportTypes = [
@@ -105,32 +106,36 @@ const allReportTypes = [
         label: 'Órdenes Radiográficas',
         description: 'Listado completo de órdenes con paciente, radiólogo, estado y fechas.',
         adminOnly: false,
+        clinicaOk: true,
     },
     {
         value: 'por-examen',
         label: 'Por Tipo de Examen',
         description: 'Cantidad de órdenes e informes agrupados por tipo de examen radiográfico.',
         adminOnly: false,
+        clinicaOk: true,
     },
     {
         value: 'por-radiologo',
         label: 'Por Radiólogo',
         description: 'Resumen de órdenes asignadas a cada radiólogo con desglose de estados.',
         adminOnly: true,
+        clinicaOk: false,
     },
     {
         value: 'espacio',
         label: 'Uso de Espacio',
         description: 'Cantidad de archivos y espacio de almacenamiento consumido por clínica.',
         adminOnly: true,
+        clinicaOk: false,
     },
 ];
 
-const reportTypes = computed(() =>
-    props.esRadiologoRestringido
-        ? allReportTypes.filter(t => !t.adminOnly)
-        : allReportTypes
-);
+const reportTypes = computed(() => {
+    if (props.esClinica) return allReportTypes.filter(t => t.clinicaOk);
+    if (props.esRadiologoRestringido) return allReportTypes.filter(t => !t.adminOnly);
+    return allReportTypes;
+});
 
 const routeMap = {
     'ordenes':      'admin.excel.download',

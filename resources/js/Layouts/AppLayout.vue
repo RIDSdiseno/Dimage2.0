@@ -236,8 +236,8 @@
                         <NavSub v-if="isOperador && puedeBuscar" href="/ordenes" label="Buscar Orden" />
                     </NavGroup>
 
-                    <!-- Excel (admin, secretaria y radiólogo) -->
-                    <template v-if="isRadiologo">
+                    <!-- Excel (admin, secretaria, radiólogo y clínica) -->
+                    <template v-if="isRadiologo || isClinica">
                         <NavGroup label="Reportes" icon="pi-file-excel" icon-color="#16a34a"
                             :open="menus.excel" @toggle="menus.excel = !menus.excel">
                             <NavSub href="/admin/excel" label="Descargar Excel" />
@@ -393,7 +393,12 @@ const isRadiologo = computed(() => {
 
 const isOperador = computed(() => {
     const user = page.props.auth?.user;
-    return user?.roles?.some(r => ['tecnico', 'odontologo'].includes(r)) || [4, 6, 11].includes(user?.type_id);
+    return user?.roles?.some(r => ['tecnico', 'odontologo'].includes(r)) || [6, 11].includes(user?.type_id);
+});
+
+const isClinica = computed(() => {
+    const user = page.props.auth?.user;
+    return user?.roles?.includes('clinica') || user?.type_id === 4;
 });
 
 const puedeBuscar = computed(() => !!page.props.auth?.user?.puede_ver_busqueda);

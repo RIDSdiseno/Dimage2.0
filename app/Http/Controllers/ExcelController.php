@@ -29,6 +29,7 @@ class ExcelController extends Controller
     {
         return Inertia::render('Admin/Excel/Index', [
             'esRadiologoRestringido' => $this->radiologoRestringidoId() !== null,
+            'esClinica'              => $this->clinicaId() !== null,
         ]);
     }
 
@@ -51,6 +52,7 @@ class ExcelController extends Controller
         };
 
         $restrictedId = $this->radiologoRestringidoId();
+        $clinicId     = $this->clinicaId();
 
         $rows = DB::table('orders')
             ->join('patients as p', 'p.id', '=', 'orders.patient_id')
@@ -64,6 +66,7 @@ class ExcelController extends Controller
             ->leftJoin('users as urad', 'urad.id', '=', 'rad.user_id')
             ->whereBetween($dateColumn, [$desde, $hasta])
             ->when($restrictedId, fn ($q) => $q->where('ose.staff_id', $restrictedId))
+            ->when($clinicId, fn ($q) => $q->where('orders.clinic_id', $clinicId))
             ->select(
                 'orders.id',
                 'uc.name as clinica',
@@ -302,6 +305,20 @@ class ExcelController extends Controller
     }
 
     /**
+     * Returns the clinic_id if the current user is a clinic profile (type_id=4).
+     * Returns null for all other user types.
+     */
+    private function clinicaId(): ?int
+    {
+        $user = auth()->user();
+        if ((int) $user->type_id !== 4 && ! $user->hasRole('clinica')) {
+            return null;
+        }
+        $clinic = DB::table('clinics')->where('user_id', $user->id)->first(['id']);
+        return $clinic ? (int) $clinic->id : null;
+    }
+
+    /**
      * Returns the staff_id if the current user is a radiologist WITHOUT admin rights,
      * meaning their queries must be scoped to their own orders only.
      * Returns null for admins and non-radiologist users (no restriction).
@@ -382,19 +399,25 @@ class ExcelController extends Controller
         };
 
         $restrictedId = $this->radiologoRestringidoId();
+        $clinicId     = $this->clinicaId();
 
         $rows = DB::table('examination_order as eo')
             ->join('orders', 'orders.id', '=', 'eo.order_id')
             ->join('examinations as e', 'e.id', '=', 'eo.examination_id')
             ->join('kinds as k', 'k.id', '=', 'e.kind_id')
+            // Join order_staff_exam to filter by radiologist correctly
+            ->leftJoin('order_staff_exam as ose', 'ose.order_id', '=', 'orders.id')
             ->whereBetween($dateCol, [$desde, $hasta])
-            ->when($restrictedId, fn ($q) => $q->where('orders.radiologo_id', $restrictedId))
+            ->when($restrictedId, fn ($q) => $q->where('ose.staff_id', $restrictedId))
+            ->when($clinicId, fn ($q) => $q->where('orders.clinic_id', $clinicId))
             ->select(
                 'k.descipcion as tipo',
                 DB::raw('COUNT(DISTINCT eo.order_id) as total_ordenes'),
-                DB::raw('SUM(CASE WHEN orders.estadoradiologo = 1 THEN 1 ELSE 0 END) as informadas'),
-                DB::raw('SUM(CASE WHEN orders.estadoradiologo != 1 THEN 1 ELSE 0 END) as no_informadas'),
-                DB::raw('COUNT(eo.id) as total_examenes')
+                // Use COUNT(DISTINCT CASE WHEN ...) to avoid double-counting
+                // when an order has multiple examinations of the same type
+                DB::raw('COUNT(DISTINCT CASE WHEN orders.estadoradiologo = 1 THEN eo.order_id END) as informadas'),
+                DB::raw('COUNT(DISTINCT CASE WHEN orders.estadoradiologo != 1 THEN eo.order_id END) as no_informadas'),
+                DB::raw('COUNT(DISTINCT eo.id) as total_examenes')
             )
             ->groupBy('k.id', 'k.descipcion')
             ->orderBy('k.descipcion')
@@ -439,7 +462,7 @@ class ExcelController extends Controller
 
     public function downloadByRadiologo(Request $request): Response
     {
-        if ($this->radiologoRestringidoId() !== null) {
+        if ($this->radiologoRestringidoId() !== null || $this->clinicaId() !== null) {
             abort(403, 'Sin permiso para este reporte.');
         }
 
@@ -516,8 +539,8 @@ class ExcelController extends Controller
 
     public function downloadEspacioUso(): Response
     {
-        // Space report is clinic-level data — restricted radiologists cannot access it
-        if ($this->radiologoRestringidoId() !== null) {
+        // Space report — restricted radiologists and clinic users cannot access it
+        if ($this->radiologoRestringidoId() !== null || $this->clinicaId() !== null) {
             abort(403, 'Sin permiso para este reporte.');
         }
 

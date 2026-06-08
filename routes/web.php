@@ -229,8 +229,8 @@ Route::middleware(['auth'])->group(function () {
         Route::delete('/feriados/{id}',      [AdministracionController::class, 'feriadosDestroy'])->name('feriados.destroy');
     });
 
-    // Excel — admin, secretaria y radiólogo
-    Route::middleware('role:1,2,5')->prefix('admin')->name('admin.')->group(function () {
+    // Excel — admin, secretaria, radiólogo y clínica
+    Route::middleware('role:1,2,4,5')->prefix('admin')->name('admin.')->group(function () {
         Route::get('/excel',                 [ExcelController::class, 'index'])->name('excel');
         Route::post('/excel',                [ExcelController::class, 'download'])->name('excel.download');
         Route::post('/excel/por-examen',     [ExcelController::class, 'downloadByExamType'])->name('excel.por-examen');
