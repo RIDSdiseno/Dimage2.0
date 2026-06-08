@@ -51,8 +51,8 @@ class ExcelController extends Controller
             default     => 'orders.created_at',
         };
 
-        $restrictedId = $this->radiologoRestringidoId();
-        $clinicId     = $this->clinicaId();
+        $restrictedId    = $this->radiologoRestringidoId();
+        $clinicStaffIds  = $this->clinicaStaffIds();
 
         $rows = DB::table('orders')
             ->join('patients as p', 'p.id', '=', 'orders.patient_id')
@@ -66,7 +66,7 @@ class ExcelController extends Controller
             ->leftJoin('users as urad', 'urad.id', '=', 'rad.user_id')
             ->whereBetween($dateColumn, [$desde, $hasta])
             ->when($restrictedId, fn ($q) => $q->where('ose.staff_id', $restrictedId))
-            ->when($clinicId, fn ($q) => $q->where('orders.clinic_id', $clinicId))
+            ->when($clinicStaffIds, fn ($q) => $q->whereIn('ose.staff_id', $clinicStaffIds))
             ->select(
                 'orders.id',
                 'uc.name as clinica',
@@ -319,6 +319,24 @@ class ExcelController extends Controller
     }
 
     /**
+     * Returns the staff_ids of all radiologists associated with the clinic user's clinic.
+     * Works like radiologoRestringidoId() but for all radiologists in clinic_staff.
+     * Returns null if the current user is not a clinic.
+     */
+    private function clinicaStaffIds(): ?array
+    {
+        $clinicId = $this->clinicaId();
+        if ($clinicId === null) {
+            return null;
+        }
+        $ids = DB::table('clinic_staff')
+            ->where('clinic_id', $clinicId)
+            ->pluck('staff_id')
+            ->all();
+        return $ids ?: [-1]; // -1 ensures no match if clinic has no staff
+    }
+
+    /**
      * Returns the staff_id if the current user is a radiologist WITHOUT admin rights,
      * meaning their queries must be scoped to their own orders only.
      * Returns null for admins and non-radiologist users (no restriction).
@@ -398,8 +416,8 @@ class ExcelController extends Controller
             default     => 'orders.created_at',
         };
 
-        $restrictedId = $this->radiologoRestringidoId();
-        $clinicId     = $this->clinicaId();
+        $restrictedId   = $this->radiologoRestringidoId();
+        $clinicStaffIds = $this->clinicaStaffIds();
 
         $rows = DB::table('examination_order as eo')
             ->join('orders', 'orders.id', '=', 'eo.order_id')
@@ -409,7 +427,7 @@ class ExcelController extends Controller
             ->leftJoin('order_staff_exam as ose', 'ose.order_id', '=', 'orders.id')
             ->whereBetween($dateCol, [$desde, $hasta])
             ->when($restrictedId, fn ($q) => $q->where('ose.staff_id', $restrictedId))
-            ->when($clinicId, fn ($q) => $q->where('orders.clinic_id', $clinicId))
+            ->when($clinicStaffIds, fn ($q) => $q->whereIn('ose.staff_id', $clinicStaffIds))
             ->select(
                 'k.descipcion as tipo',
                 DB::raw('COUNT(DISTINCT eo.order_id) as total_ordenes'),
