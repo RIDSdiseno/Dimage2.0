@@ -54,13 +54,13 @@ class ExcelController extends Controller
         $restrictedId    = $this->radiologoRestringidoId();
         $clinicStaffIds  = $this->clinicaStaffIds();
 
+        // One row per (order, radiologist) — multiple radiologists = multiple rows
         $rows = DB::table('orders')
             ->join('patients as p', 'p.id', '=', 'orders.patient_id')
             ->join('clinics as c', 'c.id', '=', 'orders.clinic_id')
             ->join('users as uc', 'uc.id', '=', 'c.user_id')
             ->leftJoin('staffs as od', 'od.id', '=', 'orders.odontologo_id')
             ->leftJoin('users as uod', 'uod.id', '=', 'od.user_id')
-            // Use order_staff_exam for radiologist (matches platform filtering)
             ->leftJoin('order_staff_exam as ose', 'ose.order_id', '=', 'orders.id')
             ->leftJoin('staffs as rad', 'rad.id', '=', 'ose.staff_id')
             ->leftJoin('users as urad', 'urad.id', '=', 'rad.user_id')
@@ -70,7 +70,7 @@ class ExcelController extends Controller
             ->select(
                 'orders.id',
                 'uc.name as clinica',
-                DB::raw('GROUP_CONCAT(DISTINCT urad.name ORDER BY urad.name SEPARATOR ", ") as radiologo'),
+                'urad.name as radiologo',
                 'p.rut',
                 'p.name as paciente',
                 'uod.name as odontologo',
@@ -79,12 +79,12 @@ class ExcelController extends Controller
                 'orders.enviada',
                 'orders.respondida'
             )
-            ->groupBy('orders.id', 'uc.name', 'p.rut', 'p.name', 'uod.name',
-                      'orders.estadoradiologo', 'orders.created_at', 'orders.enviada', 'orders.respondida')
+            ->distinct()
             ->orderByDesc('orders.created_at')
+            ->orderBy('urad.name')
             ->get();
 
-        $orderIds = $rows->pluck('id');
+        $orderIds = $rows->pluck('id')->unique();
 
         // One row per examination with piezas and url_texto
         $examinationsData = DB::table('examination_order as eo')
@@ -144,11 +144,12 @@ class ExcelController extends Controller
                 $piezasStr = $exam->piezas ?? '';
                 $urlTexto  = $exam->url_texto ?? '';
                 $fileCount = (int) ($fileCountsPerExam[$exam->exam_id] ?? 0);
-                $isRetro   = str_contains(strtolower($desc), 'retroalveolar');
-                $isCefalo  = str_contains(strtolower($desc), 'cefalom');
+                $descLower       = strtolower($desc);
+                $isCefalo        = str_contains($descLower, 'cefalom');
+                $isRetroUnitaria = str_contains($descLower, 'retroalveolar') && str_contains($descLower, 'unitaria');
 
                 $piezaCount = 0;
-                if ($isRetro && !empty($piezasStr)) {
+                if ($isRetroUnitaria && !empty($piezasStr)) {
                     $piezaCount = count(array_filter(array_map('trim', explode(',', $piezasStr))));
                 }
 
@@ -169,9 +170,11 @@ class ExcelController extends Controller
                     $expandedRows[] = [
                         'row'          => $r,
                         'tipo'         => $desc,
-                        'cantInformes' => $isRetro ? max($piezaCount, 1) : 1,
+                        // Retroalveolar Unitaria: cantInformes = pieza count; all others = 1
+                        'cantInformes' => $isRetroUnitaria ? max($piezaCount, 1) : 1,
                         'cantRx'       => $fileCount,
-                        'cantPiezas'   => $isRetro ? $piezaCount : null,
+                        // Piezas column: only for Retroalveolar Unitaria
+                        'cantPiezas'   => $isRetroUnitaria ? $piezaCount : null,
                     ];
                 }
             }
@@ -424,28 +427,67 @@ class ExcelController extends Controller
         $restrictedId   = $this->radiologoRestringidoId();
         $clinicStaffIds = $this->clinicaStaffIds();
 
-        // ── Hoja 1: Resumen por tipo ─────────────────────────────────────────
-        $summary = DB::table('examination_order as eo')
-            ->join('orders', 'orders.id', '=', 'eo.order_id')
-            ->join('examinations as e', 'e.id', '=', 'eo.examination_id')
-            ->join('kinds as k', 'k.id', '=', 'e.kind_id')
+        // Filtered order IDs (respects radiologist / clinic restriction)
+        $filteredOrderIds = DB::table('orders')
             ->leftJoin('order_staff_exam as ose', 'ose.order_id', '=', 'orders.id')
             ->whereBetween($dateCol, [$desde, $hasta])
             ->when($restrictedId, fn ($q) => $q->where('ose.staff_id', $restrictedId))
             ->when($clinicStaffIds, fn ($q) => $q->whereIn('ose.staff_id', $clinicStaffIds))
+            ->select('orders.id')
+            ->distinct()
+            ->pluck('id');
+
+        // ── Hoja 1: Resumen por tipo (sin join ose — usa filteredOrderIds) ───
+        $summary = DB::table('examination_order as eo')
+            ->join('orders', 'orders.id', '=', 'eo.order_id')
+            ->join('examinations as e', 'e.id', '=', 'eo.examination_id')
+            ->join('kinds as k', 'k.id', '=', 'e.kind_id')
+            ->whereIn('eo.order_id', $filteredOrderIds)
             ->select(
+                'k.id as kind_id',
                 'k.descipcion as tipo',
                 DB::raw('COUNT(DISTINCT eo.order_id) as total_ordenes'),
                 DB::raw('COUNT(DISTINCT CASE WHEN orders.estadoradiologo = 1 THEN eo.order_id END) as informadas'),
                 DB::raw('COUNT(DISTINCT CASE WHEN orders.estadoradiologo != 1 THEN eo.order_id END) as no_informadas'),
-                DB::raw('COUNT(DISTINCT eo.id) as total_examenes')
+                // total_examenes: cefalométrico counts each analysis type, unitaria counts each pieza
+                DB::raw("
+                    SUM(CASE
+                        WHEN LOWER(k.descipcion) LIKE '%cefalom%' AND e.url_texto IS NOT NULL AND e.url_texto != ''
+                        THEN (CHAR_LENGTH(e.url_texto) - CHAR_LENGTH(REPLACE(e.url_texto,',','')) + 1)
+                        WHEN LOWER(k.descipcion) LIKE '%retroalveolar%' AND LOWER(k.descipcion) LIKE '%unitaria%'
+                             AND e.piezas IS NOT NULL AND e.piezas != ''
+                        THEN (CHAR_LENGTH(e.piezas) - CHAR_LENGTH(REPLACE(e.piezas,',','')) + 1)
+                        ELSE 1
+                    END) as total_examenes
+                "),
+                // cant_piezas: only retroalveolar unitaria
+                DB::raw("
+                    SUM(CASE
+                        WHEN LOWER(k.descipcion) LIKE '%retroalveolar%' AND LOWER(k.descipcion) LIKE '%unitaria%'
+                             AND e.piezas IS NOT NULL AND e.piezas != ''
+                        THEN (CHAR_LENGTH(e.piezas) - CHAR_LENGTH(REPLACE(e.piezas,',','')) + 1)
+                        ELSE 0
+                    END) as cant_piezas
+                ")
             )
             ->groupBy('k.id', 'k.descipcion')
             ->orderBy('k.descipcion')
             ->get();
 
-        // ── Hoja 2: Detalle por orden ────────────────────────────────────────
-        $detail = DB::table('examination_order as eo')
+        // Rx file counts per kind_id (separate query avoids file-join row explosion)
+        $rxByKind = DB::table('files as f')
+            ->join('examination_order as eo', 'eo.examination_id', '=', 'f.examination_id')
+            ->join('examinations as e', 'e.id', '=', 'f.examination_id')
+            ->join('kinds as k', 'k.id', '=', 'e.kind_id')
+            ->whereIn('eo.order_id', $filteredOrderIds)
+            ->where('f.desde_informar', '!=', 1)
+            ->select('k.id as kind_id', DB::raw('COUNT(DISTINCT f.id) as cnt'))
+            ->groupBy('k.id')
+            ->pluck('cnt', 'kind_id');
+
+        // ── Hoja 2: Detalle — one row per (exam/analysis, order, radiologist) ─
+        // Raw data: one row per (examination, order, radiologist)
+        $detailRaw = DB::table('examination_order as eo')
             ->join('orders', 'orders.id', '=', 'eo.order_id')
             ->join('examinations as e', 'e.id', '=', 'eo.examination_id')
             ->join('kinds as k', 'k.id', '=', 'e.kind_id')
@@ -457,14 +499,15 @@ class ExcelController extends Controller
             ->leftJoin('order_staff_exam as ose', 'ose.order_id', '=', 'orders.id')
             ->leftJoin('staffs as rad', 'rad.id', '=', 'ose.staff_id')
             ->leftJoin('users as urad', 'urad.id', '=', 'rad.user_id')
-            ->whereBetween($dateCol, [$desde, $hasta])
-            ->when($restrictedId, fn ($q) => $q->where('ose.staff_id', $restrictedId))
-            ->when($clinicStaffIds, fn ($q) => $q->whereIn('ose.staff_id', $clinicStaffIds))
+            ->whereIn('eo.order_id', $filteredOrderIds)
             ->select(
                 'k.descipcion as tipo',
+                'e.url_texto',
+                'e.piezas',
+                'e.id as exam_id',
                 'orders.id as orden_id',
                 'uc.name as clinica',
-                DB::raw('GROUP_CONCAT(DISTINCT urad.name ORDER BY urad.name SEPARATOR ", ") as radiologo'),
+                'urad.name as radiologo',
                 'p.rut',
                 'p.name as paciente',
                 'uod.name as odontologo',
@@ -473,14 +516,54 @@ class ExcelController extends Controller
                 'orders.enviada',
                 'orders.respondida'
             )
-            ->groupBy(
-                'k.id', 'k.descipcion', 'orders.id', 'uc.name',
-                'p.rut', 'p.name', 'uod.name',
-                'orders.estadoradiologo', 'orders.created_at', 'orders.enviada', 'orders.respondida'
-            )
+            ->distinct()
             ->orderBy('k.descipcion')
             ->orderBy('orders.id')
+            ->orderBy('urad.name')
             ->get();
+
+        // File counts per examination for detail
+        $detailExamIds    = $detailRaw->pluck('exam_id')->unique();
+        $detailFileCounts = DB::table('files as f')
+            ->whereIn('f.examination_id', $detailExamIds)
+            ->where('f.desde_informar', '!=', 1)
+            ->select('f.examination_id', DB::raw('count(f.id) as cnt'))
+            ->groupBy('f.examination_id')
+            ->pluck('cnt', 'examination_id');
+
+        // Expand cefalométrico by analysis types in detail rows
+        $detailRows = [];
+        foreach ($detailRaw as $r) {
+            $descLower       = strtolower($r->tipo);
+            $isCefalo        = str_contains($descLower, 'cefalom');
+            $isRetroUnitaria = str_contains($descLower, 'retroalveolar') && str_contains($descLower, 'unitaria');
+            $fileCount       = (int) ($detailFileCounts[$r->exam_id] ?? 0);
+            $piezaCount      = 0;
+            if ($isRetroUnitaria && !empty($r->piezas)) {
+                $piezaCount = count(array_filter(array_map('trim', explode(',', $r->piezas))));
+            }
+
+            if ($isCefalo && !empty($r->url_texto)) {
+                foreach (explode(',', $r->url_texto) as $analysis) {
+                    $analysis = trim($analysis);
+                    if ($analysis) {
+                        $detailRows[] = array_merge((array) $r, [
+                            'tipo_display' => $r->tipo . ' - ' . $analysis,
+                            'cantInformes' => 1,
+                            'cantRx'       => $fileCount,
+                            'cantPiezas'   => null,
+                        ]);
+                    }
+                }
+            } else {
+                $detailRows[] = array_merge((array) $r, [
+                    'tipo_display' => $r->tipo,
+                    'cantInformes' => $isRetroUnitaria ? max($piezaCount, 1) : 1,
+                    'cantRx'       => $fileCount,
+                    'cantPiezas'   => $isRetroUnitaria ? $piezaCount : null,
+                ]);
+            }
+        }
 
         // ── Spreadsheet ───────────────────────────────────────────────────────
         $spreadsheet = new Spreadsheet();
@@ -489,24 +572,30 @@ class ExcelController extends Controller
         $sheet1 = $spreadsheet->getActiveSheet();
         $sheet1->setTitle('Resumen');
 
-        $hResumen = ['Tipo de Examen', 'Total Órdenes', 'Informadas', 'No Informadas', 'Total Exámenes'];
+        $hResumen = [
+            'Tipo de Examen', 'Total Órdenes', 'Informadas', 'No Informadas',
+            'Total Exámenes', 'Cant. de Rx', 'Cant. de Piezas',
+        ];
         foreach ($hResumen as $col => $h) {
             $sheet1->setCellValue([$col + 1, 1], $h);
         }
         $rowNum = 2;
         foreach ($summary as $r) {
+            $cantPiezas = (int) $r->cant_piezas;
             $sheet1->setCellValue([1, $rowNum], $r->tipo);
             $sheet1->setCellValue([2, $rowNum], (int) $r->total_ordenes);
             $sheet1->setCellValue([3, $rowNum], (int) $r->informadas);
             $sheet1->setCellValue([4, $rowNum], (int) $r->no_informadas);
             $sheet1->setCellValue([5, $rowNum], (int) $r->total_examenes);
+            $sheet1->setCellValue([6, $rowNum], (int) ($rxByKind[$r->kind_id] ?? 0));
+            $sheet1->setCellValue([7, $rowNum], $cantPiezas > 0 ? $cantPiezas : '');
             $rowNum++;
         }
         $lastRow1  = max($rowNum - 1, 1);
         $lastCol1L = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex(count($hResumen));
         $this->applyTable($sheet1, "A1:{$lastCol1L}{$lastRow1}", 'TablaResumen');
         $this->styleHeaderRow($sheet1, "A1:{$lastCol1L}1");
-        foreach (['A' => 32, 'B' => 15, 'C' => 13, 'D' => 15, 'E' => 15] as $col => $w) {
+        foreach (['A' => 32, 'B' => 15, 'C' => 13, 'D' => 15, 'E' => 16, 'F' => 13, 'G' => 15] as $col => $w) {
             $sheet1->getColumnDimension($col)->setWidth($w);
         }
         $sheet1->freezePane('A2');
@@ -518,6 +607,7 @@ class ExcelController extends Controller
         $hDetalle = [
             'Tipo de Examen', 'N° de Orden', 'Sucursal', 'Radiólogo',
             'Rut', 'Paciente', 'Odontólogo', 'Estado del informe',
+            'Cant. Informes', 'Cant. Rx', 'Piezas',
             'Fecha creación', 'Hora creación',
             'Fecha envío', 'Hora envío',
             'Fecha respuesta', 'Hora respuesta',
@@ -526,21 +616,24 @@ class ExcelController extends Controller
             $sheet2->setCellValue([$col + 1, 1], $h);
         }
         $rowNum = 2;
-        foreach ($detail as $r) {
-            $sheet2->setCellValue([1,  $rowNum], $r->tipo);
-            $sheet2->setCellValue([2,  $rowNum], $r->orden_id);
-            $sheet2->setCellValue([3,  $rowNum], $r->clinica);
-            $sheet2->setCellValue([4,  $rowNum], $r->radiologo ?? '');
-            $sheet2->setCellValue([5,  $rowNum], $r->rut);
-            $sheet2->setCellValue([6,  $rowNum], $r->paciente);
-            $sheet2->setCellValue([7,  $rowNum], $r->odontologo ?? '');
-            $sheet2->setCellValue([8,  $rowNum], $this->estados[(int) $r->estadoradiologo] ?? '');
-            $sheet2->setCellValue([9,  $rowNum], $r->created_at ? Carbon::parse($r->created_at)->format('d/m/Y') : '');
-            $sheet2->setCellValue([10, $rowNum], $r->created_at ? Carbon::parse($r->created_at)->format('H:i')   : '');
-            $sheet2->setCellValue([11, $rowNum], $r->enviada    ? Carbon::parse($r->enviada)->format('d/m/Y')    : '');
-            $sheet2->setCellValue([12, $rowNum], $r->enviada    ? Carbon::parse($r->enviada)->format('H:i')      : '');
-            $sheet2->setCellValue([13, $rowNum], $r->respondida ? Carbon::parse($r->respondida)->format('d/m/Y') : '');
-            $sheet2->setCellValue([14, $rowNum], $r->respondida ? Carbon::parse($r->respondida)->format('H:i')   : '');
+        foreach ($detailRows as $r) {
+            $sheet2->setCellValue([1,  $rowNum], $r['tipo_display']);
+            $sheet2->setCellValue([2,  $rowNum], $r['orden_id']);
+            $sheet2->setCellValue([3,  $rowNum], $r['clinica']);
+            $sheet2->setCellValue([4,  $rowNum], $r['radiologo'] ?? '');
+            $sheet2->setCellValue([5,  $rowNum], $r['rut']);
+            $sheet2->setCellValue([6,  $rowNum], $r['paciente']);
+            $sheet2->setCellValue([7,  $rowNum], $r['odontologo'] ?? '');
+            $sheet2->setCellValue([8,  $rowNum], $this->estados[(int) $r['estadoradiologo']] ?? '');
+            $sheet2->setCellValue([9,  $rowNum], (int) $r['cantInformes']);
+            $sheet2->setCellValue([10, $rowNum], (int) $r['cantRx']);
+            $sheet2->setCellValue([11, $rowNum], $r['cantPiezas'] !== null ? (int) $r['cantPiezas'] : '');
+            $sheet2->setCellValue([12, $rowNum], $r['created_at'] ? Carbon::parse($r['created_at'])->format('d/m/Y') : '');
+            $sheet2->setCellValue([13, $rowNum], $r['created_at'] ? Carbon::parse($r['created_at'])->format('H:i')   : '');
+            $sheet2->setCellValue([14, $rowNum], $r['enviada']    ? Carbon::parse($r['enviada'])->format('d/m/Y')    : '');
+            $sheet2->setCellValue([15, $rowNum], $r['enviada']    ? Carbon::parse($r['enviada'])->format('H:i')      : '');
+            $sheet2->setCellValue([16, $rowNum], $r['respondida'] ? Carbon::parse($r['respondida'])->format('d/m/Y') : '');
+            $sheet2->setCellValue([17, $rowNum], $r['respondida'] ? Carbon::parse($r['respondida'])->format('H:i')   : '');
             $rowNum++;
         }
         $lastRow2  = max($rowNum - 1, 1);
@@ -549,14 +642,14 @@ class ExcelController extends Controller
         $this->styleHeaderRow($sheet2, "A1:{$lastCol2L}1");
 
         $widths2 = ['A' => 30, 'B' => 11, 'C' => 22, 'D' => 22, 'E' => 14,
-                    'F' => 28, 'G' => 22, 'H' => 18, 'I' => 14, 'J' => 12,
-                    'K' => 12, 'L' => 12, 'M' => 15, 'N' => 13];
+                    'F' => 28, 'G' => 22, 'H' => 18, 'I' => 13, 'J' => 11,
+                    'K' => 11, 'L' => 14, 'M' => 12, 'N' => 12, 'O' => 12,
+                    'P' => 15, 'Q' => 13];
         foreach ($widths2 as $col => $w) {
             $sheet2->getColumnDimension($col)->setWidth($w);
         }
         $sheet2->freezePane('A2');
 
-        // Activar hoja 1 al abrir
         $spreadsheet->setActiveSheetIndex(0);
 
         return $this->streamXlsx($spreadsheet, 'por_tipo_examen_' . $request->input('desde') . '_' . $request->input('hasta') . '.xlsx');
