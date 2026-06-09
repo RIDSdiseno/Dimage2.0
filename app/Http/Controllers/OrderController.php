@@ -1202,26 +1202,34 @@ class OrderController extends Controller
     {
         if ($user->hasRole('radiologo')) return false;
 
-        // Admin/secretaria/holding sin restricción de borrador
+        // Admin/secretaria/holding/contralor: sin restricción de estado
         if ($user->hasAnyRole(['admin', 'secretaria', 'holding', 'contralor'])) return true;
 
-        // Clínica, técnico y odontólogo: solo pueden editar borradores nunca enviados o correcciones
-        $estado = (int) $order->estadoradiologo;
-        if (!($estado === 2 || ($estado === 4 && is_null($order->enviada)))) return false;
+        $estado   = (int) $order->estadoradiologo;
+        $typeId   = (int) ($user->type_id ?? 0);
 
-        // Perfil clínica: solo puede editar órdenes de su propia clínica
-        if ($user->hasRole('clinica') || (int) ($user->type_id ?? 0) === 4) {
+        // Perfil clínica: solo puede editar borradores nunca enviados o correcciones de su propia clínica
+        if ($user->hasRole('clinica') || $typeId === 4) {
+            if (!($estado === 2 || ($estado === 4 && is_null($order->enviada)))) return false;
             return (int) $order->clinic_id === (int) ($user->clinic?->id ?? 0);
         }
 
-        $staffId = $user->staff?->id;
+        // Operadores (tecnico/odontologo): pueden editar borradores o correcciones de sus clínicas asociadas
+        // No se aplica restricción de enviada porque el rol del operador es gestionar órdenes de su clínica
+        $isOperador = $user->hasAnyRole(['tecnico', 'odontologo']) || in_array($typeId, [6, 11]);
+        if (!$isOperador) return false;
+
+        if (!($estado === 2 || $estado === 4)) return false;
+
+        // Buscar staff_id tanto por relación Eloquent como por consulta directa (fallback)
+        $staffId = $user->staff?->id ?? DB::table('staffs')->where('user_id', $user->id)->value('id');
         if (!$staffId) return false;
 
-        // El creador siempre puede editar su propia orden
+        // El creador de la orden siempre puede editarla
         if (!is_null($order->operator_id) && (int) $order->operator_id === (int) $staffId) return true;
 
-        // Operadores asociados a la misma clínica pueden editar borradores
-        $clinicIds = $this->clinicIdsForStaff($staffId);
+        // Cualquier operador asociado a la clínica puede editar borradores de esa clínica
+        $clinicIds = $this->clinicIdsForStaff((int) $staffId);
         return $clinicIds->contains($order->clinic_id);
     }
 
