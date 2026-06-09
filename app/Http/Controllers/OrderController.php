@@ -99,6 +99,7 @@ class OrderController extends Controller
         $query = Order::query()
             ->select([
                 'orders.id',
+                'orders.clinic_id',
                 'orders.created_at',
                 'orders.enviada',
                 'orders.respondida',
