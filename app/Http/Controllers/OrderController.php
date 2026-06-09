@@ -1122,19 +1122,6 @@ class OrderController extends Controller
             return;
         }
 
-        // Odontólogo → solo órdenes que él mismo creó (operator_id) o legado sin operator
-        if ($user->hasRole('odontologo') && $user->staff) {
-            $staffId = (int) $user->staff->id;
-            $query->where(function ($q) use ($staffId) {
-                $q->where('orders.operator_id', $staffId)
-                  ->orWhere(function ($inner) use ($staffId) {
-                      $inner->where('orders.odontologo_id', $staffId)
-                            ->whereNull('orders.operator_id');
-                  });
-            });
-            return;
-        }
-
         // Clínica → solo órdenes de su clínica específica (no todo el holding)
         if ($user->hasRole('clinica') && $user->clinic) {
             $query->where('orders.clinic_id', $user->clinic->id);
