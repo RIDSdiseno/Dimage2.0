@@ -267,7 +267,7 @@ class FileController extends Controller
             return response()->json(['ok' => true, 'message' => 'Ya procesado.']);
         }
 
-        $ext = strtolower($file->extension ?? pathinfo($file->ruta, PATHINFO_EXTENSION));
+        $ext = strtolower($file->extension ?: pathinfo($file->ruta, PATHINFO_EXTENSION));
         if ($ext !== 'zip') {
             return response()->json(['ok' => false, 'message' => 'No es un archivo ZIP.'], 422);
         }

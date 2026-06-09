@@ -88,8 +88,8 @@
             </div>
         </template>
 
-        <!-- ZIP CBCT antiguo → procesar para visor o descargar -->
-        <template v-else-if="isZip && showDicom">
+        <!-- ZIP/desconocido CBCT pendiente → procesar para visor o descargar -->
+        <template v-else-if="isCbctPendiente">
             <div style="display:flex; flex-direction:column; align-items:center; justify-content:center; width:100%; height:100%; background:#0b2a4a; position:relative;">
                 <i :class="extracting ? 'pi pi-spin pi-spinner' : 'pi pi-box'" style="font-size:2.5rem; color:#60a5fa;" />
                 <span style="font-size:10px; margin-top:5px; color:#93c5fd; font-weight:700; letter-spacing:0.08em;">CBCT / DICOM</span>
@@ -194,8 +194,12 @@ const isDcm       = computed(() =>
 );
 const isZip       = computed(() => ext.value === 'zip');
 const isZipError  = computed(() => ext.value === 'zip_error');
-const isProcessing = computed(() => isZip.value && props.file.ruta_dcm === 'processing');
+const isProcessing = computed(() => props.file.ruta_dcm === 'processing' && !isDcm.value);
 const isCbctSerie = computed(() => isDcm.value && !!props.file.ruta_dcm && props.file.ruta_dcm !== 'processing');
+// Unprocessed CBCT: explicit zip extension OR completely unknown extension on a grupo-4 exam
+const isCbctPendiente = computed(() =>
+    props.showDicom && !isPdf.value && !isDcm.value && !isZipError.value && !isProcessing.value
+);
 const processingVisorUrl = computed(() => {
     const base = route('visor-dicom');
     const params = new URLSearchParams({ id: props.file.id, name: props.file.name || 'CBCT' });
