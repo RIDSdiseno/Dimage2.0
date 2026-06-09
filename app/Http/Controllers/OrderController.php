@@ -1107,7 +1107,12 @@ class OrderController extends Controller
                 $q->where('orders.operator_id', $staffId)
                   ->orWhere('orders.odontologo_id', $staffId);
                 if (!$clinicIds->isEmpty()) {
-                    // Borradores de sus clínicas sin importar quién los creó
+                    // Órdenes legacy sin operator_id de sus clínicas
+                    $q->orWhere(function ($inner) use ($clinicIds) {
+                        $inner->whereNull('orders.operator_id')
+                              ->whereIn('orders.clinic_id', $clinicIds->all());
+                    });
+                    // Borradores de clínica/odontólogo de sus clínicas
                     $q->orWhere(function ($inner) use ($clinicIds) {
                         $inner->where('orders.estadoradiologo', 4)
                               ->whereIn('orders.clinic_id', $clinicIds->all());
