@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Storage;
@@ -822,6 +823,10 @@ class AdminController extends Controller
                 $staffData['firma'] = $request->file('firma')->store('firmas', 'public');
             }
             DB::table('staffs')->where('id', $id)->update($staffData);
+
+            // Limpiar cache de permisos para que tomen efecto inmediatamente
+            $userId = DB::table('staffs')->where('id', $id)->value('user_id');
+            if ($userId) Cache::forget("user_staff_perms_{$userId}");
 
             DB::table('clinic_staff')->where('staff_id', $id)->delete();
             foreach ((array) ($request->clinica_ids ?? []) as $clinicId) {
