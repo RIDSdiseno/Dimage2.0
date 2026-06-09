@@ -116,7 +116,8 @@ class FileController extends Controller
 
         $ext = strtolower($file->extension ?? pathinfo((string) $file->ruta, PATHINFO_EXTENSION));
 
-        if (!$file->ruta_dcm) {
+        // No series yet (null) or still being processed in the background queue
+        if (!$file->ruta_dcm || $file->ruta_dcm === 'processing') {
             if ($ext === 'zip') {
                 // Return a signed URL so dwv can load the ZIP directly in the browser.
                 // dwv 0.36 bundles JSZip and can extract DICOM files from a ZIP URL.

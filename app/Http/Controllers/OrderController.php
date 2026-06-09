@@ -46,7 +46,7 @@ class OrderController extends Controller
             $base    = request()->getSchemeAndHttpHost();
             $urlMap  = [];
 
-            if ($file->ruta_dcm) {
+            if ($file->ruta_dcm && $file->ruta_dcm !== 'processing') {
                 // CBCT series: pre-generate signed S3 URLs for every slice so
                 // the JS XHR interceptor can bypass the PHP proxy entirely.
                 $baseProxy = "{$base}/archivos/{$id}/dcm";
@@ -734,7 +734,7 @@ class OrderController extends Controller
 
                 $archivos = DB::table('files')
                     ->where('examination_id', $e->examination_id)
-                    ->get(['id', 'name', 'ruta', 'extension', 'file_size'])
+                    ->get(['id', 'name', 'ruta', 'ruta_dcm', 'extension', 'file_size'])
                     ->map(function ($f) {
                         return array_merge((array) $f, ['url' => $this->signedUrl($f->ruta)]);
                     });

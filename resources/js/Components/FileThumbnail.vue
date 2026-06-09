@@ -49,10 +49,42 @@
 
         <!-- ZIP CBCT en cola (procesando en background) -->
         <template v-else-if="isProcessing">
-            <div style="display:flex; flex-direction:column; align-items:center; justify-content:center; width:100%; height:100%; background:#0b2a4a;">
+            <div style="display:flex; flex-direction:column; align-items:center; justify-content:center; width:100%; height:100%; background:#0b2a4a; position:relative;">
                 <i class="pi pi-spin pi-spinner" style="font-size:2.5rem; color:#60a5fa;" />
                 <span style="font-size:10px; margin-top:5px; color:#93c5fd; font-weight:700; letter-spacing:0.08em;">CBCT</span>
                 <span style="font-size:10px; margin-top:3px; color:#60a5fa; text-align:center; padding:0 6px;">Procesando...</span>
+                <!-- Hover: abrir visor ahora (ZIP carga directo en dwv) -->
+                <div class="opacity-0 group-hover:opacity-100 transition-opacity"
+                    style="position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:6px; background:rgba(11,42,74,0.92); border-radius:inherit;">
+                    <a :href="processingVisorUrl" target="_blank"
+                        style="display:flex; align-items:center; gap:5px; padding:6px 12px; border-radius:6px; background:#3452ff; color:#fff; text-decoration:none; font-size:11px; font-weight:600;"
+                        @click.stop>
+                        <i class="pi pi-eye" style="font-size:11px;" /> Ver ahora
+                    </a>
+                    <span style="font-size:9px; color:#93c5fd; text-align:center; padding:0 8px;">Extracción en segundo plano</span>
+                </div>
+            </div>
+        </template>
+
+        <!-- ZIP CBCT con error de procesamiento -->
+        <template v-else-if="isZipError">
+            <div style="display:flex; flex-direction:column; align-items:center; justify-content:center; width:100%; height:100%; background:#3b0a0a; position:relative;">
+                <i class="pi pi-times-circle" style="font-size:2.5rem; color:#f87171;" />
+                <span style="font-size:10px; margin-top:5px; color:#fca5a5; font-weight:700; letter-spacing:0.08em;">Error CBCT</span>
+                <span style="font-size:10px; margin-top:3px; color:#fca5a5; text-align:center; padding:0 6px;">Procesamiento fallido</span>
+                <div class="opacity-0 group-hover:opacity-100 transition-opacity"
+                    style="position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:6px; background:rgba(59,10,10,0.92); border-radius:inherit;">
+                    <button
+                        style="display:flex; align-items:center; gap:5px; padding:6px 12px; border-radius:6px; background:#3452ff; color:#fff; border:none; cursor:pointer; font-size:11px; font-weight:600;"
+                        @click.stop="processZip">
+                        <i class="pi pi-refresh" style="font-size:11px;" /> Reintentar
+                    </button>
+                    <a :href="serveUrl" download :download="file.name"
+                        style="display:flex; align-items:center; gap:5px; padding:5px 10px; border-radius:6px; background:rgba(255,255,255,0.1); color:#fca5a5; text-decoration:none; font-size:10px;"
+                        @click.stop>
+                        <i class="pi pi-download" style="font-size:10px;" /> Descargar
+                    </a>
+                </div>
             </div>
         </template>
 
@@ -147,12 +179,28 @@ const imgFailed  = ref(false);
 const extracting = ref(false);
 const extractMsg = ref('');
 
-const ext         = computed(() => (props.file.extension || '').toLowerCase());
+// Derive extension from the field, or fall back to the filename extension
+const ext = computed(() => {
+    if (props.file.extension) return props.file.extension.toLowerCase();
+    const m = (props.file.name || '').match(/\.([^.]+)$/);
+    return m ? m[1].toLowerCase() : '';
+});
 const isPdf       = computed(() => ext.value === 'pdf');
-const isDcm       = computed(() => ext.value === 'dcm' || ext.value === 'dicom');
+// Consider a file as DCM if extension says so, OR if ruta_dcm already holds a
+// series prefix (covers legacy ZIPs that were processed before extension was tracked)
+const isDcm       = computed(() =>
+    ext.value === 'dcm' || ext.value === 'dicom' ||
+    (!!props.file.ruta_dcm && props.file.ruta_dcm !== 'processing')
+);
 const isZip       = computed(() => ext.value === 'zip');
+const isZipError  = computed(() => ext.value === 'zip_error');
 const isProcessing = computed(() => isZip.value && props.file.ruta_dcm === 'processing');
-const isCbctSerie = computed(() => isDcm.value && !!props.file.ruta_dcm);
+const isCbctSerie = computed(() => isDcm.value && !!props.file.ruta_dcm && props.file.ruta_dcm !== 'processing');
+const processingVisorUrl = computed(() => {
+    const base = route('visor-dicom');
+    const params = new URLSearchParams({ id: props.file.id, name: props.file.name || 'CBCT' });
+    return `${base}?${params.toString()}`;
+});
 const serveUrl    = computed(() => route('archivos.serve', props.file.id));
 const downloadUrl = computed(() => route('archivos.download', props.file.id));
 const fileSrc     = computed(() => props.file.url || serveUrl.value);

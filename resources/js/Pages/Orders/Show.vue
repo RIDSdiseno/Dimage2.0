@@ -235,7 +235,7 @@
                             </p>
                             <div v-if="examen.archivos?.length" class="flex flex-wrap gap-3">
                                 <div v-for="f in examen.archivos" :key="f.id" class="relative group">
-                                    <FileThumbnail :file="f" @lightbox="openLightbox" :showDicom="examen.grupo === 4" />
+                                    <FileThumbnail :file="f" @lightbox="openLightbox" :showDicom="parseInt(examen.grupo ?? 0) === 4" />
                                     <button v-if="esAdmin && order.estadoradiologo != 1"
                                         @click="eliminarArchivo(f.id)"
                                         class="absolute top-1 right-1 hidden group-hover:flex items-center justify-center w-5 h-5 rounded-full bg-red-500 text-white shadow"
@@ -345,7 +345,7 @@
                                                 v-for="f in examen.archivos_informe" :key="f.id"
                                                 :file="f"
                                                 @lightbox="openLightbox"
-                                                :showDicom="examen.grupo === 4" />
+                                                :showDicom="parseInt(examen.grupo ?? 0) === 4" />
                                         </div>
                                     </div>
 
