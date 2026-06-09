@@ -130,6 +130,15 @@ class OrderController extends Controller
                     WHERE ose.order_id = orders.id
                 ) as radiologos
             "))
+            ->addSelect(DB::raw("
+                (
+                    CASE
+                        WHEN orders.operator_id IS NOT NULL THEN
+                            (SELECT u.name FROM staffs s INNER JOIN users u ON u.id = s.user_id WHERE s.id = orders.operator_id LIMIT 1)
+                        ELSE uc.name
+                    END
+                ) as creado_por
+            "))
             ->join('patients', 'orders.patient_id', '=', 'patients.id')
             ->join('clinics as c', 'orders.clinic_id', '=', 'c.id')
             ->join('users as uc', 'c.user_id', '=', 'uc.id')
@@ -174,6 +183,7 @@ class OrderController extends Controller
                 'respondida' => $o->respondida   ? Carbon::parse($o->respondida)->format('d/m/Y')  : '-',
                 'estado'     => self::ESTADOS[(int) $o->estadoradiologo] ?? ['label' => 'Desconocido', 'color' => 'secondary'],
                 'prioridad'  => $o->prioridad,
+                'creado_por' => $o->creado_por ?: '-',
                 'es_mia'     => $currentStaffId && (
                     (!is_null($o->operator_id ?? null) && (int) $o->operator_id === (int) $currentStaffId) ||
                     $operatorClinicIds->contains($o->clinic_id)

@@ -59,6 +59,7 @@
                                 <th class="text-left px-3 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wide">Paciente</th>
                                 <th class="text-left px-3 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wide hidden lg:table-cell">Radiólogo</th>
                                 <th class="text-left px-3 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wide hidden lg:table-cell">Odontólogo</th>
+                                <th class="text-left px-3 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wide hidden lg:table-cell">Creado por</th>
                                 <th class="text-left px-3 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wide hidden md:table-cell">Prioridad</th>
                                 <th class="text-left px-3 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wide hidden xl:table-cell">Exámenes</th>
                                 <th class="text-left px-3 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wide">Estado</th>
@@ -72,7 +73,7 @@
                             <!-- Skeleton -->
                             <template v-if="loading">
                                 <tr v-for="n in 10" :key="n" class="border-t border-gray-50 animate-pulse">
-                                    <td v-for="c in 13" :key="c" class="px-3 py-3">
+                                    <td v-for="c in 14" :key="c" class="px-3 py-3">
                                         <div class="h-3 bg-gray-100 rounded w-16" />
                                     </td>
                                 </tr>
@@ -88,6 +89,7 @@
                                     <td class="px-3 py-3 font-medium text-gray-800">{{ orden.paciente }}</td>
                                     <td class="px-3 py-3 text-gray-500 text-xs max-w-36 truncate hidden lg:table-cell">{{ orden.radiologos }}</td>
                                     <td class="px-3 py-3 text-gray-500 text-xs hidden lg:table-cell">{{ orden.odontologo }}</td>
+                                    <td class="px-3 py-3 text-gray-500 text-xs hidden lg:table-cell">{{ orden.creado_por }}</td>
                                     <td class="px-3 py-3 hidden md:table-cell">
                                         <span :class="prioridadBadgeClass(orden.prioridad)"
                                             class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold">
