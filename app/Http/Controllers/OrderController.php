@@ -1099,7 +1099,7 @@ class OrderController extends Controller
             return;
         }
 
-        // Técnico → órdenes que creó + órdenes legacy de su clínica sin operator registrado
+        // Técnico → órdenes que creó + borradores de sus clínicas (creados por clínica u odontólogo)
         if ($user->hasRole('tecnico') && $user->staff) {
             $staffId   = (int) $user->staff->id;
             $clinicIds = $this->clinicIdsForStaff($staffId);
@@ -1107,9 +1107,9 @@ class OrderController extends Controller
                 $q->where('orders.operator_id', $staffId)
                   ->orWhere('orders.odontologo_id', $staffId);
                 if (!$clinicIds->isEmpty()) {
-                    // Órdenes legacy sin operator_id de sus clínicas
+                    // Borradores de sus clínicas sin importar quién los creó
                     $q->orWhere(function ($inner) use ($clinicIds) {
-                        $inner->whereNull('orders.operator_id')
+                        $inner->where('orders.estadoradiologo', 4)
                               ->whereIn('orders.clinic_id', $clinicIds->all());
                     });
                 }
