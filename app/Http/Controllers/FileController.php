@@ -263,7 +263,7 @@ class FileController extends Controller
         $file = DB::table('files')->where('id', $id)->first(['id', 'ruta', 'extension', 'ruta_dcm', 'examination_id']);
         abort_if(!$file, 404);
 
-        if ($file->ruta_dcm) {
+        if ($file->ruta_dcm && $file->ruta_dcm !== 'processing') {
             return response()->json(['ok' => true, 'message' => 'Ya procesado.']);
         }
 
