@@ -1174,17 +1174,7 @@ class OrderController extends Controller
         }
 
 
-        // Odontólogo → órdenes donde es el creador (operator_id) o el odontólogo asignado
-        if ($user->hasRole('odontologo') && $user->staff) {
-            $staffId = (int) $user->staff->id;
-            $query->where(function ($q) use ($staffId) {
-                $q->where('orders.operator_id', $staffId)
-                  ->orWhere('orders.odontologo_id', $staffId);
-            });
-            return;
-        }
-
-        if ($user->hasRole('tecnico') && $user->staff) {
+        if ($user->hasAnyRole(['odontologo', 'tecnico']) && $user->staff) {
             $staffId  = (int) $user->staff->id;
             $clinicIds = $this->clinicIdsForStaff($staffId);
 
@@ -1196,7 +1186,7 @@ class OrderController extends Controller
                 return;
             }
 
-            // Técnico ve órdenes de todo el holding
+            // Odontólogo y técnico ven órdenes de todo el holding
             $holdingIds = DB::table('clinics')
                 ->whereIn('id', $clinicIds->all())
                 ->pluck('holding_id')
