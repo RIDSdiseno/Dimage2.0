@@ -1123,6 +1123,18 @@ class OrderController extends Controller
             return;
         }
 
+        // Odontólogo → solo órdenes que él mismo creó
+        if ($user->hasRole('odontologo')) {
+            $staffId = $user->staff?->id
+                ?? DB::table('staffs')->where('user_id', $user->id)->value('id');
+            if ($staffId) {
+                $query->where('orders.operator_id', (int) $staffId);
+            } else {
+                $query->whereRaw('1 = 0');
+            }
+            return;
+        }
+
         // Clínica → solo órdenes de su clínica específica (no todo el holding)
         if ($user->hasRole('clinica') && $user->clinic) {
             $query->where('orders.clinic_id', $user->clinic->id);
