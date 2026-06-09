@@ -11,7 +11,7 @@
 
             <!-- Logo -->
             <div class="flex items-center gap-2">
-                <img src="/images/dimage_logo.png" alt="Dimage" class="h-8 w-8 object-contain" style="mix-blend-mode:screen;" />
+                <img src="/images/logo_xs.png" alt="Dimage" class="h-8 w-8 object-contain" />
                 <div class="leading-tight">
                     <span class="font-bold text-base text-white">Dimage</span>
                     <span class="text-xs text-white/50 block -mt-0.5 hidden md:block">Telediagnóstico Imagenológico</span>
