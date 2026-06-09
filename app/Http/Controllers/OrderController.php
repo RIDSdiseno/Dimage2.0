@@ -95,6 +95,7 @@ class OrderController extends Controller
 
         $currentStaffId     = DB::table('staffs')->where('user_id', $user->id)->value('id');
         $operatorClinicIds  = $currentStaffId ? $this->clinicIdsForStaff((int) $currentStaffId) : collect();
+        $isOdontologo       = $user->hasRole('odontologo') || (int) ($user->type_id ?? 0) === 6;
 
         $query = Order::query()
             ->select([
@@ -186,7 +187,7 @@ class OrderController extends Controller
                 'creado_por' => $o->creado_por ?: '-',
                 'es_mia'     => $currentStaffId && (
                     (!is_null($o->operator_id ?? null) && (int) $o->operator_id === (int) $currentStaffId) ||
-                    $operatorClinicIds->contains($o->clinic_id)
+                    (!$isOdontologo && $operatorClinicIds->contains($o->clinic_id))
                 ),
             ];
         });
@@ -1173,20 +1174,32 @@ class OrderController extends Controller
         }
 
 
-        if ($user->hasAnyRole(['odontologo', 'tecnico']) && $user->staff) {
+        // Odontólogo → solo sus propias órdenes (las que creó como operator_id o legacy)
+        if ($user->hasRole('odontologo') && $user->staff) {
+            $staffId = (int) $user->staff->id;
+            $query->where(function ($q) use ($staffId) {
+                $q->where('orders.operator_id', $staffId)
+                  ->orWhere(function ($inner) use ($staffId) {
+                      $inner->where('orders.odontologo_id', $staffId)
+                            ->whereNull('orders.operator_id');
+                  });
+            });
+            return;
+        }
+
+        if ($user->hasRole('tecnico') && $user->staff) {
             $staffId  = (int) $user->staff->id;
             $clinicIds = $this->clinicIdsForStaff($staffId);
 
             if ($clinicIds->isEmpty()) {
-                // Sin clínica asignada: mostrar solo sus propias órdenes
                 $query->where(function ($q) use ($staffId) {
-                    $q->where('o.operator_id', $staffId)
-                      ->orWhere('o.odontologo_id', $staffId);
+                    $q->where('orders.operator_id', $staffId)
+                      ->orWhere('orders.odontologo_id', $staffId);
                 });
                 return;
             }
 
-            // Mostrar órdenes de todo el holding del operador (igual que legacy)
+            // Técnico ve órdenes de todo el holding
             $holdingIds = DB::table('clinics')
                 ->whereIn('id', $clinicIds->all())
                 ->pluck('holding_id')
@@ -1243,10 +1256,13 @@ class OrderController extends Controller
         $staffId = $user->staff?->id ?? DB::table('staffs')->where('user_id', $user->id)->value('id');
         if (!$staffId) return false;
 
-        // El creador de la orden siempre puede editarla
+        // El creador siempre puede editar su propia orden
         if (!is_null($order->operator_id) && (int) $order->operator_id === (int) $staffId) return true;
 
-        // Cualquier operador asociado a la clínica puede editar borradores de esa clínica
+        // Odontólogo: solo puede editar órdenes que él mismo creó (ya cubierto arriba)
+        if ($user->hasRole('odontologo') || (int) ($user->type_id ?? 0) === 6) return false;
+
+        // Técnico: puede editar borradores de cualquier clínica asociada
         $clinicIds = $this->clinicIdsForStaff((int) $staffId);
         return $clinicIds->contains($order->clinic_id);
     }
