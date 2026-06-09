@@ -22,7 +22,6 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Storage;
-use Illuminate\Support\Facades\Log;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -96,18 +95,6 @@ class OrderController extends Controller
 
         $currentStaffId     = DB::table('staffs')->where('user_id', $user->id)->value('id');
 
-        // DEBUG TEMPORAL - borrar después de diagnosticar
-        Log::info('ORDER_SEARCH_DEBUG', [
-            'user_id'    => $user->id,
-            'user_name'  => $user->name,
-            'type_id'    => $user->type_id,
-            'staff_id_db'=> $currentStaffId,
-            'staff_eloquent' => $user->staff?->id,
-            'clinic_ids' => $currentStaffId ? $this->clinicIdsForStaff((int)$currentStaffId)->all() : [],
-            'is_tecnico' => $user->hasRole('tecnico'),
-            'is_odo'     => $user->hasRole('odontologo'),
-            'solo_mis'   => $soloMis,
-        ]);
         $operatorClinicIds  = $currentStaffId ? $this->clinicIdsForStaff((int) $currentStaffId) : collect();
         $isOdontologo       = $user->hasRole('odontologo') || (int) ($user->type_id ?? 0) === 6;
 
@@ -184,7 +171,7 @@ class OrderController extends Controller
             ->orderByDesc('orders.created_at')
             ->paginate($perPage, ['*'], 'page', $page);
 
-        $items = collect($orders->items())->map(function ($o) use ($currentStaffId, $operatorClinicIds) {
+        $items = collect($orders->items())->map(function ($o) use ($currentStaffId, $operatorClinicIds, $isOdontologo) {
             return [
                 'id'         => $o->id,
                 'paciente'   => $o->paciente,
