@@ -192,12 +192,32 @@ class OrderController extends Controller
             ];
         });
 
-        return response()->json([
+        $response = [
             'data' => $items,
             'total' => $orders->total(),
             'pages' => $orders->lastPage(),
             'current_page' => $orders->currentPage(),
-        ]);
+        ];
+
+        if ($request->get('debug') === '1') {
+            $staffRow = DB::table('staffs')->where('user_id', $user->id)->first();
+            $clinicIds = $staffRow ? $this->clinicIdsForStaff((int) $staffRow->id)->all() : [];
+            $holdingIds = count($clinicIds) ? DB::table('clinics')->whereIn('id', $clinicIds)->pluck('holding_id')->filter()->unique()->all() : [];
+            $response['_debug'] = [
+                'user_id'    => $user->id,
+                'type_id'    => $user->type_id,
+                'staff_id'   => $staffRow?->id,
+                'staff_name' => $staffRow?->name,
+                'eloquent_staff_id' => $user->staff?->id,
+                'clinic_ids' => $clinicIds,
+                'holding_ids'=> $holdingIds,
+                'roles'      => $user->getRoleNames(),
+                'is_odo'     => $user->hasRole('odontologo'),
+                'is_tec'     => $user->hasRole('tecnico'),
+            ];
+        }
+
+        return response()->json($response);
     }
 
     private function guardRadiologoCrear(): void
