@@ -1166,30 +1166,36 @@ class OrderController extends Controller
         }
 
 
-        if ($user->hasAnyRole(['odontologo', 'tecnico']) && $user->staff) {
-            $staffId  = (int) $user->staff->id;
-            $clinicIds = $this->clinicIdsForStaff($staffId);
+        if ($user->hasAnyRole(['odontologo', 'tecnico'])) {
+            // Fallback: buscar staff por DB si la relación no carga
+            $staffId = $user->staff?->id
+                ?? DB::table('staffs')->where('user_id', $user->id)->value('id');
 
-            if ($clinicIds->isEmpty()) {
-                $query->where(function ($q) use ($staffId) {
-                    $q->where('orders.operator_id', $staffId)
-                      ->orWhere('orders.odontologo_id', $staffId);
-                });
-                return;
-            }
-
-            // Odontólogo y técnico ven órdenes de todo el holding
-            $holdingIds = DB::table('clinics')
-                ->whereIn('id', $clinicIds->all())
-                ->pluck('holding_id')
-                ->filter()->unique();
-
-            if ($holdingIds->isEmpty()) {
+            if (!$staffId) {
                 $query->whereRaw('1 = 0');
                 return;
             }
 
-            $query->whereIn('c.holding_id', $holdingIds->all());
+            $staffId   = (int) $staffId;
+            $clinicIds = $this->clinicIdsForStaff($staffId);
+
+            if ($clinicIds->isNotEmpty()) {
+                $holdingIds = DB::table('clinics')
+                    ->whereIn('id', $clinicIds->all())
+                    ->pluck('holding_id')
+                    ->filter()->unique();
+
+                if ($holdingIds->isNotEmpty()) {
+                    $query->whereIn('c.holding_id', $holdingIds->all());
+                    return;
+                }
+            }
+
+            // Sin clínica asociada o sin holding: ver solo sus propias órdenes
+            $query->where(function ($q) use ($staffId) {
+                $q->where('orders.operator_id', $staffId)
+                  ->orWhere('orders.odontologo_id', $staffId);
+            });
             return;
         }
 
