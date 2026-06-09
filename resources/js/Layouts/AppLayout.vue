@@ -10,12 +10,8 @@
             </button>
 
             <!-- Logo -->
-            <div class="flex items-center gap-2">
-                <img src="/favicon.ico" alt="Dimage" class="h-8 w-8 object-contain" />
-                <div class="leading-tight">
-                    <span class="font-bold text-base text-white">Dimage</span>
-                    <span class="text-xs text-white/50 block -mt-0.5 hidden md:block">Telediagnóstico Imagenológico</span>
-                </div>
+            <div class="flex items-center">
+                <img src="/images/dimage_logo-01.png" alt="Dimage" class="h-9 w-auto object-contain" />
             </div>
 
             <div class="ml-auto flex items-center gap-3">
