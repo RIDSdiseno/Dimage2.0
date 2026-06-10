@@ -175,8 +175,8 @@ class OrderController extends Controller
                         'extension'      => $f->extension,
                         'file_size'      => $f->file_size,
                         'desde_informar' => (bool) $f->desde_informar,
-                        'ruta'           => rtrim(env('RUTA_IMG', ''), '/') . '/' . ltrim($f->ruta ?? '', '/'),
-                        'ruta_dcm'       => $f->ruta_dcm ? rtrim(env('RUTA_IMG', ''), '/') . '/' . ltrim($f->ruta_dcm, '/') : null,
+                        'ruta'           => $f->ruta,
+                        'ruta_dcm'       => $f->ruta_dcm,
                     ]);
 
                 $respuesta = DB::table('answers')
@@ -222,16 +222,6 @@ class OrderController extends Controller
             'enviada'         => $order->enviada,
             'respondida'      => $order->respondida,
             'created_at'      => $order->created_at,
-            'clinic_id'       => $order->clinic_id,
-            'fecha_creacion'  => $order->created_at,
-            'fecha_envio'     => $order->enviada,
-            'fecha_respuesta' => $order->respondida,
-            'estado_radiologo'=> $order->estadoradiologo,
-            'estado_odontologo'=> $order->estadoodontologo,
-            'observaciones_informe' => $order->observaciones_2 ?? '',
-            'editable'        => ((int)$order->estadoradiologo === 4) ? 1 : 0,
-            'visitable'       => ((int)$order->estadoradiologo === 1) ? 1 : 0,
-            'answers_mapping' => new \stdClass(),
             'examenes'        => $examenes,
         ]);
     }

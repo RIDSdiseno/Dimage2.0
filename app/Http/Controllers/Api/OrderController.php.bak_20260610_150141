@@ -14,16 +14,7 @@ class OrderController extends Controller
     public function examTypes()
     {
         $kinds = DB::table('kinds')
-            ->select(
-                'id',
-                'descipcion as descripcion',
-                'group as grupo',
-                'plazo_dias',
-                'con_diente',
-                'es_3d',
-                'con_trazados',
-                'con_estudio_implantes'
-            )
+            ->select('id', 'descipcion as descripcion', 'group as grupo')
             ->orderBy('group')
             ->orderBy('descipcion')
             ->get();
@@ -46,73 +37,36 @@ class OrderController extends Controller
     // GET /api/v3/order/by-patient/{rut}
     public function listByPatient(Request $request, string $rut)
     {
-        $holdingId = $request->_holding_id;
+        $patient = DB::table('patients')->where('rut', $rut)->first('id');
+        if (! $patient) return response()->json(['error' => 'Paciente no encontrado.'], 404);
 
-        $patient = DB::table('patients as p')
-            ->leftJoin('clinic_patient as cp', 'p.id', '=', 'cp.patient_id')
-            ->leftJoin('clinics as c', 'cp.clinic_id', '=', 'c.id')
-            ->where('c.holding_id', $holdingId)
-            ->where('p.rut', $rut)
-            ->first(['p.id']);
+        $page    = max(1, (int) $request->get('page', 1));
+        $perPage = (int) $request->get('per_page', 15);
 
-        if (! $patient) {
-            return response()->json(['error' => "Paciente de rut $rut no existe"], 404);
-        }
-
-        $page = max(1, (int) $request->get('page', 1));
-        $perPage = (int) $request->get('per_page', 10);
-
-        $base = DB::table('orders as o')
-            ->join('patients as p', 'p.id', '=', 'o.patient_id')
+        $query = DB::table('orders as o')
             ->join('clinics as c', 'c.id', '=', 'o.clinic_id')
             ->join('users as uc', 'uc.id', '=', 'c.user_id')
-            ->leftJoin('staffs as odont', 'odont.id', '=', 'o.odontologo_id')
-            ->leftJoin('users as uo', 'uo.id', '=', 'odont.user_id')
-            ->where('p.rut', $rut)
-            ->where('c.holding_id', $holdingId);
+            ->where('o.patient_id', $patient->id)
+            ->select('o.id', 'o.estadoradiologo', 'o.prioridad', 'o.created_at', 'uc.name as clinica');
 
-        $total = (clone $base)->count();
-
-        $orders = $base
-            ->select(
-                'o.id',
-                'o.diagnostico',
-                'o.prioridad',
-                'o.created_at',
-                'o.created_at as fecha_creacion',
-                'o.enviada as fecha_envio',
-                'o.respondida as fecha_respuesta',
-                'o.estadoradiologo',
-                'o.estadoodontologo',
-                'o.estadoradiologo as estado_radiologo',
-                'o.estadoodontologo as estado_odontologo',
-                'o.odontologo_id',
-                'p.name as paciente',
-                'p.rut as rut_paciente',
-                'uc.name as clinica',
-                'uo.name as odontologo',
-                'odont.rut as rut_odontologo',
-                'uo.email as mail_odontologo'
-            )
-            ->selectRaw("case when o.estadoradiologo = 0 then 'No Informada' when o.estadoradiologo = 1 then 'Informada' when o.estadoradiologo = 2 and o.estadoodontologo = 3 then 'Corrección' else 'Guardada' end as estado_texto")
-            ->selectRaw("case when o.estadoradiologo = 4 then 1 else 0 end as editable")
-            ->selectRaw("case when o.estadoradiologo = 1 then 1 else 0 end as visitable")
-            ->orderByDesc('o.id')
+        $total  = $query->count();
+        $orders = $query->orderByDesc('o.created_at')
             ->offset(($page - 1) * $perPage)
             ->limit($perPage)
-            ->get();
+            ->get()
+            ->map(fn ($o) => [
+                'id'              => $o->id,
+                'clinica'         => $o->clinica,
+                'prioridad'       => $o->prioridad,
+                'estadoradiologo' => $o->estadoradiologo,
+                'created_at'      => $o->created_at,
+            ]);
 
         return response()->json([
-            'current_page' => $page,
-            'data' => $orders,
-            'from' => $total > 0 ? (($page - 1) * $perPage) + 1 : null,
-            'last_page' => (int) ceil($total / $perPage),
-            'per_page' => $perPage,
-            'to' => min($page * $perPage, $total),
-            'total' => $total,
-
-            // compatibilidad anterior Dimage2
-            'page' => $page,
+            'data'        => $orders,
+            'total'       => $total,
+            'page'        => $page,
+            'per_page'    => $perPage,
             'total_pages' => (int) ceil($total / $perPage),
         ]);
     }
@@ -124,20 +78,8 @@ class OrderController extends Controller
             ->join('patients as p', 'p.id', '=', 'o.patient_id')
             ->join('clinics as c', 'c.id', '=', 'o.clinic_id')
             ->join('users as uc', 'uc.id', '=', 'c.user_id')
-            ->leftJoin('staffs as so', 'so.id', '=', 'o.odontologo_id')
-            ->leftJoin('users as uo', 'uo.id', '=', 'so.user_id')
             ->where('o.id', $id)
-            ->select(
-                'o.*',
-                'p.name as paciente',
-                'p.rut as rut_paciente',
-                'uc.name as clinica',
-                'so.id as profesional_id',
-                'so.rut as profesional_rut',
-                'so.id_externo as profesional_id_externo',
-                'uo.name as profesional',
-                'uo.email as mail_odontologo'
-            )
+            ->select('o.*', 'p.name as paciente', 'p.rut as rut_paciente', 'uc.name as clinica')
             ->first();
 
         if (! $order) return response()->json(['error' => 'Orden no encontrada.'], 404);
@@ -145,57 +87,35 @@ class OrderController extends Controller
         $examenes = DB::table('examinations as e')
             ->join('examination_order as eo', 'eo.examination_id', '=', 'e.id')
             ->join('kinds as k', 'k.id', '=', 'e.kind_id')
-            ->leftJoin('order_staff_exam as ose', function ($join) {
-                $join->on('ose.order_id', '=', 'eo.order_id')
-                    ->on('ose.group_exam', '=', 'k.group');
-            })
-            ->leftJoin('staffs as sr', 'sr.id', '=', 'ose.staff_id')
-            ->leftJoin('users as ur', 'ur.id', '=', 'sr.user_id')
             ->where('eo.order_id', $id)
-            ->select(
-                'e.id',
-                'e.kind_id as id_tipo_examen',
-                'e.url_texto',
-                'k.descipcion as tipo_examen',
-                'k.descipcion as descripcion',
-                'k.group as grupo',
-                'ur.name as radiologo',
-                'sr.rut as rut_radiologo',
-                'ose.respondida'
-            )
-            ->selectRaw('case when ose.respondida = 0 then 1 else 0 end as respondible')
+            ->select('e.id', 'k.descipcion as descripcion', 'k.group as grupo', 'e.url_texto')
             ->get()
             ->map(function ($e) {
                 $archivos = DB::table('files')
                     ->where('examination_id', $e->id)
-                    ->get(['id', 'name', 'extension', 'file_size', 'desde_informar', 'ruta', 'ruta_dcm'])
+                    ->get(['id', 'name', 'extension', 'file_size', 'desde_informar'])
                     ->map(fn ($f) => [
-                        'id'             => $f->id,
-                        'name'           => $f->name,
-                        'extension'      => $f->extension,
-                        'file_size'      => $f->file_size,
-                        'desde_informar' => (bool) $f->desde_informar,
-                        'ruta'           => rtrim(env('RUTA_IMG', ''), '/') . '/' . ltrim($f->ruta ?? '', '/'),
-                        'ruta_dcm'       => $f->ruta_dcm ? rtrim(env('RUTA_IMG', ''), '/') . '/' . ltrim($f->ruta_dcm, '/') : null,
+                        'id'            => $f->id,
+                        'name'          => $f->name,
+                        'extension'     => $f->extension,
+                        'file_size'     => $f->file_size,
+                        'desde_informar'=> (bool) $f->desde_informar,
                     ]);
 
                 $respuesta = DB::table('answers')
                     ->where('examination_id', $e->id)
-                    ->first();
+                    ->first(['campo_1', 'solo_adjunto']);
 
                 return [
-                    'id'             => $e->id,
-                    'id_tipo_examen' => $e->id_tipo_examen,
-                    'tipo_examen'    => $e->tipo_examen,
-                    'descripcion'    => $e->descripcion,
-                    'grupo'          => $e->grupo,
-                    'url_texto'      => $e->url_texto,
-                    'radiologo'      => $e->radiologo,
-                    'rut_radiologo'  => $e->rut_radiologo,
-                    'respondida'     => $e->respondida,
-                    'respondible'    => (int) $e->respondible,
-                    'archivos'       => $archivos,
-                    'respuesta'      => $respuesta,
+                    'id'          => $e->id,
+                    'descripcion' => $e->descripcion,
+                    'grupo'       => $e->grupo,
+                    'url_texto'   => $e->url_texto,
+                    'archivos'    => $archivos,
+                    'respuesta'   => $respuesta ? [
+                        'texto'        => $respuesta->campo_1,
+                        'solo_adjunto' => (bool) $respuesta->solo_adjunto,
+                    ] : null,
                 ];
             });
 
@@ -204,16 +124,6 @@ class OrderController extends Controller
             'paciente'        => $order->paciente,
             'rut_paciente'    => $order->rut_paciente,
             'clinica'         => $order->clinica,
-            'profesional_id'  => $order->profesional_id,
-            'profesional'     => $order->profesional,
-            'profesional_rut' => $order->profesional_rut,
-            'profesional_id_externo' => $order->profesional_id_externo,
-            'odontologo_id'   => $order->odontologo_id,
-            'rut_odontologo'  => $order->profesional_rut,
-            'mail_odontologo' => $order->mail_odontologo,
-            'odontologo'      => $order->profesional,
-            'odontologo_rut'  => $order->profesional_rut,
-            'odontologo_id_externo' => $order->profesional_id_externo,
             'diagnostico'     => $order->diagnostico,
             'observaciones'   => $order->observaciones,
             'prioridad'       => $order->prioridad,
@@ -222,16 +132,6 @@ class OrderController extends Controller
             'enviada'         => $order->enviada,
             'respondida'      => $order->respondida,
             'created_at'      => $order->created_at,
-            'clinic_id'       => $order->clinic_id,
-            'fecha_creacion'  => $order->created_at,
-            'fecha_envio'     => $order->enviada,
-            'fecha_respuesta' => $order->respondida,
-            'estado_radiologo'=> $order->estadoradiologo,
-            'estado_odontologo'=> $order->estadoodontologo,
-            'observaciones_informe' => $order->observaciones_2 ?? '',
-            'editable'        => ((int)$order->estadoradiologo === 4) ? 1 : 0,
-            'visitable'       => ((int)$order->estadoradiologo === 1) ? 1 : 0,
-            'answers_mapping' => new \stdClass(),
             'examenes'        => $examenes,
         ]);
     }

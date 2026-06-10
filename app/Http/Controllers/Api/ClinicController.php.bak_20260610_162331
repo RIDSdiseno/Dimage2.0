@@ -11,16 +11,12 @@ class ClinicController extends Controller
     // GET /api/v3/clinic/by-holding
     public function listByHolding(Request $request)
     {
-        $apiKey = $request->header('X-API-KEY');
-
-        $holdingId = \DB::table('holding_apikey')
-            ->where('apikey', $apiKey)
-            ->where('activo', 1)
-            ->value('holding_id');
+        $holdingId = $request->attributes->get('holding_id');
 
         $clinics = \DB::table('clinics')
+            ->join('clinic_holding', 'clinic_holding.clinic_id', '=', 'clinics.id')
             ->join('users as u', 'u.id', '=', 'clinics.user_id')
-            ->where('clinics.holding_id', $holdingId)
+            ->where('clinic_holding.holding_id', $holdingId)
             ->select(
                 'clinics.id',
                 'u.name',

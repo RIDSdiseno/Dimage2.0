@@ -145,57 +145,35 @@ class OrderController extends Controller
         $examenes = DB::table('examinations as e')
             ->join('examination_order as eo', 'eo.examination_id', '=', 'e.id')
             ->join('kinds as k', 'k.id', '=', 'e.kind_id')
-            ->leftJoin('order_staff_exam as ose', function ($join) {
-                $join->on('ose.order_id', '=', 'eo.order_id')
-                    ->on('ose.group_exam', '=', 'k.group');
-            })
-            ->leftJoin('staffs as sr', 'sr.id', '=', 'ose.staff_id')
-            ->leftJoin('users as ur', 'ur.id', '=', 'sr.user_id')
             ->where('eo.order_id', $id)
-            ->select(
-                'e.id',
-                'e.kind_id as id_tipo_examen',
-                'e.url_texto',
-                'k.descipcion as tipo_examen',
-                'k.descipcion as descripcion',
-                'k.group as grupo',
-                'ur.name as radiologo',
-                'sr.rut as rut_radiologo',
-                'ose.respondida'
-            )
-            ->selectRaw('case when ose.respondida = 0 then 1 else 0 end as respondible')
+            ->select('e.id', 'k.descipcion as descripcion', 'k.group as grupo', 'e.url_texto')
             ->get()
             ->map(function ($e) {
                 $archivos = DB::table('files')
                     ->where('examination_id', $e->id)
-                    ->get(['id', 'name', 'extension', 'file_size', 'desde_informar', 'ruta', 'ruta_dcm'])
+                    ->get(['id', 'name', 'extension', 'file_size', 'desde_informar'])
                     ->map(fn ($f) => [
-                        'id'             => $f->id,
-                        'name'           => $f->name,
-                        'extension'      => $f->extension,
-                        'file_size'      => $f->file_size,
-                        'desde_informar' => (bool) $f->desde_informar,
-                        'ruta'           => rtrim(env('RUTA_IMG', ''), '/') . '/' . ltrim($f->ruta ?? '', '/'),
-                        'ruta_dcm'       => $f->ruta_dcm ? rtrim(env('RUTA_IMG', ''), '/') . '/' . ltrim($f->ruta_dcm, '/') : null,
+                        'id'            => $f->id,
+                        'name'          => $f->name,
+                        'extension'     => $f->extension,
+                        'file_size'     => $f->file_size,
+                        'desde_informar'=> (bool) $f->desde_informar,
                     ]);
 
                 $respuesta = DB::table('answers')
                     ->where('examination_id', $e->id)
-                    ->first();
+                    ->first(['campo_1', 'solo_adjunto']);
 
                 return [
-                    'id'             => $e->id,
-                    'id_tipo_examen' => $e->id_tipo_examen,
-                    'tipo_examen'    => $e->tipo_examen,
-                    'descripcion'    => $e->descripcion,
-                    'grupo'          => $e->grupo,
-                    'url_texto'      => $e->url_texto,
-                    'radiologo'      => $e->radiologo,
-                    'rut_radiologo'  => $e->rut_radiologo,
-                    'respondida'     => $e->respondida,
-                    'respondible'    => (int) $e->respondible,
-                    'archivos'       => $archivos,
-                    'respuesta'      => $respuesta,
+                    'id'          => $e->id,
+                    'descripcion' => $e->descripcion,
+                    'grupo'       => $e->grupo,
+                    'url_texto'   => $e->url_texto,
+                    'archivos'    => $archivos,
+                    'respuesta'   => $respuesta ? [
+                        'texto'        => $respuesta->campo_1,
+                        'solo_adjunto' => (bool) $respuesta->solo_adjunto,
+                    ] : null,
                 ];
             });
 
@@ -222,16 +200,6 @@ class OrderController extends Controller
             'enviada'         => $order->enviada,
             'respondida'      => $order->respondida,
             'created_at'      => $order->created_at,
-            'clinic_id'       => $order->clinic_id,
-            'fecha_creacion'  => $order->created_at,
-            'fecha_envio'     => $order->enviada,
-            'fecha_respuesta' => $order->respondida,
-            'estado_radiologo'=> $order->estadoradiologo,
-            'estado_odontologo'=> $order->estadoodontologo,
-            'observaciones_informe' => $order->observaciones_2 ?? '',
-            'editable'        => ((int)$order->estadoradiologo === 4) ? 1 : 0,
-            'visitable'       => ((int)$order->estadoradiologo === 1) ? 1 : 0,
-            'answers_mapping' => new \stdClass(),
             'examenes'        => $examenes,
         ]);
     }
