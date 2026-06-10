@@ -174,7 +174,7 @@ class ContraloriaController extends Controller
 
     public function addArchive(Request $request, $id): RedirectResponse
     {
-        $request->validate(['archivos.*' => ['file', 'max:51200']]);
+        $request->validate(['archivos.*' => ['file', 'max:3145728']]);
 
         abort_if(!DB::table('accounts')->where('id', $id)->exists(), 404);
 

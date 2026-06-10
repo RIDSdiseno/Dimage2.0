@@ -289,7 +289,7 @@ const visorUrl = computed(() => {
     // Single DCM: pass the serve URL with filename for dwv type detection
     const fname = encodeURIComponent(props.file.name || `file.${ext.value || 'bin'}`);
     const params = new URLSearchParams({
-        file: `/archivos/${props.file.id}/${fname}`,
+        url: `/archivos/${props.file.id}/${fname}`,
         name: props.file.name || 'DICOM',
     });
     return `${base}?${params.toString()}`;

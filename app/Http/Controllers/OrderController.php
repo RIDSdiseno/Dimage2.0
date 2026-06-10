@@ -47,6 +47,11 @@ class OrderController extends Controller
             $urlMap  = [];
 
             if ($file->ruta_dcm && $file->ruta_dcm !== 'processing') {
+                if (in_array(strtolower(pathinfo($file->ruta_dcm, PATHINFO_EXTENSION)), ['dcm', 'dicom'], true)) {
+                    $fileUrl = Storage::disk('s3')->temporaryUrl($file->ruta_dcm, now()->addHours(2));
+                    return view('visor3d', compact('fileUrl', 'name', 'urlMap'));
+                }
+
                 // CBCT series: pre-generate signed S3 URLs for every slice so
                 // the JS XHR interceptor can bypass the PHP proxy entirely.
                 $baseProxy = "{$base}/archivos/{$id}/dcm";
@@ -72,10 +77,18 @@ class OrderController extends Controller
                     }
                 } else {
                     // No DCM slices in prefix — serve file directly (ZIP fallback)
-                    $fileUrl = "{$base}/archivos/{$id}/" . rawurlencode(basename($file->ruta));
+                    try {
+                        $fileUrl = Storage::disk('s3')->temporaryUrl($file->ruta, now()->addHours(2));
+                    } catch (\Throwable) {
+                        $fileUrl = "{$base}/archivos/{$id}/" . rawurlencode(basename($file->ruta));
+                    }
                 }
             } else {
-                $fileUrl = "{$base}/archivos/{$id}/" . rawurlencode(basename($file->ruta));
+                try {
+                        $fileUrl = Storage::disk('s3')->temporaryUrl($file->ruta, now()->addHours(2));
+                    } catch (\Throwable) {
+                        $fileUrl = "{$base}/archivos/{$id}/" . rawurlencode(basename($file->ruta));
+                    }
             }
 
             return view('visor3d', compact('fileUrl', 'name', 'urlMap'));

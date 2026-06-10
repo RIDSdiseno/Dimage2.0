@@ -37,10 +37,23 @@ class PatientController extends Controller
             'id_externo'    => ['nullable', 'string', 'max:100'],
         ]);
 
-        $id = DB::table('patients')->insertGetId(array_merge($data, [
-            'created_at' => now(),
-            'updated_at' => now(),
-        ]));
+        $id = DB::table('patients')->insertGetId([
+            'rut'           => $data['rut'],
+            'name'          => $data['name'],
+            'email'         => $data['email'] ?? '',
+            'celphone'      => $data['celphone'] ?? '',
+            'housephone'    => $data['housephone'] ?? '',
+            'workphone'     => '',
+            'address'       => $data['address'] ?? '',
+            'lat'           => '',
+            'long'          => '',
+            'dateofbirth'   => $data['dateofbirth'] ?? '',
+            'tutorname'     => $data['tutorname'] ?? '',
+            'tutorrelation' => $data['tutorrelation'] ?? '0',
+            'id_externo'    => $data['id_externo'] ?? '0',
+            'created_at'    => now(),
+            'updated_at'    => now(),
+        ]);
 
         $patient = DB::table('patients')->where('id', $id)->first();
 

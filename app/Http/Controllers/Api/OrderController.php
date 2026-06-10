@@ -78,8 +78,20 @@ class OrderController extends Controller
             ->join('patients as p', 'p.id', '=', 'o.patient_id')
             ->join('clinics as c', 'c.id', '=', 'o.clinic_id')
             ->join('users as uc', 'uc.id', '=', 'c.user_id')
+            ->leftJoin('staffs as so', 'so.id', '=', 'o.odontologo_id')
+            ->leftJoin('users as uo', 'uo.id', '=', 'so.user_id')
             ->where('o.id', $id)
-            ->select('o.*', 'p.name as paciente', 'p.rut as rut_paciente', 'uc.name as clinica')
+            ->select(
+                'o.*',
+                'p.name as paciente',
+                'p.rut as rut_paciente',
+                'uc.name as clinica',
+                'so.id as profesional_id',
+                'so.rut as profesional_rut',
+                'so.id_externo as profesional_id_externo',
+                'uo.name as profesional',
+                'uo.email as mail_odontologo'
+            )
             ->first();
 
         if (! $order) return response()->json(['error' => 'Orden no encontrada.'], 404);
@@ -124,6 +136,16 @@ class OrderController extends Controller
             'paciente'        => $order->paciente,
             'rut_paciente'    => $order->rut_paciente,
             'clinica'         => $order->clinica,
+            'profesional_id'  => $order->profesional_id,
+            'profesional'     => $order->profesional,
+            'profesional_rut' => $order->profesional_rut,
+            'profesional_id_externo' => $order->profesional_id_externo,
+            'odontologo_id'   => $order->odontologo_id,
+            'rut_odontologo'  => $order->profesional_rut,
+            'mail_odontologo' => $order->mail_odontologo,
+            'odontologo'      => $order->profesional,
+            'odontologo_rut'  => $order->profesional_rut,
+            'odontologo_id_externo' => $order->profesional_id_externo,
             'diagnostico'     => $order->diagnostico,
             'observaciones'   => $order->observaciones,
             'prioridad'       => $order->prioridad,

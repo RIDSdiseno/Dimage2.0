@@ -16,7 +16,7 @@ class ClinicController extends Controller
         $clinics = DB::table('clinics as c')
             ->join('users as u', 'u.id', '=', 'c.user_id')
             ->where('c.holding_id', $holdingId)
-            ->select('c.id', 'u.name', 'c.address', 'c.phone1', 'c.phone2', 'c.email')
+            ->select('c.id', 'u.name', 'c.address', 'c.telephoneone as phone1', 'c.telephonetwo as phone2', 'u.email')
             ->orderBy('u.name')
             ->get()
             ->map(fn ($c) => [
