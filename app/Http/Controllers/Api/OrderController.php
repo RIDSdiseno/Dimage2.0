@@ -719,19 +719,20 @@ class OrderController extends Controller
      */
     private function normalizeExt(?string $ext, ?string $name = null, ?string $ruta = null): string
     {
+        $clean = '';
         if ($ext) {
             $clean = strtolower(ltrim(trim((string) $ext), '.'));
-            if ($clean !== '') return $clean;
         }
         // Try the ruta (S3 file path) — most reliable for legacy records with empty extension
-        if ($ruta && preg_match('/\.([a-z0-9]{1,5})$/i', $ruta, $m)) {
-            return strtolower($m[1]);
+        if ($clean === '' && $ruta && preg_match('/\.([a-z0-9]{1,5})$/i', $ruta, $m)) {
+            $clean = strtolower($m[1]);
         }
         // Fall back to name only if it ends with a real dotted extension
-        if ($name && preg_match('/\.([a-z0-9]{1,5})$/i', $name, $m)) {
-            return strtolower($m[1]);
+        if ($clean === '' && $name && preg_match('/\.([a-z0-9]{1,5})$/i', $name, $m)) {
+            $clean = strtolower($m[1]);
         }
-        return '';
+        // Normalize common aliases so consumers don't need to handle both variants
+        return ['jpeg' => 'jpg', 'tiff' => 'tif'][$clean] ?? $clean;
     }
 
     private function isImageExt(?string $ext, ?string $name = null, ?string $ruta = null): bool
