@@ -16,7 +16,7 @@
                     </a>
                 </nav>
                 <div class="flex items-center gap-3 shrink-0">
-                    <a href="https://app.dimage.cl/revisar-orden" target="_blank"
+                    <a :href="route('paciente.login')"
                         class="hidden sm:inline-flex items-center px-4 py-2 rounded-lg border border-gray-200 text-sm font-semibold text-gray-600 hover:border-gray-400 transition">
                         Acceso Pacientes
                     </a>
@@ -170,6 +170,6 @@ const navLinks = [
     { label: 'Quiénes Somos',     href: 'https://www.dimage.cl/quienes-somos/' },
     { label: 'Plataforma Morfox', href: 'https://www.dimage.cl/plataforma-morfox/' },
     { label: 'Contacto',          href: 'https://www.dimage.cl/contacto/' },
-    { label: 'Acceso Pacientes',  href: 'https://app.dimage.cl/revisar-orden' },
+    { label: 'Acceso Pacientes',  href: '/revisar-orden' },
 ];
 </script>

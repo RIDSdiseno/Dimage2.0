@@ -29,11 +29,11 @@ Route::post('logout', [AuthController::class, 'logout'])->name('logout')->middle
 Route::post('/region', [RegionController::class, 'update'])->name('region.update')->middleware('auth');
 
 // Portal de pacientes (público — sin autenticación de staff)
-Route::get('/paciente',                 [PatientPortalController::class, 'showLogin'])->name('paciente.login');
-Route::post('/paciente/login',          [PatientPortalController::class, 'login'])->name('paciente.auth');
-Route::post('/paciente/logout',         [PatientPortalController::class, 'logout'])->name('paciente.logout');
-Route::get('/paciente/orden/{id}',      [PatientPortalController::class, 'show'])->name('paciente.show');
-Route::get('/paciente/orden/{id}/pdf',  [PatientPortalController::class, 'pdf'])->name('paciente.pdf');
+Route::get('/revisar-orden',                 [PatientPortalController::class, 'showLogin'])->name('paciente.login');
+Route::post('/revisar-orden/login',          [PatientPortalController::class, 'login'])->name('paciente.auth');
+Route::post('/revisar-orden/logout',         [PatientPortalController::class, 'logout'])->name('paciente.logout');
+Route::get('/revisar-orden/{id}',            [PatientPortalController::class, 'show'])->name('paciente.show');
+Route::get('/revisar-orden/{id}/pdf',        [PatientPortalController::class, 'pdf'])->name('paciente.pdf');
 
 // App (autenticado)
 Route::middleware(['auth'])->group(function () {

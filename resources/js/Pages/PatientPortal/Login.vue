@@ -72,7 +72,7 @@
             </div>
 
             <p style="text-align:center; margin-top:20px; font-size:12px; color:#475569;">
-                ¿Eres profesional? <a href="/login" style="color:#60a5fa; text-decoration:none; font-weight:500;">Ingresar aquí</a>
+                ¿Eres profesional? <a :href="route('login')" style="color:#60a5fa; text-decoration:none; font-weight:500;">Ingresar aquí</a>
             </p>
         </div>
     </div>
