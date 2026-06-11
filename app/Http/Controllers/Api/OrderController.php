@@ -793,17 +793,34 @@ class OrderController extends Controller
     /**
      * Extrae url_texto de un item de examen enviado por DentalSoft.
      * Acepta tanto `url_texto` (string) como `trazados` (array o string).
+     * Normaliza los valores cortos de DentalSoft ("rickets") al formato
+     * completo que usa Dimage ("Análisis Rickets").
      */
     private function extractUrlTexto(array $ex): ?string
     {
+        // DentalSoft envía nombres en minúsculas sin prefijo
+        $map = [
+            'rickets'  => 'Análisis Rickets',
+            'roth'     => 'Análisis Roth',
+            'jaraback' => 'Análisis Jaraback',
+            'steiner'  => 'Análisis Steiner',
+            'mcnamara' => 'Análisis Mcnamara',
+            'otros'    => 'Otros',
+        ];
+
         if (array_key_exists('url_texto', $ex)) {
             return $ex['url_texto'] ?: null;
         }
         if (array_key_exists('trazados', $ex)) {
             $t = $ex['trazados'];
             if (is_array($t)) {
-                $joined = implode(',', array_filter($t, fn($v) => is_string($v) && $v !== ''));
-                return $joined ?: null;
+                $parts = array_values(array_filter(array_map(function ($v) use ($map) {
+                    $v = trim((string) $v);
+                    if ($v === '') return null;
+                    // Normalizar: "rickets" → "Análisis Rickets"; ya formateado queda igual
+                    return $map[strtolower($v)] ?? $v;
+                }, $t)));
+                return $parts ? implode(',', $parts) : null;
             }
             return is_string($t) && $t !== '' ? $t : null;
         }
