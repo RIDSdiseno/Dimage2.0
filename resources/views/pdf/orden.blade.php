@@ -132,14 +132,14 @@ if (!function_exists('pdfDienteTable')) {
             @if(!empty($r['informe_impresion']))<p style="margin-top:4px;"><strong>Impresión Diagnóstica:</strong></p><p>{{ $r['informe_impresion'] }}</p> @endif
             <hr style="border:none;border-top:1px solid #e2e8f0;margin:8px 0;">
           @endif
-          @php $hasPanoMax = !empty($r['campo_2'])||!empty($r['campo_3'])||!empty($r['campo_4'])||!empty($r['campo_5'])||collect(array_merge($pmx,$tmx))->contains(fn($d)=>!empty($r["diente_{$d}"]));
-               $hasPanoMan = !empty($r['campo_6'])||!empty($r['campo_7'])||!empty($r['campo_8'])||!empty($r['campo_9'])||collect(array_merge($pmn,$tmn))->contains(fn($d)=>!empty($r["diente_{$d}"])); @endphp
+          @php $hasPanoMax = !empty($r['campo_2'])||!empty($r['campo_3'])||!empty($r['campo_5'])||!empty($r['campo_8'])||collect(array_merge($pmx,$tmx))->contains(fn($d)=>!empty($r["diente_{$d}"]));
+               $hasPanoMan = !empty($r['campo_6'])||!empty($r['campo_7'])||!empty($r['campo_9'])||!empty($r['campo_4'])||collect(array_merge($pmn,$tmn))->contains(fn($d)=>!empty($r["diente_{$d}"])); @endphp
           @if($hasPanoMax)
             <p style="font-weight:700;border-bottom:1px solid #e2e8f0;padding-bottom:2px;margin-bottom:5px;">Maxilar</p>
             @if(!empty($r['campo_2'])) <p><strong>Nivel Óseo Marginal:</strong> {{ $r['campo_2'] }}</p> @endif
             @if(!empty($r['campo_3'])) <p><strong>Cálculo dentario marginal:</strong> {{ $r['campo_3'] }}</p> @endif
-            @if(!empty($r['campo_4'])) <p><strong>Dientes Ausentes:</strong> {{ $r['campo_4'] }}</p> @endif
-            @if(!empty($r['campo_5'])) <p><strong>Observaciones:</strong> {{ $r['campo_5'] }}</p> @endif
+            @if(!empty($r['campo_5'])) <p><strong>Dientes Ausentes:</strong> {{ $r['campo_5'] }}</p> @endif
+            @if(!empty($r['campo_8'])) <p><strong>Observaciones:</strong> {{ $r['campo_8'] }}</p> @endif
             @php $t=pdfDienteTable($pmx,(array)$r); @endphp @if($t)<p style="margin-top:5px;font-weight:600;font-size:10px;color:#475569;">Permanentes:</p>{!! $t !!}@endif
             @php $t=pdfDienteTable($tmx,(array)$r); @endphp @if($t)<p style="margin-top:5px;font-weight:600;font-size:10px;color:#475569;">Temporales:</p>{!! $t !!}@endif
           @endif
@@ -147,8 +147,8 @@ if (!function_exists('pdfDienteTable')) {
             <p style="font-weight:700;border-bottom:1px solid #e2e8f0;padding-bottom:2px;margin-bottom:5px;margin-top:8px;">Mandíbula</p>
             @if(!empty($r['campo_6'])) <p><strong>Nivel Óseo Marginal:</strong> {{ $r['campo_6'] }}</p> @endif
             @if(!empty($r['campo_7'])) <p><strong>Cálculo dentario marginal:</strong> {{ $r['campo_7'] }}</p> @endif
-            @if(!empty($r['campo_8'])) <p><strong>Dientes Ausentes:</strong> {{ $r['campo_8'] }}</p> @endif
-            @if(!empty($r['campo_9'])) <p><strong>Observaciones:</strong> {{ $r['campo_9'] }}</p> @endif
+            @if(!empty($r['campo_9'])) <p><strong>Dientes Ausentes:</strong> {{ $r['campo_9'] }}</p> @endif
+            @if(!empty($r['campo_4'])) <p><strong>Observaciones:</strong> {{ $r['campo_4'] }}</p> @endif
             @php $t=pdfDienteTable($pmn,(array)$r); @endphp @if($t)<p style="margin-top:5px;font-weight:600;font-size:10px;color:#475569;">Permanentes:</p>{!! $t !!}@endif
             @php $t=pdfDienteTable($tmn,(array)$r); @endphp @if($t)<p style="margin-top:5px;font-weight:600;font-size:10px;color:#475569;">Temporales:</p>{!! $t !!}@endif
           @endif
