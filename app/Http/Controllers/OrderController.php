@@ -1195,15 +1195,7 @@ class OrderController extends Controller
                     ->from('order_staff_exam as ose')
                     ->whereColumn('ose.order_id', 'orders.id')
                     ->where('ose.staff_id', $staffId);
-            })->where(function ($q) {
-                $q->whereIn('orders.estadoradiologo', [0, 1, 2])
-                  ->orWhere(function ($inner) {
-                      // Estado 4 (guardada) solo si la orden ya fue enviada alguna vez
-                      // Ej: radiólogo guarda borrador de informe, o corrección guardada
-                      $inner->where('orders.estadoradiologo', 4)
-                            ->whereNotNull('orders.enviada');
-                  });
-            });
+            })->whereIn('orders.estadoradiologo', [0, 1, 2, 4]);
 
             return;
         }
