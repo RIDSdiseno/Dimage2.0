@@ -208,6 +208,7 @@ class OrderController extends Controller
                         'extension'      => $f->extension,
                         'file_size'      => $f->file_size,
                         'desde_informar' => (bool) $f->desde_informar,
+                        'url'            => $this->apiFileUrl($f->ruta),
                         'ruta'           => $this->apiFileUrl($f->ruta),
                         'ruta_dcm'       => $f->ruta_dcm ? $this->apiFileUrl($f->ruta_dcm) : null,
                     ]);
