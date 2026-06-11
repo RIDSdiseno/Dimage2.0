@@ -17,6 +17,7 @@ use App\Http\Controllers\HomeController;
 use App\Http\Controllers\OrderController;
 use App\Http\Controllers\PatientController;
 use App\Http\Controllers\NotificacionesController;
+use App\Http\Controllers\PatientPortalController;
 use Illuminate\Support\Facades\Route;
 
 // Auth
@@ -26,6 +27,13 @@ Route::post('logout', [AuthController::class, 'logout'])->name('logout')->middle
 
 // Selector de región (sesión) — disponible sin auth para evitar problemas de redirect
 Route::post('/region', [RegionController::class, 'update'])->name('region.update')->middleware('auth');
+
+// Portal de pacientes (público — sin autenticación de staff)
+Route::get('/paciente',                 [PatientPortalController::class, 'showLogin'])->name('paciente.login');
+Route::post('/paciente/login',          [PatientPortalController::class, 'login'])->name('paciente.auth');
+Route::post('/paciente/logout',         [PatientPortalController::class, 'logout'])->name('paciente.logout');
+Route::get('/paciente/orden/{id}',      [PatientPortalController::class, 'show'])->name('paciente.show');
+Route::get('/paciente/orden/{id}/pdf',  [PatientPortalController::class, 'pdf'])->name('paciente.pdf');
 
 // App (autenticado)
 Route::middleware(['auth'])->group(function () {
