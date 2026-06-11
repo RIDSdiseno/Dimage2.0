@@ -263,8 +263,8 @@
                                     <div v-if="examen.respuesta.solo_adjunto && !examen.respuesta.campo_1 && !examen.respuesta.campo_2"
                                         class="text-xs text-gray-400 italic mb-2">Informe adjunto como archivo.</div>
 
-                                    <!-- Panorámica -->
-                                    <template v-if="examen.respuesta.informe_examen || examen.respuesta.informe_libre || examen.respuesta.informe_impresion">
+                                    <!-- Legacy: informe libre / impresión (solo exámenes no-Panorámica) -->
+                                    <template v-if="examen.kind_id != 15 && (examen.respuesta.informe_examen || examen.respuesta.informe_libre || examen.respuesta.informe_impresion)">
                                         <div v-if="examen.respuesta.informe_examen" class="mb-3">
                                             <p class="text-xs font-semibold text-gray-500 uppercase mb-1">Examen</p>
                                             <div class="bg-green-50 border border-green-100 rounded-lg p-3 text-sm text-gray-700 whitespace-pre-wrap">{{ examen.respuesta.informe_examen }}</div>
@@ -335,6 +335,14 @@
                                                 </div>
                                             </div>
                                         </template>
+                                        <!-- Otros Datos -->
+                                        <div v-if="order.observaciones_2" class="border border-gray-100 rounded-xl overflow-hidden mb-3">
+                                            <div class="bg-gray-700 px-4 py-2"><h3 class="text-white font-semibold text-sm">Otros Datos</h3></div>
+                                            <div class="p-3">
+                                                <p class="text-xs font-semibold text-gray-500">Observaciones</p>
+                                                <p class="text-sm text-gray-700 whitespace-pre-wrap mt-1">{{ order.observaciones_2 }}</p>
+                                            </div>
+                                        </div>
                                     </template>
 
                                     <!-- Retro/BW: secciones Maxilar/Mandíbula con mapeo original campo_2-7 -->
