@@ -31,22 +31,19 @@
                 <div class="bg-white rounded-2xl shadow-xl p-8 w-80 text-center">
                     <i class="pi pi-cloud-upload text-4xl mb-3 block" style="color:#3452ff" />
                     <p class="text-sm font-semibold text-gray-800 mb-2">
-                        {{ uploadProgress < 100 ? 'Subiendo archivos...' : (form.action === 'enviar' ? 'Enviando orden al radiólogo...' : 'Guardando orden...') }}
+                        {{ uploadLabel || (uploadProgress < 99 ? 'Subiendo archivo...' : (form.action === 'enviar' ? 'Enviando orden...' : 'Guardando orden...')) }}
                     </p>
-                    <!-- Barra de progreso real durante el upload -->
                     <div class="w-full bg-gray-100 rounded-full h-2.5 overflow-hidden">
-                        <div v-if="uploadProgress < 100" class="h-2.5 rounded-full transition-all duration-300"
+                        <div v-if="uploadProgress < 99" class="h-2.5 rounded-full transition-all duration-300"
                             :style="`width:${uploadProgress}%; background:linear-gradient(90deg,#3452ff,#6366f1)`">
                         </div>
-                        <!-- Indeterminada: el servidor está procesando -->
                         <div v-else class="h-2.5 rounded-full"
                             style="background:linear-gradient(90deg,#3452ff,#6366f1); animation: progress-indeterminate 1.4s ease-in-out infinite;">
                         </div>
                     </div>
                     <p class="text-xs text-gray-400 mt-3">
-                        <template v-if="uploadProgress < 100">{{ uploadProgress }}% — Enviando datos...</template>
-                        <template v-else-if="hasCbctFiles">Guardando orden con archivos 3D/CBCT...</template>
-                        <template v-else>Procesando, por favor espere...</template>
+                        <template v-if="uploadProgress < 99">{{ uploadProgress }}% completado</template>
+                        <template v-else>Procesando en el servidor...</template>
                     </p>
                 </div>
             </div>
@@ -456,18 +453,15 @@ const onFilesSelect   = (examId, event) => {
 const onPiezasSelect  = (examId, piezas) => { examPiezas[examId]  = piezas; };
 const onUrlTextChange = (examId, val)   => { examUrlTexts[examId] = val; };
 
-// Submit
-const submitAction = (action) => {
+// Upload progreso label
+const uploadLabel = ref('');
+
+// Submit (async para poder await el upload de ZIP)
+const submitAction = async (action) => {
     form.action = action;
     fileError.value = null;
 
-    // Esperar a que terminen uploads CBCT en progreso
-    if (cbctStillUploading.value) {
-        fileError.value = 'Esperando que termine de subir el archivo 3D/CBCT...';
-        return;
-    }
-
-    // Al enviar a informar, verificar que cada examen tenga al menos un archivo
+    // Validación de archivos
     if (action === 'enviar') {
         const sinArchivo = form.examenes.filter(id => !examFiles[id]?.length);
         if (sinArchivo.length > 0) {
@@ -475,6 +469,63 @@ const submitAction = (action) => {
             return;
         }
     }
+
+    // Mostrar overlay inmediatamente
+    submitting.value     = true;
+    uploadProgress.value = 0;
+    uploadLabel.value    = '';
+
+    // Subir ZIPs CBCT que aún no tengan s3_path (ya sea eager o ahora)
+    const zipPendientes = [];
+    Object.entries(examFiles).forEach(([examId, files]) => {
+        const zip = files.find(f => f.name?.toLowerCase().endsWith('.zip'));
+        if (zip && !cbctUploads[examId]?.s3_path) {
+            zipPendientes.push({ examId, file: zip });
+        }
+    });
+
+    if (zipPendientes.length > 0) {
+        const csrf = document.querySelector('meta[name="csrf-token"]')?.content;
+        for (let i = 0; i < zipPendientes.length; i++) {
+            const { examId, file } = zipPendientes[i];
+            uploadLabel.value = `Subiendo archivo 3D/CBCT (${Math.round(file.size / 1024 / 1024)} MB)...`;
+            try {
+                await new Promise((resolve, reject) => {
+                    const fd = new FormData();
+                    fd.append('file', file);
+                    const xhr = new XMLHttpRequest();
+                    xhr.open('POST', route('archivos.cbct-temp'));
+                    if (csrf) xhr.setRequestHeader('X-CSRF-TOKEN', csrf);
+                    xhr.setRequestHeader('Accept', 'application/json');
+                    xhr.upload.onprogress = (e) => {
+                        if (e.lengthComputable) {
+                            const base = (i / zipPendientes.length) * 95;
+                            uploadProgress.value = Math.round(base + (e.loaded / e.total) * (95 / zipPendientes.length));
+                        }
+                    };
+                    xhr.onload = () => {
+                        if (xhr.status === 200) {
+                            const resp = JSON.parse(xhr.responseText);
+                            cbctUploads[examId] = { s3_path: resp.s3_path, filename: resp.filename, file_size: resp.file_size };
+                            resolve();
+                        } else {
+                            reject(new Error(`Error ${xhr.status}`));
+                        }
+                    };
+                    xhr.onerror = () => reject(new Error('Error de red'));
+                    xhr.send(fd);
+                });
+            } catch (err) {
+                fileError.value = `Error subiendo archivo 3D: ${err.message}`;
+                submitting.value = false;
+                uploadProgress.value = 0;
+                return;
+            }
+        }
+    }
+
+    uploadLabel.value    = action === 'enviar' ? 'Enviando orden al radiólogo...' : 'Guardando orden...';
+    uploadProgress.value = 99;
 
     const data = new FormData();
     data.append('clinic_id',      form.clinic_id);
@@ -500,22 +551,20 @@ const submitAction = (action) => {
             kindIds.forEach(k => data.append(`radiologo_assignments[${i}][kind_ids][]`, k));
         });
     } else if (form.radiologo_id) {
-        // Fallback: un radiólogo global para todos los exámenes
         data.append('radiologo_id', form.radiologo_id);
     }
 
     form.examenes.forEach(id => data.append('examenes[]', id));
 
-    // Adjuntar archivos, piezas y URLs por examen
+    // Archivos: ZIPs ya subidos → enviar ruta S3; resto → adjuntar normalmente
     Object.entries(examFiles).forEach(([examId, files]) => {
         files.forEach(file => {
-            const isZip = file.name?.toLowerCase().endsWith('.zip');
+            const isZip  = file.name?.toLowerCase().endsWith('.zip');
             const upload = cbctUploads[examId];
             if (isZip && upload?.s3_path) {
-                // Ya subido a S3 en segundo plano — solo enviar la ruta
                 data.append(`cbct_s3_path_${examId}`, upload.s3_path);
                 data.append(`cbct_s3_name_${examId}`, upload.filename || file.name);
-                data.append(`cbct_s3_size_${examId}`, upload.file_size || file.size);
+                data.append(`cbct_s3_size_${examId}`, String(upload.file_size || file.size));
             } else {
                 data.append(`files_${examId}[]`, file);
             }
@@ -528,14 +577,10 @@ const submitAction = (action) => {
         if (url) data.append(`url_${examId}`, url);
     });
 
-    submitting.value    = true;
-    uploadProgress.value = 0;
     router.post(route('ordenes.store'), data, {
         forceFormData: true,
-        onProgress: (e) => { if (e.percentage) uploadProgress.value = Math.min(99, Math.round(e.percentage)); },
-        onSuccess:  ()       => { uploadProgress.value = 100; },
-        onError:    (errors) => { form.errors = errors; submitting.value = false; uploadProgress.value = 0; },
-        onFinish:   ()       => { submitting.value = false; },
+        onError:  (errors) => { form.errors = errors; submitting.value = false; uploadProgress.value = 0; },
+        onFinish: ()       => { submitting.value = false; },
     });
 };
 </script>
