@@ -208,8 +208,8 @@ class OrderController extends Controller
                         'extension'      => $f->extension,
                         'file_size'      => $f->file_size,
                         'desde_informar' => (bool) $f->desde_informar,
-                        'ruta'           => rtrim(env('RUTA_IMG', ''), '/') . '/' . ltrim($f->ruta ?? '', '/'),
-                        'ruta_dcm'       => $f->ruta_dcm ? rtrim(env('RUTA_IMG', ''), '/') . '/' . ltrim($f->ruta_dcm, '/') : null,
+                        'ruta'           => $this->apiFileUrl($f->ruta),
+                        'ruta_dcm'       => $f->ruta_dcm ? $this->apiFileUrl($f->ruta_dcm) : null,
                     ]);
 
                 $respuesta = DB::table('answers')
@@ -361,11 +361,25 @@ class OrderController extends Controller
 
         $realExamId = $exam->examination_id;
 
+        \Log::info('UPLOAD_FILES_FIELDS', [
+            'all_keys'  => array_keys($request->all()),
+            'file_keys' => array_keys($request->allFiles()),
+        ]);
+
         $request->validate(['archivos' => ['required', 'array'], 'archivos.*' => ['file']]);
 
         $uploaded = [];
         foreach ($request->file('archivos', []) as $file) {
             $path = $file->store("orders/{$id}/examinations/{$realExamId}", 's3');
+            if ($path === false) {
+                \Log::error('UPLOAD_FILES_S3_FAIL', [
+                    'order_id'       => $id,
+                    'examination_id' => $realExamId,
+                    'filename'       => $file->getClientOriginalName(),
+                ]);
+                return response()->json(['error' => 'Error al subir archivo a S3.'], 500);
+            }
+            \Log::info('UPLOAD_FILES_S3_OK', ['path' => $path, 'name' => $file->getClientOriginalName()]);
             $fileId = DB::table('files')->insertGetId([
                 'examination_id' => $realExamId,
                 'name'           => $file->getClientOriginalName(),
@@ -695,5 +709,22 @@ class OrderController extends Controller
         return response()->json([
             'url' => route('ordenes.zip', $id),
         ]);
+    }
+
+    /**
+     * Devuelve una URL presignada de S3 válida por 2 horas para que DentalSoft
+     * pueda mostrar/descargar el archivo directamente sin autenticación de sesión.
+     * Si S3 no soporta URLs temporales (local/Minio), retorna la ruta cruda.
+     */
+    private function apiFileUrl(?string $ruta): ?string
+    {
+        if (!$ruta || $ruta === '0') {
+            return null;
+        }
+        try {
+            return Storage::disk('s3')->temporaryUrl($ruta, now()->addHours(2));
+        } catch (\Throwable) {
+            return $ruta;
+        }
     }
 }

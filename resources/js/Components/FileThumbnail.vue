@@ -122,8 +122,9 @@
                 style="width:100%; height:100%; object-fit:cover; display:block;"
                 @error="imgFailed = true" />
 
-            <a v-else :href="fileSrc" target="_blank"
-                style="display:flex; flex-direction:column; align-items:center; justify-content:center; width:100%; height:100%;"
+            <!-- Fallback genérico: linkea al proxy PHP (downloadUrl), no a la URL de S3 -->
+            <a v-else :href="downloadUrl" target="_blank"
+                style="display:flex; flex-direction:column; align-items:center; justify-content:center; width:100%; height:calc(100% - 30px);"
                 class="hover:bg-blue-50 transition-colors no-underline">
                 <i class="pi pi-file" style="font-size:3rem; color:#9ca3af;" />
                 <span style="font-size:11px; margin-top:6px; padding:0 6px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:130px; color:#6b7280; text-align:center;">
@@ -131,24 +132,23 @@
                 </span>
             </a>
 
-            <!-- Botones siempre visibles en la parte inferior -->
-            <div v-if="!imgFailed"
-                style="position:absolute; bottom:0; left:0; right:0; display:flex; justify-content:flex-end; gap:4px; padding:5px; background:rgba(0,0,0,0.45);">
+            <!-- Botones en la parte inferior — siempre visibles (incluso cuando imgFailed) -->
+            <div style="position:absolute; bottom:0; left:0; right:0; display:flex; justify-content:flex-end; gap:4px; padding:5px; background:rgba(0,0,0,0.45);">
                 <!-- Descargar -->
                 <a :href="downloadUrl" title="Descargar"
                     style="display:flex; align-items:center; justify-content:center; width:26px; height:26px; border-radius:5px; background:rgba(255,255,255,0.15); color:#fff; text-decoration:none;"
                     @click.stop>
                     <i class="pi pi-download" style="font-size:11px;" />
                 </a>
-                <!-- Herramientas: abre el visor con panel de herramientas -->
-                <button
+                <!-- Herramientas: abre el visor con panel de herramientas (solo si imagen cargó) -->
+                <button v-if="!imgFailed"
                     @click.stop="$emit('lightbox', { ...file, url: fileSrc })"
                     title="Ver con herramientas"
                     style="display:flex; align-items:center; justify-content:center; width:26px; height:26px; border-radius:5px; background:rgba(52,82,255,0.85); color:#fff; border:none; cursor:pointer;">
                     <i class="pi pi-wrench" style="font-size:11px;" />
                 </button>
-                <!-- Ampliar: abre la imagen en visor full-screen en nueva pestaña -->
-                <button
+                <!-- Ampliar: abre la imagen en visor full-screen en nueva pestaña (solo si imagen cargó) -->
+                <button v-if="!imgFailed"
                     @click.stop="openAmpliar"
                     title="Ampliar (nueva pestaña)"
                     style="display:flex; align-items:center; justify-content:center; width:26px; height:26px; border-radius:5px; background:rgba(255,255,255,0.15); color:#fff; border:none; cursor:pointer;">
