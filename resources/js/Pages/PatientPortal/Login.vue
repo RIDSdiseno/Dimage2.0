@@ -1,108 +1,182 @@
 <template>
-    <div style="min-height:100vh; background:linear-gradient(135deg,#0f172a 0%,#1e3a5f 50%,#0f172a 100%); display:flex; align-items:center; justify-content:center; padding:24px;">
-        <div style="width:100%; max-width:420px;">
+    <div class="min-h-screen flex flex-col" style="background:#fff;">
 
-            <!-- Logo / Branding -->
-            <div style="text-align:center; margin-bottom:32px;">
-                <div style="display:inline-flex; align-items:center; gap:10px; margin-bottom:8px;">
-                    <div style="width:40px; height:40px; border-radius:10px; background:#3452ff; display:flex; align-items:center; justify-content:center;">
-                        <i class="pi pi-image" style="color:#fff; font-size:20px;" />
-                    </div>
-                    <span style="font-size:22px; font-weight:700; color:#fff; letter-spacing:-0.5px;">Dimage</span>
+        <!-- ── Header ── -->
+        <header class="shrink-0 border-b border-gray-100 shadow-sm">
+            <div class="max-w-6xl mx-auto px-8 py-3 flex items-center justify-between gap-6">
+                <a href="https://www.dimage.cl/" target="_blank">
+                    <img src="/images/logo.png" alt="DIMAGE" class="h-12 object-contain" />
+                </a>
+                <!-- Nav desktop -->
+                <nav class="hidden lg:flex items-center gap-6">
+                    <a v-for="link in navLinks.slice(0, 4)" :key="link.label"
+                        :href="link.href" target="_blank"
+                        class="text-sm text-gray-500 hover:text-gray-800 transition-colors font-medium">
+                        {{ link.label }}
+                    </a>
+                </nav>
+                <div class="flex items-center gap-3 shrink-0">
+                    <a :href="route('login')"
+                        class="hidden sm:inline-flex items-center px-4 py-2 rounded-lg border border-gray-200 text-sm font-semibold text-gray-600 hover:border-gray-400 transition">
+                        Acceso Profesionales
+                    </a>
+                    <span class="px-4 py-2 rounded-lg text-sm font-semibold text-white"
+                        style="background:#1b96cc;">
+                        Acceso MorfoX
+                    </span>
                 </div>
-                <p style="color:#94a3b8; font-size:14px; margin:0;">Portal de Pacientes</p>
+            </div>
+        </header>
+
+        <!-- ── Cuerpo ── -->
+        <main class="flex-1 flex items-center justify-center px-6 py-14">
+            <div class="flex flex-col lg:flex-row items-center gap-16 w-full max-w-5xl">
+
+                <!-- Foto izquierda -->
+                <div class="hidden lg:block w-1/2 shrink-0">
+                    <img src="/images/agency.jpg" alt="Médicos"
+                        class="w-full object-cover rounded-lg shadow-md"
+                        style="height:360px;" />
+                </div>
+
+                <!-- Formulario derecha -->
+                <div class="flex-1 w-full max-w-sm">
+
+                    <!-- Flash / error de sesión expirada -->
+                    <div v-if="$page.props.errors?.session"
+                        class="flex items-center gap-2 px-4 py-3 rounded-lg border border-red-200 bg-red-50 text-red-700 text-sm mb-6">
+                        <i class="pi pi-exclamation-circle" />
+                        {{ $page.props.errors.session }}
+                    </div>
+
+                    <h2 class="text-3xl font-bold mb-2" style="color:#1b96cc;">
+                        Acceso Pacientes
+                    </h2>
+                    <p class="text-sm text-gray-500 mb-8">
+                        Ingresa tu RUT y el número de orden para ver tu informe radiológico.
+                    </p>
+
+                    <form @submit.prevent="submit" class="space-y-5">
+                        <!-- RUT -->
+                        <div>
+                            <label class="block text-sm font-medium text-gray-600 mb-1.5">RUT del paciente</label>
+                            <input
+                                v-model="form.rut"
+                                type="text"
+                                placeholder="Ej: 12.345.678-9"
+                                autocomplete="off"
+                                class="w-full px-4 py-2.5 rounded-lg border text-sm text-gray-800 outline-none transition"
+                                :class="errors.rut ? 'border-red-400 bg-red-50' : 'border-gray-300 focus:border-cyan-400'"
+                                @input="errors.rut = null"
+                            />
+                            <small v-if="errors.rut" class="text-red-500 mt-1 block">{{ errors.rut }}</small>
+                        </div>
+
+                        <!-- Número de orden -->
+                        <div>
+                            <label class="block text-sm font-medium text-gray-600 mb-1.5">Número de orden</label>
+                            <input
+                                v-model="form.orden_id"
+                                type="number"
+                                placeholder="Ej: 300196"
+                                min="1"
+                                class="w-full px-4 py-2.5 rounded-lg border text-sm text-gray-800 outline-none transition"
+                                :class="errors.orden_id ? 'border-red-400 bg-red-50' : 'border-gray-300 focus:border-cyan-400'"
+                                @input="errors.orden_id = null"
+                            />
+                            <small v-if="errors.orden_id" class="text-red-500 mt-1 block">{{ errors.orden_id }}</small>
+                        </div>
+
+                        <button
+                            type="submit"
+                            :disabled="loading"
+                            class="w-full py-2.5 rounded-lg text-white text-sm font-semibold transition flex items-center justify-content gap-2 justify-center"
+                            style="background:#1b96cc; border:none; cursor:pointer; height:44px; font-size:15px;"
+                            :style="loading ? 'opacity:0.7;cursor:not-allowed;' : ''">
+                            <i v-if="loading" class="pi pi-spin pi-spinner" />
+                            {{ loading ? 'Verificando...' : 'Ver mi orden' }}
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </main>
+
+        <!-- ── Footer 3 columnas (igual al login de profesionales) ── -->
+        <footer style="background:#0d0d0d;" class="shrink-0 pt-12 pb-6 px-8">
+            <div class="max-w-6xl mx-auto grid grid-cols-1 md:grid-cols-3 gap-12 mb-10">
+
+                <!-- Col 1 -->
+                <div>
+                    <div class="flex items-center gap-3 mb-5">
+                        <div class="rounded-lg overflow-hidden shrink-0" style="background:#fff; padding:4px;">
+                            <img src="/images/dimage_logo.png" alt="DIMAGE"
+                                class="h-9 w-9 object-contain block" />
+                        </div>
+                        <div>
+                            <div class="text-white font-bold tracking-widest leading-none">DIMAGE</div>
+                            <div class="text-gray-500 text-xs mt-0.5">Imagenología Oral y Maxilofacial</div>
+                        </div>
+                    </div>
+                    <p class="text-gray-500 text-sm leading-relaxed">
+                        Empresa innovadora dedicada al telediagnóstico imagenológico oral y maxilofacial
+                        que a través de nuestro software y servicio busca resolver las distintas necesidades
+                        en el área, complementando de manera eficiente y efectiva el trabajo de nuestros
+                        clientes y de esta forma ser parte de su equipo de trabajo.
+                    </p>
+                    <a href="https://www.linkedin.com/company/dimage" target="_blank"
+                        class="inline-flex mt-5 w-9 h-9 rounded-full items-center justify-center text-white hover:opacity-80 transition"
+                        style="background:#0077b5;">
+                        <i class="pi pi-linkedin text-sm" />
+                    </a>
+                </div>
+
+                <!-- Col 2 -->
+                <div>
+                    <h4 class="text-white text-xs font-semibold uppercase tracking-widest mb-5">Navegación</h4>
+                    <ul class="space-y-3">
+                        <li v-for="link in navLinks" :key="link.label">
+                            <a :href="link.href" target="_blank"
+                                class="text-gray-500 hover:text-white text-sm transition-colors">
+                                {{ link.label }}
+                            </a>
+                        </li>
+                    </ul>
+                </div>
+
+                <!-- Col 3 -->
+                <div>
+                    <h4 class="text-white text-xs font-semibold uppercase tracking-widest mb-5">¿Ya Eres Cliente?</h4>
+                    <div class="flex items-center gap-3 mb-5">
+                        <div class="w-9 h-9 rounded-full border border-gray-700 flex items-center justify-center shrink-0">
+                            <i class="pi pi-envelope text-gray-400 text-sm" />
+                        </div>
+                        <a href="mailto:contacto@dimage.cl" class="text-gray-400 hover:text-white text-sm transition-colors">
+                            contacto@dimage.cl
+                        </a>
+                    </div>
+                    <a href="https://wa.me/56912345678" target="_blank"
+                        class="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg text-white text-sm font-semibold hover:opacity-90 transition"
+                        style="background:#00bfa5;">
+                        SOPORTE MORFOX <i class="pi pi-whatsapp" />
+                    </a>
+                </div>
             </div>
 
-            <!-- Card -->
-            <div style="background:#fff; border-radius:16px; padding:32px; box-shadow:0 20px 60px rgba(0,0,0,0.4);">
-                <h1 style="font-size:20px; font-weight:700; color:#0f172a; margin:0 0 6px;">Ver mi orden</h1>
-                <p style="font-size:13px; color:#64748b; margin:0 0 24px;">Ingresa tu RUT y el número de orden para acceder a tu informe radiológico.</p>
-
-                <!-- Session error (post redirect) -->
-                <div v-if="sessionError"
-                    style="background:#fef2f2; border:1px solid #fecaca; border-radius:8px; padding:10px 14px; margin-bottom:20px; display:flex; align-items:center; gap:8px;">
-                    <i class="pi pi-exclamation-triangle" style="color:#ef4444; font-size:14px; flex-shrink:0;" />
-                    <span style="font-size:13px; color:#b91c1c;">{{ sessionError }}</span>
-                </div>
-
-                <form @submit.prevent="submit">
-                    <!-- RUT -->
-                    <div style="margin-bottom:18px;">
-                        <label style="display:block; font-size:13px; font-weight:600; color:#374151; margin-bottom:6px;">
-                            RUT del paciente
-                        </label>
-                        <input
-                            v-model="form.rut"
-                            type="text"
-                            placeholder="Ej: 12.345.678-9"
-                            autocomplete="off"
-                            :style="inputStyle(errors.rut)"
-                            @input="errors.rut = null"
-                        />
-                        <p v-if="errors.rut" style="margin:5px 0 0; font-size:12px; color:#ef4444;">{{ errors.rut }}</p>
-                    </div>
-
-                    <!-- Número de orden -->
-                    <div style="margin-bottom:24px;">
-                        <label style="display:block; font-size:13px; font-weight:600; color:#374151; margin-bottom:6px;">
-                            Número de orden
-                        </label>
-                        <input
-                            v-model="form.orden_id"
-                            type="number"
-                            placeholder="Ej: 300196"
-                            min="1"
-                            :style="inputStyle(errors.orden_id)"
-                            @input="errors.orden_id = null"
-                        />
-                        <p v-if="errors.orden_id" style="margin:5px 0 0; font-size:12px; color:#ef4444;">{{ errors.orden_id }}</p>
-                    </div>
-
-                    <!-- Submit -->
-                    <button
-                        type="submit"
-                        :disabled="loading"
-                        style="width:100%; padding:12px; border-radius:10px; background:#3452ff; color:#fff; font-size:15px; font-weight:600; border:none; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:8px; transition:background 0.15s;"
-                        @mouseover="e => e.currentTarget.style.background='#2541e0'"
-                        @mouseleave="e => e.currentTarget.style.background=loading?'#94a3b8':'#3452ff'">
-                        <i v-if="loading" class="pi pi-spin pi-spinner" style="font-size:15px;" />
-                        <span>{{ loading ? 'Verificando...' : 'Acceder a mi orden' }}</span>
-                    </button>
-                </form>
+            <div class="max-w-6xl mx-auto border-t border-gray-800 pt-6 flex flex-wrap items-center justify-between gap-3">
+                <p class="text-gray-600 text-xs">© {{ new Date().getFullYear() }} DIMAGE · Todos los derechos reservados.</p>
+                <p class="text-gray-700 text-xs">Telediagnóstico Imagenológico</p>
             </div>
-
-            <p style="text-align:center; margin-top:20px; font-size:12px; color:#475569;">
-                ¿Eres profesional? <a :href="route('login')" style="color:#60a5fa; text-decoration:none; font-weight:500;">Ingresar aquí</a>
-            </p>
-        </div>
+        </footer>
     </div>
 </template>
 
 <script setup>
-import { ref, computed } from 'vue';
-import { router, usePage } from '@inertiajs/vue3';
-
-const page = usePage();
-
-const sessionError = computed(() => page.props.errors?.session ?? null);
+import { ref } from 'vue';
+import { router } from '@inertiajs/vue3';
 
 const form = ref({ rut: '', orden_id: '' });
 const errors = ref({});
 const loading = ref(false);
-
-function inputStyle(hasError) {
-    return {
-        width: '100%',
-        padding: '10px 14px',
-        borderRadius: '8px',
-        border: `1.5px solid ${hasError ? '#ef4444' : '#d1d5db'}`,
-        fontSize: '14px',
-        color: '#0f172a',
-        outline: 'none',
-        boxSizing: 'border-box',
-        transition: 'border-color 0.15s',
-    };
-}
 
 function submit() {
     errors.value = {};
@@ -115,4 +189,11 @@ function submit() {
         onFinish: () => { loading.value = false; },
     });
 }
+
+const navLinks = [
+    { label: 'Inicio',            href: 'https://www.dimage.cl/' },
+    { label: 'Quiénes Somos',     href: 'https://www.dimage.cl/quienes-somos/' },
+    { label: 'Plataforma Morfox', href: 'https://www.dimage.cl/plataforma-morfox/' },
+    { label: 'Contacto',          href: 'https://www.dimage.cl/contacto/' },
+];
 </script>
