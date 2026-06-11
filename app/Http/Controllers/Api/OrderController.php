@@ -239,6 +239,16 @@ class OrderController extends Controller
 
         $order->examenes = $examenes;
 
+        \Log::info('BY_ID_EXAMENES_TRAZADOS', [
+            'order_id' => $order->id,
+            'examenes' => $examenes->map(fn($e) => [
+                'id'         => $e['id'],
+                'kind_id'    => $e['id_tipo_examen'],
+                'url_texto'  => $e['url_texto'],
+                'trazados'   => $e['trazados'],
+            ])->all(),
+        ]);
+
         return response()->json($order);
     }
 
@@ -658,6 +668,14 @@ class OrderController extends Controller
 
             $currentKindIds = $currentRows->pluck('kind_id');
 
+            \Log::info('UPDATE_EXAMENES_DEBUG', [
+                'has_examenes'    => $request->has('examenes'),
+                'newKindIds'      => $newKindIds->all(),
+                'currentKindIds'  => $currentKindIds->all(),
+                'intersect'       => $currentKindIds->intersect($newKindIds)->all(),
+                'newExams_raw'    => $newExams->all(),
+            ]);
+
             // Actualizar url_texto de examinations existentes cuando cambien los trazados
             foreach ($currentKindIds->intersect($newKindIds) as $kindId) {
                 $srcEx = $newExams->first(fn($e) => (int)($e['kind_id'] ?? $e['tipo'] ?? 0) === (int)$kindId);
@@ -666,6 +684,12 @@ class OrderController extends Controller
                 if (!array_key_exists('url_texto', $srcEx) && !array_key_exists('trazados', $srcEx)) continue;
                 $urlTexto = $this->extractUrlTexto($srcEx);
                 $row = $currentRows->first(fn($r) => $r->kind_id == $kindId);
+                \Log::info('UPDATE_URL_TEXTO', [
+                    'kindId'      => $kindId,
+                    'srcEx'       => $srcEx,
+                    'urlTexto'    => $urlTexto,
+                    'exam_id'     => $row?->examination_id,
+                ]);
                 if ($row) {
                     DB::table('examinations')->where('id', $row->examination_id)
                         ->update(['url_texto' => $urlTexto, 'updated_at' => now()]);
