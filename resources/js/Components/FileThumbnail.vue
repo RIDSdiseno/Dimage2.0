@@ -38,7 +38,7 @@
                     <span style="display:flex; align-items:center; justify-content:center; width:26px; height:26px; border-radius:5px; background:rgba(52,82,255,0.9); color:#fff;">
                         <i class="pi pi-eye" style="font-size:12px;" />
                     </span>
-                    <a :href="fileSrc" target="_blank" download title="Descargar"
+                    <a :href="downloadUrl" download title="Descargar ZIP"
                         style="display:flex; align-items:center; justify-content:center; width:26px; height:26px; border-radius:5px; background:rgba(255,255,255,0.15); color:#fff; text-decoration:none;"
                         @click.stop>
                         <i class="pi pi-download" style="font-size:12px;" />

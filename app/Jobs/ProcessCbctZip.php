@@ -21,6 +21,11 @@ class ProcessCbctZip implements ShouldQueue
 
     public function handle(): void
     {
+        // Preserve original ZIP path before processing so download() can serve it
+        DB::table('files')->where('id', $this->fileId)->update([
+            'nombre_dcm' => $this->zipS3Path,
+        ]);
+
         // Download ZIP from S3 to a local temp file
         $tmpZip = tempnam(sys_get_temp_dir(), 'cbct_') . '.zip';
 
@@ -78,10 +83,7 @@ class ProcessCbctZip implements ShouldQueue
                     'updated_at'=> now(),
                 ]);
 
-                // Remove the original ZIP from S3 to save space
-                try {
-                    Storage::disk('s3')->delete($this->zipS3Path);
-                } catch (\Throwable) {}
+                // ZIP kept on S3 so users can download the original file
             }
         } finally {
             @unlink($tmpZip);

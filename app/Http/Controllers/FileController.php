@@ -52,15 +52,20 @@ class FileController extends Controller
      */
     public function download(int $id): StreamedResponse
     {
-        $file = DB::table('files')->where('id', $id)->first(['ruta', 'name', 'extension']);
+        $file = DB::table('files')->where('id', $id)->first(['ruta', 'nombre_dcm', 'name', 'extension']);
         abort_if(!$file || !$file->ruta || $file->ruta === '0', 404);
 
-        $ext  = strtolower($file->extension ?? pathinfo($file->ruta, PATHINFO_EXTENSION));
+        // For processed CBCT series, serve the original ZIP (stored in nombre_dcm)
+        $rutaToServe = ($file->nombre_dcm && Storage::disk('s3')->exists($file->nombre_dcm))
+            ? $file->nombre_dcm
+            : $file->ruta;
+
+        $ext  = strtolower(pathinfo($rutaToServe, PATHINFO_EXTENSION) ?: ($file->extension ?? ''));
         $mime = $this->mime($ext);
-        $name = $file->name ?: basename($file->ruta);
+        $name = $file->name ?: basename($rutaToServe);
 
         try {
-            $stream = Storage::disk('s3')->readStream($file->ruta);
+            $stream = Storage::disk('s3')->readStream($rutaToServe);
         } catch (\Throwable) {
             abort(404);
         }
