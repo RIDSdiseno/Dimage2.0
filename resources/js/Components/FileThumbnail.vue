@@ -38,11 +38,17 @@
                     <span style="display:flex; align-items:center; justify-content:center; width:26px; height:26px; border-radius:5px; background:rgba(52,82,255,0.9); color:#fff;">
                         <i class="pi pi-eye" style="font-size:12px;" />
                     </span>
-                    <a :href="downloadUrl" download title="Descargar ZIP"
-                        style="display:flex; align-items:center; justify-content:center; width:26px; height:26px; border-radius:5px; background:rgba(255,255,255,0.15); color:#fff; text-decoration:none;"
-                        @click.stop>
-                        <i class="pi pi-download" style="font-size:12px;" />
-                    </a>
+                    <button :title="preparandoZip ? 'Preparando ZIP...' : 'Descargar ZIP'"
+                        style="display:flex; align-items:center; justify-content:center; width:26px; height:26px; border-radius:5px; background:rgba(255,255,255,0.15); color:#fff; border:none; cursor:pointer;"
+                        :style="preparandoZip ? 'background:rgba(96,165,250,0.4);cursor:wait;' : ''"
+                        @click.stop="descargarZip">
+                        <i :class="preparandoZip ? 'pi pi-spin pi-spinner' : 'pi pi-download'" style="font-size:12px;" />
+                    </button>
+                </div>
+                <!-- Etiqueta "Preparando..." flotante -->
+                <div v-if="preparandoZip"
+                    style="position:absolute; bottom:38px; right:4px; background:rgba(11,42,74,0.95); color:#93c5fd; font-size:9px; padding:3px 6px; border-radius:4px; white-space:nowrap; pointer-events:none;">
+                    Preparando ZIP...
                 </div>
             </a>
         </template>
@@ -177,10 +183,24 @@ const props = defineProps({
 
 const emit = defineEmits(['lightbox', 'extracted']);
 
-const imgFailed    = ref(false);
-const useServeUrl  = ref(false);
-const extracting   = ref(false);
-const extractMsg   = ref('');
+const imgFailed      = ref(false);
+const useServeUrl    = ref(false);
+const extracting     = ref(false);
+const extractMsg     = ref('');
+const preparandoZip  = ref(false);
+
+function descargarZip() {
+    if (preparandoZip.value) return;
+    preparandoZip.value = true;
+    const a = document.createElement('a');
+    a.href = downloadUrl.value;
+    a.download = '';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    // El servidor puede tardar hasta ~2 min en construir el ZIP desde los DCM
+    setTimeout(() => { preparandoZip.value = false; }, 120000);
+}
 
 function onImgError() {
     if (!useServeUrl.value && props.file.url) {
