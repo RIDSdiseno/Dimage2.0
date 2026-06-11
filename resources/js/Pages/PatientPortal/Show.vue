@@ -2,18 +2,15 @@
     <div style="min-height:100vh; background:#f1f5f9;">
 
         <!-- Header -->
-        <header style="background:#0f172a; padding:0 24px; height:56px; display:flex; align-items:center; justify-content:space-between; position:sticky; top:0; z-index:10;">
-            <div style="display:flex; align-items:center; gap:10px;">
-                <div style="width:32px; height:32px; border-radius:8px; background:#3452ff; display:flex; align-items:center; justify-content:center;">
-                    <i class="pi pi-image" style="color:#fff; font-size:16px;" />
-                </div>
-                <span style="font-size:16px; font-weight:700; color:#fff;">Dimage</span>
-                <span style="font-size:12px; color:#475569; margin-left:4px;">· Portal de Pacientes</span>
+        <header style="background:#fff; border-bottom:1px solid #e5e7eb; padding:0 24px; height:64px; display:flex; align-items:center; justify-content:space-between; position:sticky; top:0; z-index:10; box-shadow:0 1px 3px rgba(0,0,0,0.06);">
+            <div style="display:flex; align-items:center; gap:12px;">
+                <img src="/images/logo.png" alt="DIMAGE" style="height:44px; object-fit:contain;" />
+                <span style="font-size:12px; font-weight:600; color:#64748b; padding:2px 10px; border-radius:999px; background:#f1f5f9;">Portal de Pacientes</span>
             </div>
             <form method="POST" :action="route('paciente.logout')" @submit.prevent="logout">
                 <input type="hidden" name="_token" :value="csrf" />
                 <button type="submit"
-                    style="display:flex; align-items:center; gap:6px; padding:6px 14px; border-radius:8px; background:rgba(255,255,255,0.07); border:1px solid rgba(255,255,255,0.12); color:#cbd5e1; font-size:13px; cursor:pointer;">
+                    style="display:flex; align-items:center; gap:6px; padding:7px 16px; border-radius:8px; background:#f8fafc; border:1px solid #e2e8f0; color:#64748b; font-size:13px; font-weight:600; cursor:pointer;">
                     <i class="pi pi-sign-out" style="font-size:13px;" /> Cerrar sesión
                 </button>
             </form>
