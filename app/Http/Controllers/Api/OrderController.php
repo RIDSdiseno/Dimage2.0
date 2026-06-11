@@ -210,6 +210,7 @@ class OrderController extends Controller
                         'desde_informar' => (bool) $f->desde_informar,
                         'url'            => $this->apiFileUrl($f->ruta),
                         'ruta'           => $this->apiFileUrl($f->ruta),
+                        'download_url'   => $this->apiDownloadUrl($f->ruta, $f->name, $f->extension),
                         'ruta_dcm'       => $f->ruta_dcm ? $this->apiFileUrl($f->ruta_dcm) : null,
                     ]);
 
@@ -713,9 +714,7 @@ class OrderController extends Controller
     }
 
     /**
-     * Devuelve una URL presignada de S3 válida por 2 horas para que DentalSoft
-     * pueda mostrar/descargar el archivo directamente sin autenticación de sesión.
-     * Si S3 no soporta URLs temporales (local/Minio), retorna la ruta cruda.
+     * Presigned S3 URL para visualización inline (sin Content-Disposition).
      */
     private function apiFileUrl(?string $ruta): ?string
     {
@@ -726,6 +725,25 @@ class OrderController extends Controller
             return Storage::disk('s3')->temporaryUrl($ruta, now()->addHours(2));
         } catch (\Throwable) {
             return $ruta;
+        }
+    }
+
+    /**
+     * Presigned S3 URL con Content-Disposition: attachment para forzar descarga.
+     * DentalSoft puede usar este campo para mostrar un botón "Descargar".
+     */
+    private function apiDownloadUrl(?string $ruta, ?string $name = null, ?string $extension = null): ?string
+    {
+        if (!$ruta || $ruta === '0') {
+            return null;
+        }
+        try {
+            $filename = $name ?: ('archivo' . ($extension ? '.' . $extension : ''));
+            return Storage::disk('s3')->temporaryUrl($ruta, now()->addHours(2), [
+                'ResponseContentDisposition' => 'attachment; filename="' . rawurlencode($filename) . '"',
+            ]);
+        } catch (\Throwable) {
+            return $this->apiFileUrl($ruta);
         }
     }
 }
