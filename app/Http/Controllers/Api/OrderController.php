@@ -205,8 +205,8 @@ class OrderController extends Controller
                     ->map(fn ($f) => [
                         'id'             => $f->id,
                         'name'           => $f->name,
-                        'extension'      => $this->normalizeExt($f->extension, $f->name),
-                        'is_image'       => $this->isImageExt($f->extension, $f->name),
+                        'extension'      => $this->normalizeExt($f->extension, $f->name, $f->ruta),
+                        'is_image'       => $this->isImageExt($f->extension, $f->name, $f->ruta),
                         'file_size'      => $f->file_size,
                         'desde_informar' => (bool) $f->desde_informar,
                         'url'            => $this->apiFileUrl($f->ruta),
@@ -717,22 +717,27 @@ class OrderController extends Controller
     /**
      * Presigned S3 URL para visualización inline (sin Content-Disposition).
      */
-    private function normalizeExt(?string $ext, ?string $name = null): string
+    private function normalizeExt(?string $ext, ?string $name = null, ?string $ruta = null): string
     {
         if ($ext) {
             $clean = strtolower(ltrim(trim((string) $ext), '.'));
             if ($clean !== '') return $clean;
         }
-        if ($name && preg_match('/\.([^.]+)$/', $name, $m)) {
+        // Try the ruta (S3 file path) — most reliable for legacy records with empty extension
+        if ($ruta && preg_match('/\.([a-z0-9]{1,5})$/i', $ruta, $m)) {
+            return strtolower($m[1]);
+        }
+        // Fall back to name only if it ends with a real dotted extension
+        if ($name && preg_match('/\.([a-z0-9]{1,5})$/i', $name, $m)) {
             return strtolower($m[1]);
         }
         return '';
     }
 
-    private function isImageExt(?string $ext, ?string $name = null): bool
+    private function isImageExt(?string $ext, ?string $name = null, ?string $ruta = null): bool
     {
         return in_array(
-            $this->normalizeExt($ext, $name),
+            $this->normalizeExt($ext, $name, $ruta),
             ['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp', 'tiff', 'tif']
         );
     }
