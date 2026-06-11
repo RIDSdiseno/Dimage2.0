@@ -1640,37 +1640,52 @@ class OrderController extends Controller
             return back()->with('error', 'Esta orden no tiene archivos adjuntos.');
         }
 
-        $zipName = "orden-{$order->id}.zip";
-        $tmpPath = sys_get_temp_dir() . '/' . $zipName;
+        set_time_limit(600);
 
-        $zip = new \ZipArchive();
-        $zip->open($tmpPath, \ZipArchive::CREATE | \ZipArchive::OVERWRITE);
+        $zipName  = "orden-{$order->id}.zip";
+        $tmpPath  = sys_get_temp_dir() . '/' . $zipName;
+        $tmpFiles = [];
 
-        $usedNames = [];
-        foreach ($files as $f) {
-            try {
-                $content = \Illuminate\Support\Facades\Storage::disk('s3')->get($f->ruta);
-                if (!$content) continue;
-            } catch (\Throwable) {
-                continue;
+        try {
+            $zip = new \ZipArchive();
+            $zip->open($tmpPath, \ZipArchive::CREATE | \ZipArchive::OVERWRITE);
+
+            $usedNames = [];
+            foreach ($files as $f) {
+                try {
+                    // Stream from S3 to a temp file to avoid loading large files into memory
+                    $stream = \Illuminate\Support\Facades\Storage::disk('s3')->readStream($f->ruta);
+                    if (!is_resource($stream)) continue;
+
+                    $entryTmp = tempnam(sys_get_temp_dir(), 'zip_e_');
+                    $dst = fopen($entryTmp, 'wb');
+                    stream_copy_to_stream($stream, $dst);
+                    fclose($dst);
+                    if (is_resource($stream)) fclose($stream);
+                } catch (\Throwable) {
+                    continue;
+                }
+
+                $ext      = $f->extension ?: pathinfo($f->ruta, PATHINFO_EXTENSION);
+                $baseName = $f->name ?: ('archivo_' . $f->id . ($ext ? ".{$ext}" : ''));
+                $folder   = preg_replace('/[^a-zA-Z0-9_\- ]/', '', $f->examen);
+
+                $zipEntry = "{$folder}/{$baseName}";
+                // Avoid duplicates
+                if (isset($usedNames[$zipEntry])) {
+                    $usedNames[$zipEntry]++;
+                    $zipEntry = "{$folder}/{$usedNames[$zipEntry]}_{$baseName}";
+                } else {
+                    $usedNames[$zipEntry] = 0;
+                }
+
+                $zip->addFile($entryTmp, $zipEntry);
+                $tmpFiles[] = $entryTmp;
             }
-
-            $ext      = $f->extension ?: pathinfo($f->ruta, PATHINFO_EXTENSION);
-            $baseName = $f->name ?: ('archivo_' . $f->id . ($ext ? ".{$ext}" : ''));
-            $folder   = preg_replace('/[^a-zA-Z0-9_\- ]/', '', $f->examen);
-
-            $zipEntry = "{$folder}/{$baseName}";
-            // Avoid duplicates
-            if (isset($usedNames[$zipEntry])) {
-                $usedNames[$zipEntry]++;
-                $zipEntry = "{$folder}/{$usedNames[$zipEntry]}_{$baseName}";
-            } else {
-                $usedNames[$zipEntry] = 0;
-            }
-
-            $zip->addFromString($zipEntry, $content);
+            $zip->close();
+        } finally {
+            foreach ($tmpFiles as $t) { @unlink($t); }
         }
-        $zip->close();
 
         return response()->streamDownload(function () use ($tmpPath) {
             readfile($tmpPath);

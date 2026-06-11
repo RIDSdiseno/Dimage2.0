@@ -254,12 +254,6 @@ class FileController extends Controller
      */
     public function extractSerie(int $id): JsonResponse
     {
-        $user   = Auth::user();
-        $typeId = (int) ($user->type_id ?? 0);
-        if (!in_array($typeId, [1, 2, 11], true)) {
-            abort(403, 'Sin permiso para procesar archivos.');
-        }
-
         $file = DB::table('files')->where('id', $id)->first(['id', 'ruta', 'extension', 'ruta_dcm', 'examination_id']);
         abort_if(!$file, 404);
 
