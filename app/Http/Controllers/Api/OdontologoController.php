@@ -12,6 +12,8 @@ class OdontologoController extends Controller
     // GET /api/v3/odontologo/by-rut/{rut}
     public function findByRut(Request $request, string $rut)
     {
+        \Log::info('ODONTOLOGO_BY_RUT', ['rut' => $rut, 'all' => $request->all()]);
+
         $rutInput = strtoupper(preg_replace('/[^0-9K]/', '', $rut));
 
 $row = $this->query($request->_holding_id)
@@ -33,6 +35,8 @@ $row = $this->query($request->_holding_id)
     // GET /api/v3/odontologo/by-holding
     public function listByHolding(Request $request)
     {
+        \Log::info('ODONTOLOGO_BY_HOLDING', ['holding_id' => $request->_holding_id]);
+
         $rows = $this->query($request->_holding_id)
             ->orderBy('u.name')
             ->get()
@@ -46,6 +50,8 @@ $row = $this->query($request->_holding_id)
     // POST /api/v3/odontologo/create
     public function create(Request $request)
     {
+        \Log::info('ODONTOLOGO_CREATE', ['all' => $request->all()]);
+
         $rutRaw = $request->input('rut') ?? $request->input('odontologo') ?? '';
         $rutInput = strtoupper(preg_replace('/[^0-9K]/', '', $rutRaw));
 

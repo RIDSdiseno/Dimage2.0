@@ -118,9 +118,11 @@ class OrderController extends Controller
     }
 
     // GET /api/v3/order/by-id/{id}
-    public function byId(Request $request, int $id)
+    public function byId(Request $request, string $id)
     {
-        if ((int) $id === 0) {
+        $id = is_numeric($id) ? (int) $id : 0;
+
+        if ($id === 0) {
             $lastId = cache()->get('dentalsoft_last_created_order_id');
 
             if ($lastId) {
@@ -172,6 +174,13 @@ class OrderController extends Controller
         // Campos calculados que DentalSoft usa para mostrar/ocultar el botón de editar
         $order->editable  = (int) $order->estadoradiologo !== 1 ? 1 : 0;
         $order->visitable = in_array((int) $order->estadoradiologo, [1, 4]) ? 1 : 0;
+
+        \Log::info('BY_ID_PROFESIONAL', [
+            'order_id'              => $order->id,
+            'profesional_rut'       => $order->profesional_rut,
+            'profesional_id_externo' => $order->profesional_id_externo,
+            'odontologo_id'         => $order->odontologo_id,
+        ]);
 
         $examenes = DB::table('examinations as e')
             ->join('examination_order as eo', 'eo.examination_id', '=', 'e.id')
