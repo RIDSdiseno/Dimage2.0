@@ -79,7 +79,7 @@
             <!-- ── Actividad del día ────────────────────────────────────────── -->
             <h2 class="text-xs font-semibold text-gray-400 uppercase tracking-widest mb-3">Actividad de hoy</h2>
 
-            <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-10">
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-10">
                 <div class="bg-white rounded-xl border border-gray-100 shadow-sm p-5 flex items-center gap-4">
                     <div class="w-10 h-10 rounded-lg bg-indigo-50 flex items-center justify-center shrink-0">
                         <i class="pi pi-file-plus text-lg text-indigo-500" />
@@ -96,15 +96,6 @@
                     <div>
                         <p class="text-2xl font-bold text-gray-800">{{ respondidosHoy }}</p>
                         <p class="text-xs text-gray-400 mt-0.5">Respondidas hoy</p>
-                    </div>
-                </div>
-                <div class="bg-white rounded-xl border border-gray-100 shadow-sm p-5 flex items-center gap-4">
-                    <div class="w-10 h-10 rounded-lg bg-slate-50 flex items-center justify-center shrink-0">
-                        <i class="pi pi-folder-open text-lg text-slate-500" />
-                    </div>
-                    <div>
-                        <p class="text-2xl font-bold text-gray-800">{{ totalActivos }}</p>
-                        <p class="text-xs text-gray-400 mt-0.5">Órdenes activas totales</p>
                     </div>
                 </div>
             </div>
@@ -231,7 +222,6 @@ const props = defineProps({
     alertas:        Object,
     creadosHoy:     Number,
     respondidosHoy: Number,
-    totalActivos:   Number,
     userName:       String,
 });
 

@@ -26,7 +26,7 @@ trait CalculaAlertas
                 ->leftJoin('clinics as c', 'c.id', '=', 'o.clinic_id')
                 ->leftJoin('users as uc', 'uc.id', '=', 'c.user_id')
                 ->whereNotNull('o.enviada')
-                ->whereIn('o.estadoradiologo', [0, 2])
+                ->where('o.estadoradiologo', 0)
                 ->select(
                     'o.id',
                     'o.enviada',

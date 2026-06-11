@@ -32,13 +32,11 @@ class HomeController extends Controller
 
         $creadosHoy     = (clone $baseQuery)->whereDate('o.created_at', $hoy)->count();
         $respondidosHoy = (clone $baseQuery)->whereDate('o.respondida', $hoy)->count();
-        $totalActivos   = (clone $baseQuery)->whereIn('o.estadoradiologo', [0, 2, 4])->count();
 
         return Inertia::render('Home/Index', [
             'alertas'        => $alertas,
             'creadosHoy'     => $creadosHoy,
             'respondidosHoy' => $respondidosHoy,
-            'totalActivos'   => $totalActivos,
             'userName'       => $user->name,
         ]);
     }
