@@ -314,6 +314,7 @@ class OrderController extends Controller
             $exId = DB::table('examinations')->insertGetId([
                 'kind_id'    => $kindId,
                 'piezas'     => $piezas,
+                'url_texto'  => $this->extractUrlTexto($ex),
                 'created_at' => now(),
                 'updated_at' => now(),
             ]);
@@ -655,6 +656,20 @@ class OrderController extends Controller
 
             $currentKindIds = $currentRows->pluck('kind_id');
 
+            // Actualizar url_texto de examinations existentes cuando cambien los trazados
+            foreach ($currentKindIds->intersect($newKindIds) as $kindId) {
+                $srcEx = $newExams->first(fn($e) => (int)($e['kind_id'] ?? $e['tipo'] ?? 0) === (int)$kindId);
+                if (!$srcEx) continue;
+                // Solo actualizar si el campo está explícitamente presente en la solicitud
+                if (!array_key_exists('url_texto', $srcEx) && !array_key_exists('trazados', $srcEx)) continue;
+                $urlTexto = $this->extractUrlTexto($srcEx);
+                $row = $currentRows->first(fn($r) => $r->kind_id == $kindId);
+                if ($row) {
+                    DB::table('examinations')->where('id', $row->examination_id)
+                        ->update(['url_texto' => $urlTexto, 'updated_at' => now()]);
+                }
+            }
+
             // Agregar kind_ids nuevos que no existen todavía
             foreach ($newKindIds->diff($currentKindIds) as $kindId) {
                 $srcEx = $newExams->first(fn($e) => (int)($e['kind_id'] ?? $e['tipo'] ?? 0) === (int)$kindId);
@@ -665,6 +680,7 @@ class OrderController extends Controller
                 $exId = DB::table('examinations')->insertGetId([
                     'kind_id'    => $kindId,
                     'piezas'     => $piezas,
+                    'url_texto'  => $this->extractUrlTexto($srcEx),
                     'created_at' => now(),
                     'updated_at' => now(),
                 ]);
@@ -772,5 +788,25 @@ class OrderController extends Controller
         } catch (\Throwable) {
             return $this->apiFileUrl($ruta);
         }
+    }
+
+    /**
+     * Extrae url_texto de un item de examen enviado por DentalSoft.
+     * Acepta tanto `url_texto` (string) como `trazados` (array o string).
+     */
+    private function extractUrlTexto(array $ex): ?string
+    {
+        if (array_key_exists('url_texto', $ex)) {
+            return $ex['url_texto'] ?: null;
+        }
+        if (array_key_exists('trazados', $ex)) {
+            $t = $ex['trazados'];
+            if (is_array($t)) {
+                $joined = implode(',', array_filter($t, fn($v) => is_string($v) && $v !== ''));
+                return $joined ?: null;
+            }
+            return is_string($t) && $t !== '' ? $t : null;
+        }
+        return null;
     }
 }
