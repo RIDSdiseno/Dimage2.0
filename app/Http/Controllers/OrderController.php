@@ -1729,15 +1729,19 @@ class OrderController extends Controller
         }
         $key = 's3_url_' . md5($ruta);
         try {
-            return \Illuminate\Support\Facades\Cache::remember($key, 3300, function () use ($ruta) {
+            $url = \Illuminate\Support\Facades\Cache::remember($key, 3300, function () use ($ruta) {
                 return \Illuminate\Support\Facades\Storage::disk('s3')
                     ->temporaryUrl($ruta, now()->addMinutes(60));
             });
-        } catch (\Throwable) {
+            \Log::debug('SIGNED_URL_OK', ['ruta' => $ruta, 'url_prefix' => substr($url ?? '', 0, 80)]);
+            return $url;
+        } catch (\Throwable $e) {
+            \Log::warning('SIGNED_URL_FAIL', ['ruta' => $ruta, 'error' => $e->getMessage()]);
             try {
                 return \Illuminate\Support\Facades\Storage::disk('s3')
                     ->temporaryUrl($ruta, now()->addMinutes(60));
-            } catch (\Throwable) {
+            } catch (\Throwable $e2) {
+                \Log::error('SIGNED_URL_FAIL2', ['ruta' => $ruta, 'error' => $e2->getMessage()]);
                 return null;
             }
         }
