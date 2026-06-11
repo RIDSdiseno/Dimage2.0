@@ -79,7 +79,7 @@
                         @click.stop="processZip">
                         <i class="pi pi-refresh" style="font-size:11px;" /> Reintentar
                     </button>
-                    <a :href="serveUrl" download :download="file.name"
+                    <a :href="downloadUrl" :download="file.name"
                         style="display:flex; align-items:center; gap:5px; padding:5px 10px; border-radius:6px; background:rgba(255,255,255,0.1); color:#fca5a5; text-decoration:none; font-size:10px;"
                         @click.stop>
                         <i class="pi pi-download" style="font-size:10px;" /> Descargar
@@ -104,7 +104,7 @@
                         @click.stop="processZip">
                         <i class="pi pi-cog" style="font-size:11px;" /> Procesar para visor
                     </button>
-                    <a :href="serveUrl" download :download="file.name"
+                    <a :href="downloadUrl" :download="file.name"
                         style="display:flex; align-items:center; gap:5px; padding:5px 10px; border-radius:6px; background:rgba(255,255,255,0.1); color:#93c5fd; text-decoration:none; font-size:10px;"
                         @click.stop>
                         <i class="pi pi-download" style="font-size:10px;" /> Descargar ZIP
@@ -196,9 +196,11 @@ const isZip       = computed(() => ext.value === 'zip');
 const isZipError  = computed(() => ext.value === 'zip_error');
 const isProcessing = computed(() => props.file.ruta_dcm === 'processing' && !isDcm.value);
 const isCbctSerie = computed(() => isDcm.value && !!props.file.ruta_dcm && props.file.ruta_dcm !== 'processing');
-// Unprocessed CBCT: explicit zip extension OR completely unknown extension on a grupo-4 exam
+// Imágenes comunes: no deben tratarse como CBCT pendiente aunque showDicom=true
+const isRegularImage = computed(() => ['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp'].includes(ext.value));
+// Unprocessed CBCT: ZIP sin extraer o extensión vacía en examen CBCT (nunca imágenes normales)
 const isCbctPendiente = computed(() =>
-    props.showDicom && !isPdf.value && !isDcm.value && !isZipError.value && !isProcessing.value
+    props.showDicom && !isPdf.value && !isDcm.value && !isZipError.value && !isProcessing.value && !isRegularImage.value
 );
 const processingVisorUrl = computed(() => {
     const base = route('visor-dicom');
