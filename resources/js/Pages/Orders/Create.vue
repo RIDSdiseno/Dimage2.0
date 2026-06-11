@@ -14,15 +14,24 @@
                 class="fixed inset-0 z-50 flex flex-col items-center justify-center gap-6 bg-white/80 backdrop-blur-sm">
                 <div class="bg-white rounded-2xl shadow-xl p-8 w-80 text-center">
                     <i class="pi pi-cloud-upload text-4xl mb-3 block" style="color:#3452ff" />
-                    <p class="text-sm font-semibold text-gray-800 mb-4">
-                        {{ form.action === 'enviar' ? 'Enviando orden al radiólogo...' : 'Guardando orden...' }}
+                    <p class="text-sm font-semibold text-gray-800 mb-2">
+                        {{ uploadProgress < 100 ? 'Subiendo archivos...' : (form.action === 'enviar' ? 'Enviando orden al radiólogo...' : 'Guardando orden...') }}
                     </p>
+                    <!-- Barra de progreso real durante el upload -->
                     <div class="w-full bg-gray-100 rounded-full h-2.5 overflow-hidden">
-                        <div class="h-2.5 rounded-full transition-all duration-300"
-                            style="background:linear-gradient(90deg,#3452ff,#6366f1); animation: progress-bar 3s ease-in-out forwards;">
+                        <div v-if="uploadProgress < 100" class="h-2.5 rounded-full transition-all duration-300"
+                            :style="`width:${uploadProgress}%; background:linear-gradient(90deg,#3452ff,#6366f1)`">
+                        </div>
+                        <!-- Indeterminada: el servidor está procesando -->
+                        <div v-else class="h-2.5 rounded-full"
+                            style="background:linear-gradient(90deg,#3452ff,#6366f1); animation: progress-indeterminate 1.4s ease-in-out infinite;">
                         </div>
                     </div>
-                    <p class="text-xs text-gray-400 mt-3">Por favor espere, subiendo archivos...</p>
+                    <p class="text-xs text-gray-400 mt-3">
+                        <template v-if="uploadProgress < 100">{{ uploadProgress }}% — Por favor espere...</template>
+                        <template v-else-if="hasCbctFiles">Procesando archivos 3D/CBCT, puede tardar unos segundos...</template>
+                        <template v-else>Procesando, por favor espere...</template>
+                    </p>
                 </div>
             </div>
 
@@ -322,7 +331,14 @@ const kindLabelMap = computed(() => {
 const loadingOdontologos  = ref(false);
 const loadingRadiologos   = ref(false);
 const submitting          = ref(false);
+const uploadProgress      = ref(0);
 const fileError           = ref(null);
+
+const hasCbctFiles = computed(() =>
+    Object.values(examFiles).some(files =>
+        files?.some(f => f.name?.toLowerCase().endsWith('.zip'))
+    )
+);
 
 // ── Tabs de examen ─────────────────────────────────────────────────────────
 const activeTab = ref('intraorales');
@@ -434,21 +450,22 @@ const submitAction = (action) => {
         if (url) data.append(`url_${examId}`, url);
     });
 
-    submitting.value = true;
+    submitting.value    = true;
+    uploadProgress.value = 0;
     router.post(route('ordenes.store'), data, {
         forceFormData: true,
-        onError:  (errors) => { form.errors = errors; submitting.value = false; },
-        onFinish: ()       => { submitting.value = false; },
+        onProgress: (e) => { if (e.percentage) uploadProgress.value = Math.min(99, Math.round(e.percentage)); },
+        onSuccess:  ()       => { uploadProgress.value = 100; },
+        onError:    (errors) => { form.errors = errors; submitting.value = false; uploadProgress.value = 0; },
+        onFinish:   ()       => { submitting.value = false; },
     });
 };
 </script>
 
 <style>
-@keyframes progress-bar {
-    0%   { width: 0% }
-    30%  { width: 40% }
-    60%  { width: 70% }
-    85%  { width: 88% }
-    100% { width: 95% }
+@keyframes progress-indeterminate {
+    0%   { margin-left: -40%; width: 40%; }
+    50%  { margin-left: 60%; width: 40%; }
+    100% { margin-left: 110%; width: 40%; }
 }
 </style>
