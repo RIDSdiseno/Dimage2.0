@@ -186,19 +186,22 @@ const ext = computed(() => {
     return m ? m[1].toLowerCase() : '';
 });
 const isPdf       = computed(() => ext.value === 'pdf');
+// Imágenes comunes: siempre se muestran como imagen, nunca como DICOM/CBCT
+const isRegularImage = computed(() => ['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp'].includes(ext.value));
 // Consider a file as DCM if extension says so, OR if ruta_dcm already holds a
 // series prefix (covers legacy ZIPs that were processed before extension was tracked)
+// Nunca tratar imágenes comunes como DCM aunque ruta_dcm esté seteado en BD
 const isDcm       = computed(() =>
-    ext.value === 'dcm' || ext.value === 'dicom' ||
-    (!!props.file.ruta_dcm && props.file.ruta_dcm !== 'processing')
+    !isRegularImage.value && (
+        ext.value === 'dcm' || ext.value === 'dicom' ||
+        (!!props.file.ruta_dcm && props.file.ruta_dcm !== 'processing')
+    )
 );
 const isZip       = computed(() => ext.value === 'zip');
 const isZipError  = computed(() => ext.value === 'zip_error');
 const isProcessing = computed(() => props.file.ruta_dcm === 'processing' && !isDcm.value);
 const isCbctSerie = computed(() => isDcm.value && !!props.file.ruta_dcm && props.file.ruta_dcm !== 'processing');
-// Imágenes comunes: no deben tratarse como CBCT pendiente aunque showDicom=true
-const isRegularImage = computed(() => ['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp'].includes(ext.value));
-// Unprocessed CBCT: ZIP sin extraer o extensión vacía en examen CBCT (nunca imágenes normales)
+// Unprocessed CBCT: ZIP sin extraer o extensión vacía en examen CBCT (nunca imágenes normales ni PDFs)
 const isCbctPendiente = computed(() =>
     props.showDicom && !isPdf.value && !isDcm.value && !isZipError.value && !isProcessing.value && !isRegularImage.value
 );
