@@ -79,6 +79,13 @@ $row = $this->query($request->_holding_id)
             ?? $request->input('odontologo_id_externo')
             ?? null;
 
+        // DentalSoft incrusta su ID interno en el username: "{ds_id}odo{rut_digits}"
+        if (!$idExterno && $request->filled('username')) {
+            if (preg_match('/^(\d+)odo\d+$/', $request->input('username'), $m)) {
+                $idExterno = $m[1];
+            }
+        }
+
         // Búsqueda global por RUT (sin filtrar por holding/clinic_staff)
         // para evitar duplicados cuando el staff existe pero no tiene vínculo a esa clínica.
         $rutDb = "REPLACE(REPLACE(UPPER(s.rut), '.', ''), '-', '')";
