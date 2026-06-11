@@ -630,34 +630,27 @@ class OrderController extends Controller
         }
 
         if ($request->has('examenes')) {
+            $newExams   = collect($request->input('examenes', []));
+            $newKindIds = $newExams
+                ->map(fn($ex) => (int) ($ex['kind_id'] ?? $ex['tipo'] ?? 0))
+                ->filter()
+                ->values();
 
-            $oldExamIds = DB::table('examination_order')
-                ->where('order_id', $id)
-                ->pluck('examination_id');
+            // Examinations actuales de la orden
+            $currentRows = DB::table('examination_order as eo')
+                ->join('examinations as e', 'e.id', '=', 'eo.examination_id')
+                ->where('eo.order_id', $id)
+                ->select('eo.examination_id', 'e.kind_id')
+                ->get();
 
-            DB::table('examination_order')
-                ->where('order_id', $id)
-                ->delete();
+            $currentKindIds = $currentRows->pluck('kind_id');
 
-            if ($oldExamIds->count()) {
-                DB::table('examinations')
-                    ->whereIn('id', $oldExamIds)
-                    ->delete();
-            }
-
-            foreach ($request->input('examenes', []) as $ex) {
-
-                $kindId = $ex['kind_id'] ?? $ex['tipo'] ?? null;
-
-                if (!$kindId) {
-                    continue;
-                }
-
-                $piezas = null;
-
-                if (isset($ex['dientes']) && is_array($ex['dientes'])) {
-                    $piezas = implode(',', $ex['dientes']);
-                }
+            // Agregar kind_ids nuevos que no existen todavía
+            foreach ($newKindIds->diff($currentKindIds) as $kindId) {
+                $srcEx = $newExams->first(fn($e) => (int)($e['kind_id'] ?? $e['tipo'] ?? 0) === (int)$kindId);
+                $piezas = (isset($srcEx['dientes']) && is_array($srcEx['dientes']))
+                    ? implode(',', $srcEx['dientes'])
+                    : null;
 
                 $exId = DB::table('examinations')->insertGetId([
                     'kind_id'    => $kindId,
@@ -665,13 +658,24 @@ class OrderController extends Controller
                     'created_at' => now(),
                     'updated_at' => now(),
                 ]);
-
                 DB::table('examination_order')->insert([
                     'order_id'       => $id,
                     'examination_id' => $exId,
                     'created_at'     => now(),
                     'updated_at'     => now(),
                 ]);
+            }
+
+            // Eliminar kind_ids que ya no están en la lista, pero solo si no tienen archivos
+            foreach ($currentRows->whereIn('kind_id', $currentKindIds->diff($newKindIds)) as $row) {
+                $hasFiles = DB::table('files')->where('examination_id', $row->examination_id)->exists();
+                if (! $hasFiles) {
+                    DB::table('examination_order')
+                        ->where('order_id', $id)
+                        ->where('examination_id', $row->examination_id)
+                        ->delete();
+                    DB::table('examinations')->where('id', $row->examination_id)->delete();
+                }
             }
         }
 
