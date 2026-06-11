@@ -722,7 +722,7 @@ class OrderController extends Controller
             return null;
         }
         try {
-            return Storage::disk('s3')->temporaryUrl($ruta, now()->addHours(2));
+            return Storage::disk('s3')->temporaryUrl($ruta, now()->addHours(24));
         } catch (\Throwable) {
             return $ruta;
         }
@@ -739,7 +739,7 @@ class OrderController extends Controller
         }
         try {
             $filename = $name ?: ('archivo' . ($extension ? '.' . $extension : ''));
-            return Storage::disk('s3')->temporaryUrl($ruta, now()->addHours(2), [
+            return Storage::disk('s3')->temporaryUrl($ruta, now()->addHours(24), [
                 'ResponseContentDisposition' => 'attachment; filename="' . rawurlencode($filename) . '"',
             ]);
         } catch (\Throwable) {
