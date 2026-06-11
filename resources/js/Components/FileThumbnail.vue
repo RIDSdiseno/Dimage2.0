@@ -186,8 +186,16 @@ const ext = computed(() => {
     return m ? m[1].toLowerCase() : '';
 });
 const isPdf       = computed(() => ext.value === 'pdf');
-// Imágenes comunes: siempre se muestran como imagen, nunca como DICOM/CBCT
-const isRegularImage = computed(() => ['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp'].includes(ext.value));
+// Imágenes comunes: siempre se muestran como imagen, nunca como DICOM/CBCT.
+// Se revisa TANTO la extensión BD (ext.value) como el nombre real del archivo,
+// porque extractSerie puede sobreescribir extension→'dcm' en el registro BD
+// aunque el archivo original sea una imagen (ej: image.png).
+const isRegularImage = computed(() => {
+    const imgExts = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp'];
+    if (imgExts.includes(ext.value)) return true;
+    const m = (props.file.name || '').match(/\.([^.]+)$/);
+    return m ? imgExts.includes(m[1].toLowerCase()) : false;
+});
 // Consider a file as DCM if extension says so, OR if ruta_dcm already holds a
 // series prefix (covers legacy ZIPs that were processed before extension was tracked)
 // Nunca tratar imágenes comunes como DCM aunque ruta_dcm esté seteado en BD
