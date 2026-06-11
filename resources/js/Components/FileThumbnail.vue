@@ -120,7 +120,7 @@
                 :alt="file.name"
                 loading="lazy"
                 style="width:100%; height:100%; object-fit:cover; display:block;"
-                @error="imgFailed = true" />
+                @error="onImgError" />
 
             <!-- Fallback genérico: linkea al proxy PHP (downloadUrl), no a la URL de S3 -->
             <a v-else :href="downloadUrl" target="_blank"
@@ -175,9 +175,19 @@ const props = defineProps({
 
 const emit = defineEmits(['lightbox', 'extracted']);
 
-const imgFailed  = ref(false);
-const extracting = ref(false);
-const extractMsg = ref('');
+const imgFailed    = ref(false);
+const useServeUrl  = ref(false);
+const extracting   = ref(false);
+const extractMsg   = ref('');
+
+function onImgError() {
+    if (!useServeUrl.value && props.file.url) {
+        // URL de S3 falló → intentar la ruta interna como fallback
+        useServeUrl.value = true;
+    } else {
+        imgFailed.value = true;
+    }
+}
 
 // Derive extension from the field, or fall back to the filename extension
 const ext = computed(() => {
@@ -220,7 +230,7 @@ const processingVisorUrl = computed(() => {
 });
 const serveUrl    = computed(() => route('archivos.serve', props.file.id));
 const downloadUrl = computed(() => route('archivos.download', props.file.id));
-const fileSrc     = computed(() => props.file.url || serveUrl.value);
+const fileSrc     = computed(() => useServeUrl.value ? serveUrl.value : (props.file.url || serveUrl.value));
 
 async function processZip() {
     extracting.value = true;
