@@ -268,17 +268,17 @@
                                         <div class="border border-gray-100 rounded-xl overflow-hidden mb-3">
                                             <div class="bg-gray-700 px-4 py-2"><h3 class="text-white font-semibold text-sm">Informe</h3></div>
                                             <div class="divide-y divide-gray-50">
-                                                <div v-if="examen.respuesta.informe_examen" class="grid grid-cols-2 gap-x-4 px-3 py-2">
-                                                    <p class="text-sm font-semibold text-gray-600">Examen:</p>
-                                                    <p class="text-sm text-gray-700 whitespace-pre-wrap">{{ examen.respuesta.informe_examen }}</p>
+                                                <div v-if="examen.respuesta.informe_examen" class="flex flex-col sm:flex-row sm:gap-x-4 px-3 py-2">
+                                                    <p class="text-sm font-semibold text-gray-600 sm:w-44 sm:shrink-0">Examen:</p>
+                                                    <p class="text-sm text-gray-700 whitespace-pre-wrap break-words min-w-0">{{ examen.respuesta.informe_examen }}</p>
                                                 </div>
-                                                <div v-if="examen.respuesta.informe_libre" class="grid grid-cols-2 gap-x-4 px-3 py-2">
-                                                    <p class="text-sm font-semibold text-gray-600">Informe:</p>
-                                                    <p class="text-sm text-gray-700 whitespace-pre-wrap">{{ examen.respuesta.informe_libre }}</p>
+                                                <div v-if="examen.respuesta.informe_libre" class="flex flex-col sm:flex-row sm:gap-x-4 px-3 py-2">
+                                                    <p class="text-sm font-semibold text-gray-600 sm:w-44 sm:shrink-0">Informe:</p>
+                                                    <p class="text-sm text-gray-700 whitespace-pre-wrap break-words min-w-0">{{ examen.respuesta.informe_libre }}</p>
                                                 </div>
-                                                <div v-if="examen.respuesta.informe_impresion" class="grid grid-cols-2 gap-x-4 px-3 py-2">
-                                                    <p class="text-sm font-semibold text-gray-600">Impresión Diagnóstica:</p>
-                                                    <p class="text-sm text-gray-700 whitespace-pre-wrap">{{ examen.respuesta.informe_impresion }}</p>
+                                                <div v-if="examen.respuesta.informe_impresion" class="flex flex-col sm:flex-row sm:gap-x-4 px-3 py-2">
+                                                    <p class="text-sm font-semibold text-gray-600 sm:w-44 sm:shrink-0">Impresión Diagnóstica:</p>
+                                                    <p class="text-sm text-gray-700 whitespace-pre-wrap break-words min-w-0">{{ examen.respuesta.informe_impresion }}</p>
                                                 </div>
                                             </div>
                                         </div>
@@ -290,17 +290,17 @@
                                              class="border border-gray-100 rounded-xl overflow-hidden mb-3">
                                             <div class="bg-gray-700 px-4 py-2"><h3 class="text-white font-semibold text-sm">Informe</h3></div>
                                             <div class="divide-y divide-gray-50">
-                                                <div v-if="examen.respuesta.campo_1" class="grid grid-cols-2 gap-x-4 px-3 py-2">
-                                                    <p class="text-sm font-semibold text-gray-600">Examen:</p>
-                                                    <p class="text-sm text-gray-700 whitespace-pre-wrap">{{ examen.respuesta.campo_1 }}</p>
+                                                <div v-if="examen.respuesta.campo_1" class="flex flex-col sm:flex-row sm:gap-x-4 px-3 py-2">
+                                                    <p class="text-sm font-semibold text-gray-600 sm:w-44 sm:shrink-0">Examen:</p>
+                                                    <p class="text-sm text-gray-700 whitespace-pre-wrap break-words min-w-0">{{ examen.respuesta.campo_1 }}</p>
                                                 </div>
-                                                <div v-if="examen.respuesta.campo_2" class="grid grid-cols-2 gap-x-4 px-3 py-2">
-                                                    <p class="text-sm font-semibold text-gray-600">Informe:</p>
-                                                    <p class="text-sm text-gray-700 whitespace-pre-wrap">{{ examen.respuesta.campo_2 }}</p>
+                                                <div v-if="examen.respuesta.campo_2" class="flex flex-col sm:flex-row sm:gap-x-4 px-3 py-2">
+                                                    <p class="text-sm font-semibold text-gray-600 sm:w-44 sm:shrink-0">Informe:</p>
+                                                    <p class="text-sm text-gray-700 whitespace-pre-wrap break-words min-w-0">{{ examen.respuesta.campo_2 }}</p>
                                                 </div>
-                                                <div v-if="examen.respuesta.campo_3" class="grid grid-cols-2 gap-x-4 px-3 py-2">
-                                                    <p class="text-sm font-semibold text-gray-600">Impresión Diagnóstica:</p>
-                                                    <p class="text-sm text-gray-700 whitespace-pre-wrap">{{ examen.respuesta.campo_3 }}</p>
+                                                <div v-if="examen.respuesta.campo_3" class="flex flex-col sm:flex-row sm:gap-x-4 px-3 py-2">
+                                                    <p class="text-sm font-semibold text-gray-600 sm:w-44 sm:shrink-0">Impresión Diagnóstica:</p>
+                                                    <p class="text-sm text-gray-700 whitespace-pre-wrap break-words min-w-0">{{ examen.respuesta.campo_3 }}</p>
                                                 </div>
                                             </div>
                                         </div>
@@ -314,38 +314,38 @@
                                             <div class="border border-blue-100 rounded-xl overflow-hidden mb-3 mt-2">
                                                 <div class="bg-blue-700 px-4 py-2"><h3 class="text-white font-semibold text-sm">Maxilar</h3></div>
                                                 <div class="divide-y divide-gray-50">
-                                                    <div v-if="examen.respuesta.campo_2" class="grid grid-cols-2 gap-x-4 px-3 py-2">
-                                                        <p class="text-sm font-semibold text-gray-600">Nivel Óseo Marginal:</p>
-                                                        <p class="text-sm text-gray-700 whitespace-pre-wrap">{{ examen.respuesta.campo_2 }}</p>
+                                                    <div v-if="examen.respuesta.campo_2" class="flex flex-col sm:flex-row sm:gap-x-4 px-3 py-2">
+                                                        <p class="text-sm font-semibold text-gray-600 sm:w-44 sm:shrink-0">Nivel Óseo Marginal:</p>
+                                                        <p class="text-sm text-gray-700 whitespace-pre-wrap break-words min-w-0">{{ examen.respuesta.campo_2 }}</p>
                                                     </div>
-                                                    <div v-if="examen.respuesta.campo_3" class="grid grid-cols-2 gap-x-4 px-3 py-2">
-                                                        <p class="text-sm font-semibold text-gray-600">Cálculo dentario marginal:</p>
-                                                        <p class="text-sm text-gray-700 whitespace-pre-wrap">{{ examen.respuesta.campo_3 }}</p>
+                                                    <div v-if="examen.respuesta.campo_3" class="flex flex-col sm:flex-row sm:gap-x-4 px-3 py-2">
+                                                        <p class="text-sm font-semibold text-gray-600 sm:w-44 sm:shrink-0">Cálculo dentario marginal:</p>
+                                                        <p class="text-sm text-gray-700 whitespace-pre-wrap break-words min-w-0">{{ examen.respuesta.campo_3 }}</p>
                                                     </div>
-                                                    <div v-if="examen.respuesta.campo_5" class="grid grid-cols-2 gap-x-4 px-3 py-2">
-                                                        <p class="text-sm font-semibold text-gray-600">Dientes Ausentes:</p>
-                                                        <p class="text-sm text-gray-700 whitespace-pre-wrap">{{ examen.respuesta.campo_5 }}</p>
+                                                    <div v-if="examen.respuesta.campo_5" class="flex flex-col sm:flex-row sm:gap-x-4 px-3 py-2">
+                                                        <p class="text-sm font-semibold text-gray-600 sm:w-44 sm:shrink-0">Dientes Ausentes:</p>
+                                                        <p class="text-sm text-gray-700 whitespace-pre-wrap break-words min-w-0">{{ examen.respuesta.campo_5 }}</p>
                                                     </div>
-                                                    <div v-if="examen.respuesta.campo_8" class="grid grid-cols-2 gap-x-4 px-3 py-2">
-                                                        <p class="text-sm font-semibold text-gray-600">Observaciones:</p>
-                                                        <p class="text-sm text-gray-700 whitespace-pre-wrap">{{ examen.respuesta.campo_8 }}</p>
+                                                    <div v-if="examen.respuesta.campo_8" class="flex flex-col sm:flex-row sm:gap-x-4 px-3 py-2">
+                                                        <p class="text-sm font-semibold text-gray-600 sm:w-44 sm:shrink-0">Observaciones:</p>
+                                                        <p class="text-sm text-gray-700 whitespace-pre-wrap break-words min-w-0">{{ examen.respuesta.campo_8 }}</p>
                                                     </div>
                                                     <!-- Permanentes maxilar: 11-18, 21-28 -->
                                                     <template v-if="getDientesConContenido(examen.respuesta).some(d => [11,12,13,14,15,16,17,18,21,22,23,24,25,26,27,28].includes(d.n))">
                                                         <div class="px-3 pt-2 pb-1 bg-gray-50"><p class="text-xs italic text-gray-400 font-medium">Permanentes</p></div>
                                                         <div v-for="d in getDientesConContenido(examen.respuesta).filter(d => [11,12,13,14,15,16,17,18,21,22,23,24,25,26,27,28].includes(d.n))" :key="d.n"
-                                                            class="grid grid-cols-2 gap-x-4 px-3 py-2">
-                                                            <p class="text-sm font-semibold text-gray-600">Diente {{ toDot(d.n) }}:</p>
-                                                            <p class="text-sm text-gray-700 whitespace-pre-wrap">{{ d.val }}</p>
+                                                            class="flex flex-col sm:flex-row sm:gap-x-4 px-3 py-2">
+                                                            <p class="text-sm font-semibold text-gray-600 sm:w-44 sm:shrink-0">Diente {{ toDot(d.n) }}:</p>
+                                                            <p class="text-sm text-gray-700 whitespace-pre-wrap break-words min-w-0">{{ d.val }}</p>
                                                         </div>
                                                     </template>
                                                     <!-- Temporales maxilar: 51-55, 61-65 -->
                                                     <template v-if="getDientesConContenido(examen.respuesta).some(d => [51,52,53,54,55,61,62,63,64,65].includes(d.n))">
                                                         <div class="px-3 pt-2 pb-1 bg-gray-50"><p class="text-xs italic text-gray-400 font-medium">Temporales</p></div>
                                                         <div v-for="d in getDientesConContenido(examen.respuesta).filter(d => [51,52,53,54,55,61,62,63,64,65].includes(d.n))" :key="d.n"
-                                                            class="grid grid-cols-2 gap-x-4 px-3 py-2">
-                                                            <p class="text-sm font-semibold text-gray-600">Diente {{ toDot(d.n) }}:</p>
-                                                            <p class="text-sm text-gray-700 whitespace-pre-wrap">{{ d.val }}</p>
+                                                            class="flex flex-col sm:flex-row sm:gap-x-4 px-3 py-2">
+                                                            <p class="text-sm font-semibold text-gray-600 sm:w-44 sm:shrink-0">Diente {{ toDot(d.n) }}:</p>
+                                                            <p class="text-sm text-gray-700 whitespace-pre-wrap break-words min-w-0">{{ d.val }}</p>
                                                         </div>
                                                     </template>
                                                 </div>
@@ -357,38 +357,38 @@
                                             <div class="border border-blue-100 rounded-xl overflow-hidden mb-3">
                                                 <div class="bg-blue-700 px-4 py-2"><h3 class="text-white font-semibold text-sm">Mandíbula</h3></div>
                                                 <div class="divide-y divide-gray-50">
-                                                    <div v-if="examen.respuesta.campo_6" class="grid grid-cols-2 gap-x-4 px-3 py-2">
-                                                        <p class="text-sm font-semibold text-gray-600">Nivel Óseo Marginal:</p>
-                                                        <p class="text-sm text-gray-700 whitespace-pre-wrap">{{ examen.respuesta.campo_6 }}</p>
+                                                    <div v-if="examen.respuesta.campo_6" class="flex flex-col sm:flex-row sm:gap-x-4 px-3 py-2">
+                                                        <p class="text-sm font-semibold text-gray-600 sm:w-44 sm:shrink-0">Nivel Óseo Marginal:</p>
+                                                        <p class="text-sm text-gray-700 whitespace-pre-wrap break-words min-w-0">{{ examen.respuesta.campo_6 }}</p>
                                                     </div>
-                                                    <div v-if="examen.respuesta.campo_7" class="grid grid-cols-2 gap-x-4 px-3 py-2">
-                                                        <p class="text-sm font-semibold text-gray-600">Cálculo dentario marginal:</p>
-                                                        <p class="text-sm text-gray-700 whitespace-pre-wrap">{{ examen.respuesta.campo_7 }}</p>
+                                                    <div v-if="examen.respuesta.campo_7" class="flex flex-col sm:flex-row sm:gap-x-4 px-3 py-2">
+                                                        <p class="text-sm font-semibold text-gray-600 sm:w-44 sm:shrink-0">Cálculo dentario marginal:</p>
+                                                        <p class="text-sm text-gray-700 whitespace-pre-wrap break-words min-w-0">{{ examen.respuesta.campo_7 }}</p>
                                                     </div>
-                                                    <div v-if="examen.respuesta.campo_9" class="grid grid-cols-2 gap-x-4 px-3 py-2">
-                                                        <p class="text-sm font-semibold text-gray-600">Dientes Ausentes:</p>
-                                                        <p class="text-sm text-gray-700 whitespace-pre-wrap">{{ examen.respuesta.campo_9 }}</p>
+                                                    <div v-if="examen.respuesta.campo_9" class="flex flex-col sm:flex-row sm:gap-x-4 px-3 py-2">
+                                                        <p class="text-sm font-semibold text-gray-600 sm:w-44 sm:shrink-0">Dientes Ausentes:</p>
+                                                        <p class="text-sm text-gray-700 whitespace-pre-wrap break-words min-w-0">{{ examen.respuesta.campo_9 }}</p>
                                                     </div>
-                                                    <div v-if="examen.respuesta.campo_4" class="grid grid-cols-2 gap-x-4 px-3 py-2">
-                                                        <p class="text-sm font-semibold text-gray-600">Observaciones:</p>
-                                                        <p class="text-sm text-gray-700 whitespace-pre-wrap">{{ examen.respuesta.campo_4 }}</p>
+                                                    <div v-if="examen.respuesta.campo_4" class="flex flex-col sm:flex-row sm:gap-x-4 px-3 py-2">
+                                                        <p class="text-sm font-semibold text-gray-600 sm:w-44 sm:shrink-0">Observaciones:</p>
+                                                        <p class="text-sm text-gray-700 whitespace-pre-wrap break-words min-w-0">{{ examen.respuesta.campo_4 }}</p>
                                                     </div>
                                                     <!-- Permanentes mandíbula: 31-38, 41-48 -->
                                                     <template v-if="getDientesConContenido(examen.respuesta).some(d => [31,32,33,34,35,36,37,38,41,42,43,44,45,46,47,48].includes(d.n))">
                                                         <div class="px-3 pt-2 pb-1 bg-gray-50"><p class="text-xs italic text-gray-400 font-medium">Permanentes</p></div>
                                                         <div v-for="d in getDientesConContenido(examen.respuesta).filter(d => [31,32,33,34,35,36,37,38,41,42,43,44,45,46,47,48].includes(d.n))" :key="d.n"
-                                                            class="grid grid-cols-2 gap-x-4 px-3 py-2">
-                                                            <p class="text-sm font-semibold text-gray-600">Diente {{ toDot(d.n) }}:</p>
-                                                            <p class="text-sm text-gray-700 whitespace-pre-wrap">{{ d.val }}</p>
+                                                            class="flex flex-col sm:flex-row sm:gap-x-4 px-3 py-2">
+                                                            <p class="text-sm font-semibold text-gray-600 sm:w-44 sm:shrink-0">Diente {{ toDot(d.n) }}:</p>
+                                                            <p class="text-sm text-gray-700 whitespace-pre-wrap break-words min-w-0">{{ d.val }}</p>
                                                         </div>
                                                     </template>
                                                     <!-- Temporales mandíbula: 71-75, 81-85 -->
                                                     <template v-if="getDientesConContenido(examen.respuesta).some(d => [71,72,73,74,75,81,82,83,84,85].includes(d.n))">
                                                         <div class="px-3 pt-2 pb-1 bg-gray-50"><p class="text-xs italic text-gray-400 font-medium">Temporales</p></div>
                                                         <div v-for="d in getDientesConContenido(examen.respuesta).filter(d => [71,72,73,74,75,81,82,83,84,85].includes(d.n))" :key="d.n"
-                                                            class="grid grid-cols-2 gap-x-4 px-3 py-2">
-                                                            <p class="text-sm font-semibold text-gray-600">Diente {{ toDot(d.n) }}:</p>
-                                                            <p class="text-sm text-gray-700 whitespace-pre-wrap">{{ d.val }}</p>
+                                                            class="flex flex-col sm:flex-row sm:gap-x-4 px-3 py-2">
+                                                            <p class="text-sm font-semibold text-gray-600 sm:w-44 sm:shrink-0">Diente {{ toDot(d.n) }}:</p>
+                                                            <p class="text-sm text-gray-700 whitespace-pre-wrap break-words min-w-0">{{ d.val }}</p>
                                                         </div>
                                                     </template>
                                                 </div>
@@ -398,9 +398,9 @@
                                         <div v-if="order.observaciones_2" class="border border-gray-100 rounded-xl overflow-hidden mb-3">
                                             <div class="bg-gray-700 px-4 py-2"><h3 class="text-white font-semibold text-sm">Otros Datos</h3></div>
                                             <div class="divide-y divide-gray-50">
-                                                <div class="grid grid-cols-2 gap-x-4 px-3 py-2">
-                                                    <p class="text-sm font-semibold text-gray-600">Observaciones:</p>
-                                                    <p class="text-sm text-gray-700 whitespace-pre-wrap">{{ order.observaciones_2 }}</p>
+                                                <div class="flex flex-col sm:flex-row sm:gap-x-4 px-3 py-2">
+                                                    <p class="text-sm font-semibold text-gray-600 sm:w-44 sm:shrink-0">Observaciones:</p>
+                                                    <p class="text-sm text-gray-700 whitespace-pre-wrap break-words min-w-0">{{ order.observaciones_2 }}</p>
                                                 </div>
                                             </div>
                                         </div>
@@ -414,34 +414,34 @@
                                             <div class="border border-blue-100 rounded-xl overflow-hidden mb-3 mt-2">
                                                 <div class="bg-blue-700 px-4 py-2"><h3 class="text-white font-semibold text-sm">Maxilar</h3></div>
                                                 <div class="divide-y divide-gray-50">
-                                                    <div v-if="examen.respuesta.campo_2" class="grid grid-cols-2 gap-x-4 px-3 py-2">
-                                                        <p class="text-sm font-semibold text-gray-600">Nivel Óseo Marginal:</p>
-                                                        <p class="text-sm text-gray-700 whitespace-pre-wrap">{{ examen.respuesta.campo_2 }}</p>
+                                                    <div v-if="examen.respuesta.campo_2" class="flex flex-col sm:flex-row sm:gap-x-4 px-3 py-2">
+                                                        <p class="text-sm font-semibold text-gray-600 sm:w-44 sm:shrink-0">Nivel Óseo Marginal:</p>
+                                                        <p class="text-sm text-gray-700 whitespace-pre-wrap break-words min-w-0">{{ examen.respuesta.campo_2 }}</p>
                                                     </div>
-                                                    <div v-if="examen.respuesta.campo_3" class="grid grid-cols-2 gap-x-4 px-3 py-2">
-                                                        <p class="text-sm font-semibold text-gray-600">Cálculo dentario marginal:</p>
-                                                        <p class="text-sm text-gray-700 whitespace-pre-wrap">{{ examen.respuesta.campo_3 }}</p>
+                                                    <div v-if="examen.respuesta.campo_3" class="flex flex-col sm:flex-row sm:gap-x-4 px-3 py-2">
+                                                        <p class="text-sm font-semibold text-gray-600 sm:w-44 sm:shrink-0">Cálculo dentario marginal:</p>
+                                                        <p class="text-sm text-gray-700 whitespace-pre-wrap break-words min-w-0">{{ examen.respuesta.campo_3 }}</p>
                                                     </div>
-                                                    <div v-if="examen.respuesta.campo_4" class="grid grid-cols-2 gap-x-4 px-3 py-2">
-                                                        <p class="text-sm font-semibold text-gray-600">Observaciones:</p>
-                                                        <p class="text-sm text-gray-700 whitespace-pre-wrap">{{ examen.respuesta.campo_4 }}</p>
+                                                    <div v-if="examen.respuesta.campo_4" class="flex flex-col sm:flex-row sm:gap-x-4 px-3 py-2">
+                                                        <p class="text-sm font-semibold text-gray-600 sm:w-44 sm:shrink-0">Observaciones:</p>
+                                                        <p class="text-sm text-gray-700 whitespace-pre-wrap break-words min-w-0">{{ examen.respuesta.campo_4 }}</p>
                                                     </div>
                                                     <!-- Permanentes maxilar -->
                                                     <template v-if="getDientesConContenido(examen.respuesta).some(d => [11,12,13,14,15,16,17,18,21,22,23,24,25,26,27,28].includes(d.n))">
                                                         <div class="px-3 pt-2 pb-1 bg-gray-50"><p class="text-xs italic text-gray-400 font-medium">Permanentes</p></div>
                                                         <div v-for="d in getDientesConContenido(examen.respuesta).filter(d => [11,12,13,14,15,16,17,18,21,22,23,24,25,26,27,28].includes(d.n))" :key="d.n"
-                                                            class="grid grid-cols-2 gap-x-4 px-3 py-2">
-                                                            <p class="text-sm font-semibold text-gray-600">Diente {{ toDot(d.n) }}:</p>
-                                                            <p class="text-sm text-gray-700 whitespace-pre-wrap">{{ d.val }}</p>
+                                                            class="flex flex-col sm:flex-row sm:gap-x-4 px-3 py-2">
+                                                            <p class="text-sm font-semibold text-gray-600 sm:w-44 sm:shrink-0">Diente {{ toDot(d.n) }}:</p>
+                                                            <p class="text-sm text-gray-700 whitespace-pre-wrap break-words min-w-0">{{ d.val }}</p>
                                                         </div>
                                                     </template>
                                                     <!-- Temporales maxilar -->
                                                     <template v-if="getDientesConContenido(examen.respuesta).some(d => [51,52,53,54,55,61,62,63,64,65].includes(d.n))">
                                                         <div class="px-3 pt-2 pb-1 bg-gray-50"><p class="text-xs italic text-gray-400 font-medium">Temporales</p></div>
                                                         <div v-for="d in getDientesConContenido(examen.respuesta).filter(d => [51,52,53,54,55,61,62,63,64,65].includes(d.n))" :key="d.n"
-                                                            class="grid grid-cols-2 gap-x-4 px-3 py-2">
-                                                            <p class="text-sm font-semibold text-gray-600">Diente {{ toDot(d.n) }}:</p>
-                                                            <p class="text-sm text-gray-700 whitespace-pre-wrap">{{ d.val }}</p>
+                                                            class="flex flex-col sm:flex-row sm:gap-x-4 px-3 py-2">
+                                                            <p class="text-sm font-semibold text-gray-600 sm:w-44 sm:shrink-0">Diente {{ toDot(d.n) }}:</p>
+                                                            <p class="text-sm text-gray-700 whitespace-pre-wrap break-words min-w-0">{{ d.val }}</p>
                                                         </div>
                                                     </template>
                                                 </div>
@@ -453,34 +453,34 @@
                                             <div class="border border-blue-100 rounded-xl overflow-hidden mb-3">
                                                 <div class="bg-blue-700 px-4 py-2"><h3 class="text-white font-semibold text-sm">Mandíbula</h3></div>
                                                 <div class="divide-y divide-gray-50">
-                                                    <div v-if="examen.respuesta.campo_5" class="grid grid-cols-2 gap-x-4 px-3 py-2">
-                                                        <p class="text-sm font-semibold text-gray-600">Nivel Óseo Marginal:</p>
-                                                        <p class="text-sm text-gray-700 whitespace-pre-wrap">{{ examen.respuesta.campo_5 }}</p>
+                                                    <div v-if="examen.respuesta.campo_5" class="flex flex-col sm:flex-row sm:gap-x-4 px-3 py-2">
+                                                        <p class="text-sm font-semibold text-gray-600 sm:w-44 sm:shrink-0">Nivel Óseo Marginal:</p>
+                                                        <p class="text-sm text-gray-700 whitespace-pre-wrap break-words min-w-0">{{ examen.respuesta.campo_5 }}</p>
                                                     </div>
-                                                    <div v-if="examen.respuesta.campo_6" class="grid grid-cols-2 gap-x-4 px-3 py-2">
-                                                        <p class="text-sm font-semibold text-gray-600">Cálculo dentario marginal:</p>
-                                                        <p class="text-sm text-gray-700 whitespace-pre-wrap">{{ examen.respuesta.campo_6 }}</p>
+                                                    <div v-if="examen.respuesta.campo_6" class="flex flex-col sm:flex-row sm:gap-x-4 px-3 py-2">
+                                                        <p class="text-sm font-semibold text-gray-600 sm:w-44 sm:shrink-0">Cálculo dentario marginal:</p>
+                                                        <p class="text-sm text-gray-700 whitespace-pre-wrap break-words min-w-0">{{ examen.respuesta.campo_6 }}</p>
                                                     </div>
-                                                    <div v-if="examen.respuesta.campo_7" class="grid grid-cols-2 gap-x-4 px-3 py-2">
-                                                        <p class="text-sm font-semibold text-gray-600">Observaciones:</p>
-                                                        <p class="text-sm text-gray-700 whitespace-pre-wrap">{{ examen.respuesta.campo_7 }}</p>
+                                                    <div v-if="examen.respuesta.campo_7" class="flex flex-col sm:flex-row sm:gap-x-4 px-3 py-2">
+                                                        <p class="text-sm font-semibold text-gray-600 sm:w-44 sm:shrink-0">Observaciones:</p>
+                                                        <p class="text-sm text-gray-700 whitespace-pre-wrap break-words min-w-0">{{ examen.respuesta.campo_7 }}</p>
                                                     </div>
                                                     <!-- Permanentes mandíbula -->
                                                     <template v-if="getDientesConContenido(examen.respuesta).some(d => [31,32,33,34,35,36,37,38,41,42,43,44,45,46,47,48].includes(d.n))">
                                                         <div class="px-3 pt-2 pb-1 bg-gray-50"><p class="text-xs italic text-gray-400 font-medium">Permanentes</p></div>
                                                         <div v-for="d in getDientesConContenido(examen.respuesta).filter(d => [31,32,33,34,35,36,37,38,41,42,43,44,45,46,47,48].includes(d.n))" :key="d.n"
-                                                            class="grid grid-cols-2 gap-x-4 px-3 py-2">
-                                                            <p class="text-sm font-semibold text-gray-600">Diente {{ toDot(d.n) }}:</p>
-                                                            <p class="text-sm text-gray-700 whitespace-pre-wrap">{{ d.val }}</p>
+                                                            class="flex flex-col sm:flex-row sm:gap-x-4 px-3 py-2">
+                                                            <p class="text-sm font-semibold text-gray-600 sm:w-44 sm:shrink-0">Diente {{ toDot(d.n) }}:</p>
+                                                            <p class="text-sm text-gray-700 whitespace-pre-wrap break-words min-w-0">{{ d.val }}</p>
                                                         </div>
                                                     </template>
                                                     <!-- Temporales mandíbula -->
                                                     <template v-if="getDientesConContenido(examen.respuesta).some(d => [71,72,73,74,75,81,82,83,84,85].includes(d.n))">
                                                         <div class="px-3 pt-2 pb-1 bg-gray-50"><p class="text-xs italic text-gray-400 font-medium">Temporales</p></div>
                                                         <div v-for="d in getDientesConContenido(examen.respuesta).filter(d => [71,72,73,74,75,81,82,83,84,85].includes(d.n))" :key="d.n"
-                                                            class="grid grid-cols-2 gap-x-4 px-3 py-2">
-                                                            <p class="text-sm font-semibold text-gray-600">Diente {{ toDot(d.n) }}:</p>
-                                                            <p class="text-sm text-gray-700 whitespace-pre-wrap">{{ d.val }}</p>
+                                                            class="flex flex-col sm:flex-row sm:gap-x-4 px-3 py-2">
+                                                            <p class="text-sm font-semibold text-gray-600 sm:w-44 sm:shrink-0">Diente {{ toDot(d.n) }}:</p>
+                                                            <p class="text-sm text-gray-700 whitespace-pre-wrap break-words min-w-0">{{ d.val }}</p>
                                                         </div>
                                                     </template>
                                                 </div>
