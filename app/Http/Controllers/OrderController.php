@@ -537,7 +537,9 @@ class OrderController extends Controller
 
         // Dispatch CBCT extraction jobs after the transaction commits
         foreach ($cbctJobs as [$fid, $zipPath]) {
-            ProcessCbctZip::dispatch($fid, $this->extractOrderIdFromPath($zipPath), $zipPath)->onQueue('default');
+            ProcessCbctZip::dispatch($fid, $this->extractOrderIdFromPath($zipPath), $zipPath)
+                ->onConnection('database')
+                ->onQueue('default');
         }
 
         return redirect()
@@ -1421,7 +1423,8 @@ class OrderController extends Controller
             }
         }
 
-        DB::transaction(function () use ($request, $order, $enviar, $yaEstabaEnviada, $radiologoIdUpdate, $updateAssignments, $user): void {
+        $updateCbctJobs = [];
+        DB::transaction(function () use ($request, $order, $enviar, $yaEstabaEnviada, $radiologoIdUpdate, $updateAssignments, $user, &$updateCbctJobs): void {
             $order->update([
                 'diagnostico'      => $request->boolean('sin_diagnostico') ? 'Sin diagnóstico' : ($request->input('diagnostico') ?? $order->diagnostico),
                 'observaciones'    => $request->input('observaciones') ?? '',
@@ -1452,7 +1455,7 @@ class OrderController extends Controller
                 foreach ((array) $request->file($fileKey) as $file) {
                     if (!$file) continue;
                     $stored = $this->storeUploadedFile($file, $order->id, $kindGroup);
-                    DB::table('files')->insert([
+                    $fid = DB::table('files')->insertGetId([
                         'ruta' => $stored['ruta'], 'examination_id' => $examinationId,
                         'name' => $stored['name'], 'type_id' => 0,
                         'extension' => $stored['extension'],
@@ -1461,6 +1464,9 @@ class OrderController extends Controller
                         'file_size_error' => null, 'desde_informar' => 0,
                         'created_at' => now(), 'updated_at' => now(),
                     ]);
+                    if (($stored['ruta_dcm'] ?? null) === 'processing') {
+                        $updateCbctJobs[] = [$fid, $stored['ruta']];
+                    }
                 }
             }
 
@@ -1539,6 +1545,13 @@ class OrderController extends Controller
                 }
             }
         });
+
+        // Dispatch CBCT extraction jobs from edit flow after transaction commits
+        foreach ($updateCbctJobs as [$fid, $zipPath]) {
+            ProcessCbctZip::dispatch($fid, $this->extractOrderIdFromPath($zipPath), $zipPath)
+                ->onConnection('database')
+                ->onQueue('default');
+        }
 
         if ($enviar && ! $yaEstabaEnviada) {
             $staffIds = DB::table('order_staff_exam')
@@ -1837,6 +1850,7 @@ class OrderController extends Controller
     {
         if (($fileRow['ruta_dcm'] ?? null) === 'processing') {
             ProcessCbctZip::dispatch($fileId, $this->extractOrderIdFromPath($fileRow['ruta']), $fileRow['ruta'])
+                ->onConnection('database')
                 ->onQueue('default');
         }
     }
