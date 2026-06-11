@@ -279,8 +279,8 @@
                                         </div>
                                     </template>
 
-                                    <!-- Estándar: campo_1/2/3 -->
-                                    <template v-else>
+                                    <!-- Estándar: campo_1/2/3 (no aplica para Panorámica que tiene su propia sección) -->
+                                    <template v-else-if="examen.kind_id != 15">
                                         <div v-if="examen.respuesta.campo_1" class="mb-3">
                                             <p class="text-xs font-semibold text-gray-500 uppercase mb-1">Examen</p>
                                             <div class="bg-green-50 border border-green-100 rounded-lg p-3 text-sm text-gray-700 whitespace-pre-wrap">{{ examen.respuesta.campo_1 }}</div>
