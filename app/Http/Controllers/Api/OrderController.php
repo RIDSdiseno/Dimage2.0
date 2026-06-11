@@ -96,7 +96,7 @@ class OrderController extends Controller
             )
             ->selectRaw("case when o.estadoradiologo = 0 then 'No Informada' when o.estadoradiologo = 1 then 'Informada' when o.estadoradiologo = 2 and o.estadoodontologo = 3 then 'Corrección' else 'Guardada' end as estado_texto")
             ->selectRaw("case when o.estadoradiologo = 4 then 1 else 0 end as editable")
-            ->selectRaw("case when o.estadoradiologo = 1 then 1 else 0 end as visitable")
+            ->selectRaw("case when o.estadoradiologo in (1,4) then 1 else 0 end as visitable")
             ->orderByDesc('o.id')
             ->offset(($page - 1) * $perPage)
             ->limit($perPage)
@@ -120,6 +120,13 @@ class OrderController extends Controller
     // GET /api/v3/order/by-id/{id}
     public function byId(Request $request, int $id)
     {
+        if ((int) $id === 0) {
+            $lastId = cache()->get('dentalsoft_last_created_order_id');
+
+            if ($lastId) {
+                $id = (int) $lastId;
+            }
+        }
         $order = DB::table('orders as o')
             ->join('patients as p', 'p.id', '=', 'o.patient_id')
             ->join('clinics as c', 'c.id', '=', 'o.clinic_id')
@@ -136,11 +143,31 @@ class OrderController extends Controller
                 'so.rut as profesional_rut',
                 'so.id_externo as profesional_id_externo',
                 'uo.name as profesional',
+                'uo.name as odontologo',
+                'so.rut as rut_odontologo',
                 'uo.email as mail_odontologo'
             )
             ->first();
 
         if (! $order) return response()->json(['error' => 'Orden no encontrada.'], 404);
+
+        $formatRut = function ($rut) {
+            $clean = strtoupper(preg_replace('/[^0-9K]/', '', (string) $rut));
+
+            if (strlen($clean) < 2) {
+                return $rut;
+            }
+
+            return substr($clean, 0, -1) . '-' . substr($clean, -1);
+        };
+
+        if (!empty($order->rut_odontologo)) {
+            $order->rut_odontologo = $formatRut($order->rut_odontologo);
+        }
+
+        if (!empty($order->profesional_rut)) {
+            $order->profesional_rut = $formatRut($order->profesional_rut);
+        }
 
         $examenes = DB::table('examinations as e')
             ->join('examination_order as eo', 'eo.examination_id', '=', 'e.id')
@@ -199,81 +226,111 @@ class OrderController extends Controller
                 ];
             });
 
-        return response()->json([
-            'id'              => $order->id,
-            'paciente'        => $order->paciente,
-            'rut_paciente'    => $order->rut_paciente,
-            'clinica'         => $order->clinica,
-            'profesional_id'  => $order->profesional_id,
-            'profesional'     => $order->profesional,
-            'profesional_rut' => $order->profesional_rut,
-            'profesional_id_externo' => $order->profesional_id_externo,
-            'odontologo_id'   => $order->odontologo_id,
-            'rut_odontologo'  => $order->profesional_rut,
-            'mail_odontologo' => $order->mail_odontologo,
-            'odontologo'      => $order->profesional,
-            'odontologo_rut'  => $order->profesional_rut,
-            'odontologo_id_externo' => $order->profesional_id_externo,
-            'diagnostico'     => $order->diagnostico,
-            'observaciones'   => $order->observaciones,
-            'prioridad'       => $order->prioridad,
-            'estadoradiologo' => $order->estadoradiologo,
-            'estadoodontologo'=> $order->estadoodontologo,
-            'enviada'         => $order->enviada,
-            'respondida'      => $order->respondida,
-            'created_at'      => $order->created_at,
-            'clinic_id'       => $order->clinic_id,
-            'fecha_creacion'  => $order->created_at,
-            'fecha_envio'     => $order->enviada,
-            'fecha_respuesta' => $order->respondida,
-            'estado_radiologo'=> $order->estadoradiologo,
-            'estado_odontologo'=> $order->estadoodontologo,
-            'observaciones_informe' => $order->observaciones_2 ?? '',
-            'editable'        => ((int)$order->estadoradiologo === 4) ? 1 : 0,
-            'visitable'       => ((int)$order->estadoradiologo === 1) ? 1 : 0,
-            'answers_mapping' => new \stdClass(),
-            'examenes'        => $examenes,
-        ]);
+        $order->examenes = $examenes;
+
+        return response()->json($order);
     }
 
     // POST /api/v3/order
     public function create(Request $request)
     {
-        $data = $request->validate([
-            'patient_id'    => ['required', 'exists:patients,id'],
-            'clinic_id'     => ['required', 'exists:clinics,id'],
-            'diagnostico'   => ['nullable', 'string'],
-            'observaciones' => ['nullable', 'string'],
-            'prioridad'     => ['nullable', 'in:1 día,2 días,3 días,Normal,Urgente'],
-            'examenes'      => ['required', 'array', 'min:1'],
-            'examenes.*.kind_id' => ['required', 'exists:kinds,id'],
+        \Log::info('CREATE_ORDER_PAYLOAD', [
+            'all' => $request->all(),
+            'content' => $request->getContent(),
         ]);
 
+        \Log::info('DENTALSOFT_ORDER_CREATE', [
+            'all' => $request->all(),
+        ]);
+
+        $rutPaciente = $request->input('paciente');
+        $rutOdontologo = strtoupper(preg_replace('/[^0-9K]/', '', $request->input('odontologo', '')));
+
+        $patient = DB::table('patients')
+            ->where('rut', $rutPaciente)
+            ->orderByDesc('id')
+            ->first();
+
+        if (!$patient) {
+            return response()->json(['error' => "Paciente no encontrado: {$rutPaciente}"], 404);
+        }
+
+        $odontologo = DB::table('staffs')
+            ->where('type_staff', 6)
+            ->whereRaw("REPLACE(REPLACE(UPPER(rut), '.', ''), '-', '') = ?", [$rutOdontologo])
+            ->orderByRaw('CASE WHEN id_externo IS NULL THEN 1 ELSE 0 END')
+            ->orderBy('id')
+            ->first();
+
+        if (!$odontologo) {
+            return response()->json(['error' => "Odontólogo no encontrado: {$rutOdontologo}"], 404);
+        }
+
+        $data = [
+            'patient_id'     => $patient->id,
+            'clinic_id'      => $request->input('clinica'),
+            'odontologo_id'  => $odontologo->id,
+            'diagnostico'    => $request->input('diagnostico') ?? $request->input('diagnostico_clinico') ?? '',
+            'observaciones'  => $request->input('observaciones') ?? '',
+            'prioridad'      => (string) $request->input('prioridad', 'Normal'),
+            'examenes'       => $request->input('examenes', []),
+        ];
+
         $orderId = DB::table('orders')->insertGetId([
-            'patient_id'      => $data['patient_id'],
-            'clinic_id'       => $data['clinic_id'],
-            'diagnostico'     => $data['diagnostico'] ?? null,
-            'observaciones'   => $data['observaciones'] ?? null,
-            'prioridad'       => $data['prioridad'] ?? 'Normal',
-            'estadoradiologo' => 4,
-            'estadoodontologo'=> 4,
-            'created_at'      => now(),
-            'updated_at'      => now(),
+            'patient_id'       => $data['patient_id'],
+            'clinic_id'        => $data['clinic_id'],
+            'odontologo_id'    => $data['odontologo_id'],
+            'radiologo_id'     => 142,
+            'diagnostico'      => $data['diagnostico'],
+            'observaciones'    => $data['observaciones'],
+            'prioridad'        => $data['prioridad'],
+            'estadoradiologo'  => 4,
+            'estadoodontologo' => 4,
+            'created_at'       => now(),
+            'updated_at'       => now(),
         ]);
 
         foreach ($data['examenes'] as $ex) {
+            $kindId = $ex['kind_id'] ?? $ex['tipo'] ?? null;
+
+            if (!$kindId) {
+                continue;
+            }
+
+            $piezas = null;
+            if (isset($ex['dientes']) && is_array($ex['dientes'])) {
+                $piezas = implode(',', $ex['dientes']);
+            }
+
             $exId = DB::table('examinations')->insertGetId([
-                'kind_id'    => $ex['kind_id'],
+                'kind_id'    => $kindId,
+                'piezas'     => $piezas,
                 'created_at' => now(),
                 'updated_at' => now(),
             ]);
+
             DB::table('examination_order')->insert([
                 'order_id'       => $orderId,
                 'examination_id' => $exId,
+                'created_at'     => now(),
+                'updated_at'     => now(),
             ]);
         }
 
-        return response()->json(['message' => 'Orden creada.', 'order_id' => $orderId], 201);
+        \Log::info('CREATE_ORDER_RESPONSE', [
+            'order_id' => $orderId
+        ]);
+
+        cache()->put('dentalsoft_last_created_order_id', $orderId, now()->addMinutes(10));
+
+        return response()->json([
+            'orden' => [
+                'id' => $orderId
+            ],
+            'id' => $orderId,
+            'order_id' => $orderId,
+            'message' => 'Orden creada.'
+        ], 201);
     }
 
     // POST /api/v3/order/{id}/files/{examination_id}
@@ -469,6 +526,9 @@ class OrderController extends Controller
     // PUT /api/v3/order/{id}
     public function update(Request $request, int $id)
     {
+        \Log::info('UPDATE_ORDER_PAYLOAD', [
+            'all' => $request->all(),
+        ]);
         $holdingId = $request->_holding_id;
 
         $order = DB::table('orders as o')
@@ -482,30 +542,88 @@ class OrderController extends Controller
             return response()->json(['error' => "Orden $id no existe para la red seleccionada."], 404);
         }
 
-        // Solo editable si aún no fue enviada al radiólogo (estadoradiologo = 4 = sin asignar)
-        // o si está en corrección (estadoodontologo = 3)
-        $editable = (int) $order->estadoradiologo === 4
-            || ((int) $order->estadoradiologo === 2 && (int) $order->estadoodontologo === 3);
+        // Integración DentalSoft:
+        // permitir editar toda orden que NO esté respondida.
+        // 1 = respondida/informada, no editable.
+        $editable = (int) $order->estadoradiologo !== 1;
 
         if (! $editable) {
-            return response()->json(['error' => 'La orden no puede editarse en su estado actual.'], 422);
+            return response()->json(['error' => 'La orden no puede editarse porque ya está respondida.'], 422);
         }
 
-        $data = $request->validate([
-            'diagnostico'    => ['sometimes', 'nullable', 'string'],
-            'observaciones'  => ['sometimes', 'nullable', 'string'],
-            'observaciones_2'=> ['sometimes', 'nullable', 'string'],
-            'prioridad'      => ['sometimes', 'in:Normal,Urgente'],
-            'trx_number'     => ['sometimes', 'nullable', 'string', 'max:100'],
+        \Log::info('UPDATE_RAW_REQUEST', [
+            'method' => $request->method(),
+            'all' => $request->all(),
+            'content' => $request->getContent(),
         ]);
 
-        if (empty($data)) {
-            return response()->json(['error' => 'No se enviaron campos para actualizar.'], 422);
-        }
+        $data = [
+            'diagnostico' => $request->input('diagnostico')
+                ?? $request->input('diagnostico_clinico'),
+
+            'observaciones' => $request->input('observaciones'),
+
+            'prioridad' => $request->input('prioridad'),
+        ];
+
+        \Log::info('UPDATE_MAPPED_DATA', [
+            'mapped' => $data,
+        ]);
+
+        \Log::info('UPDATE_BEFORE_DB', [
+            'order_id' => $id,
+            'data' => $data,
+        ]);
 
         DB::table('orders')->where('id', $id)->update(
             array_merge($data, ['updated_at' => now()])
         );
+
+        if ($request->has('examenes')) {
+
+            $oldExamIds = DB::table('examination_order')
+                ->where('order_id', $id)
+                ->pluck('examination_id');
+
+            DB::table('examination_order')
+                ->where('order_id', $id)
+                ->delete();
+
+            if ($oldExamIds->count()) {
+                DB::table('examinations')
+                    ->whereIn('id', $oldExamIds)
+                    ->delete();
+            }
+
+            foreach ($request->input('examenes', []) as $ex) {
+
+                $kindId = $ex['kind_id'] ?? $ex['tipo'] ?? null;
+
+                if (!$kindId) {
+                    continue;
+                }
+
+                $piezas = null;
+
+                if (isset($ex['dientes']) && is_array($ex['dientes'])) {
+                    $piezas = implode(',', $ex['dientes']);
+                }
+
+                $exId = DB::table('examinations')->insertGetId([
+                    'kind_id'    => $kindId,
+                    'piezas'     => $piezas,
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ]);
+
+                DB::table('examination_order')->insert([
+                    'order_id'       => $id,
+                    'examination_id' => $exId,
+                    'created_at'     => now(),
+                    'updated_at'     => now(),
+                ]);
+            }
+        }
 
         return response()->json(['message' => 'Orden actualizada.']);
     }

@@ -699,7 +699,7 @@ class OrderController extends Controller
             'correcciones'   => $correcciones,
             'examenes'       => $examenes,
             'puedeResponder' => $puedeResponder,
-            'canEdit'        => (int) $order->estadoradiologo !== 1 && $this->operadorPuedeEditar($order, $user),
+            'canEdit'        => (int) $order->estadoradiologo !== 1,
             'esAdmin'        => $user->type_id === 1 || $user->hasRole('admin'),
             'esRadiologo'    => $user->type_id === 5 || $user->hasRole('radiologo'),
         ]);
@@ -1294,10 +1294,15 @@ class OrderController extends Controller
 
         $user = Auth::user();
 
+        // Integración DentalSoft:
+        // permitir entrar a edición mientras la orden no esté respondida.
+        // La validación de respondida ya está arriba.
+        /*
         if (!$this->operadorPuedeEditar($order, $user)) {
             return redirect()->route('ordenes.show', $order)
                 ->with('error', 'No puedes editar una orden ya enviada.');
         }
+        */
 
         $examTypes = $this->buildExamTabs();
 
@@ -1358,10 +1363,16 @@ class OrderController extends Controller
         }
 
         $user = Auth::user();
+
+        // Integración DentalSoft:
+        // permitir guardar edición mientras la orden no esté respondida.
+        // La validación de respondida ya está arriba.
+        /*
         if (!$this->operadorPuedeEditar($order, $user)) {
             return redirect()->route('ordenes.show', $order)
                 ->with('error', 'No puedes editar una orden ya enviada.');
         }
+        */
 
         $request->validate([
             'prioridad' => ['required', 'in:1 día,2 días,3 días,Normal,Urgente'],

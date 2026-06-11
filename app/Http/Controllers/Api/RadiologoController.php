@@ -42,7 +42,7 @@ class RadiologoController extends Controller
     public function create(Request $request)
     {
         $data = $request->validate([
-            'rut'      => ['required', 'string', 'unique:users,rut'],
+            'rut'      => ['required', 'string', 'unique:staffs,rut'],
             'name'     => ['required', 'string', 'max:255'],
             'email'    => ['required', 'email', 'unique:users,email'],
             'password' => ['required', 'string', 'min:6'],
@@ -72,7 +72,7 @@ class RadiologoController extends Controller
     // PUT /api/v3/radiologo/{rut}
     public function update(Request $request, string $rut)
     {
-        $user = DB::table('users')->where('rut', $rut)->first();
+        $user = DB::table('staffs')->where('rut', $rut)->first();
         if (! $user) return response()->json(['error' => 'No encontrado.'], 404);
 
         $data = $request->validate([
@@ -80,7 +80,7 @@ class RadiologoController extends Controller
             'email' => ['sometimes', 'email', 'max:255'],
         ]);
 
-        DB::table('users')->where('rut', $rut)->update(array_merge($data, ['updated_at' => now()]));
+        DB::table('staffs')->where('rut', $rut)->update(array_merge($data, ['updated_at' => now()]));
 
         return response()->json(['message' => 'Radiólogo actualizado.']);
     }
@@ -133,7 +133,7 @@ class RadiologoController extends Controller
     // DELETE /api/v3/radiologo/{rut}
     public function destroy(Request $request, string $rut)
     {
-        $user = DB::table('users')->where('rut', $rut)->first();
+        $user = DB::table('staffs')->where('rut', $rut)->first();
         if (! $user) return response()->json(['error' => 'No encontrado.'], 404);
 
         DB::table('staffs')->where('user_id', $user->id)->update(['activo' => 0, 'updated_at' => now()]);

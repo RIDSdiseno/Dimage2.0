@@ -12,7 +12,16 @@ class OdontologoController extends Controller
     // GET /api/v3/odontologo/by-rut/{rut}
     public function findByRut(Request $request, string $rut)
     {
-        $row = $this->query($request->_holding_id)->where('u.rut', $rut)->first();
+        $rutInput = strtoupper(preg_replace('/[^0-9K]/', '', $rut));
+
+$row = $this->query($request->_holding_id)
+    ->where(function ($q) use ($rutInput) {
+        $rutDb = "REPLACE(REPLACE(UPPER(s.rut), '.', ''), '-', '')";
+
+        $q->whereRaw("$rutDb = ?", [$rutInput])
+          ->orWhereRaw("LEFT($rutDb, CHAR_LENGTH($rutDb) - 1) = ?", [$rutInput]);
+    })
+    ->first();
 
         if (! $row) {
             return response()->json(['error' => 'Odontólogo no encontrado.'], 404);
@@ -35,41 +44,79 @@ class OdontologoController extends Controller
     // POST /api/v3/odontologo/create
     public function create(Request $request)
     {
-        $data = $request->validate([
-            'rut'      => ['required', 'string', 'unique:users,rut'],
-            'name'     => ['required', 'string', 'max:255'],
-            'email'    => ['required', 'email', 'unique:users,email'],
-            'password' => ['required', 'string', 'min:6'],
-            'clinic_id'=> ['nullable', 'exists:clinics,id'],
-        ]);
+        $rutRaw = $request->input('rut') ?? $request->input('odontologo') ?? '';
+        $rutInput = strtoupper(preg_replace('/[^0-9K]/', '', $rutRaw));
+
+        if ($rutInput === '') {
+            return response()->json([
+                'error' => 'RUT de odontólogo requerido.',
+                'received' => $request->all(),
+            ], 422);
+        }
+
+        $name = $request->input('name')
+            ?? $request->input('nombre')
+            ?? $request->input('odontologo_nombre')
+            ?? 'Odontólogo ' . $rutInput;
+
+        $email = $request->input('email')
+            ?? $request->input('mail')
+            ?? $request->input('correo')
+            ?? ('odontologo_' . $rutInput . '@dimage.local');
+
+        $password = $request->input('password') ?? '123456';
+
+        $rutDb = "REPLACE(REPLACE(UPPER(s.rut), '.', ''), '-', '')";
+
+        $existing = $this->query($request->_holding_id)
+            ->where(function ($q) use ($rutInput, $rutDb) {
+                $q->whereRaw("$rutDb = ?", [$rutInput])
+                  ->orWhereRaw("LEFT($rutDb, CHAR_LENGTH($rutDb) - 1) = ?", [$rutInput]);
+            })
+            ->first();
+
+        if ($existing) {
+            return response()->json($this->format($existing), 200);
+        }
 
         $userId = DB::table('users')->insertGetId([
-            'rut'        => $data['rut'],
-            'name'       => $data['name'],
-            'email'      => $data['email'],
-            'password'   => Hash::make($data['password']),
+            'username'   => $email,
+            'password'   => Hash::make($password),
+            'name'       => $name,
+            'mail'       => $email,
+            'email'      => $email,
+            'status'     => 1,
             'type_id'    => 6,
+            'id_externo' => 0,
             'created_at' => now(),
             'updated_at' => now(),
         ]);
 
         $staffId = DB::table('staffs')->insertGetId([
             'user_id'    => $userId,
+            'rut'        => $rutInput,
             'type_staff' => 6,
             'activo'     => 1,
             'created_at' => now(),
             'updated_at' => now(),
         ]);
 
-        if (!empty($data['clinic_id'])) {
-            DB::table('clinic_staff')->insert([
-                'clinic_id' => $data['clinic_id'],
+        if ($request->filled('clinic_id')) {
+            DB::table('clinic_staff')->insertOrIgnore([
+                'clinic_id' => $request->input('clinic_id'),
                 'staff_id'  => $staffId,
             ]);
         }
 
-        return response()->json(['message' => 'Odontólogo creado.', 'staff_id' => $staffId], 201);
+        $row = DB::table('staffs as s')
+            ->join('users as u', 'u.id', '=', 's.user_id')
+            ->where('s.id', $staffId)
+            ->select('s.id as staff_id', 'u.id as user_id', 'u.name', 'u.email', 's.rut', 's.activo')
+            ->first();
+
+        return response()->json($this->format($row), 201);
     }
+
 
     private function query(int $holdingId)
     {
@@ -79,7 +126,7 @@ class OdontologoController extends Controller
             ->join('clinics as c', 'c.id', '=', 'cs.clinic_id')
             ->where('c.holding_id', $holdingId)
             ->where('s.type_staff', 6)
-            ->select('s.id as staff_id', 'u.id as user_id', 'u.name', 'u.email', 'u.rut', 's.activo')
+            ->select('s.id as staff_id', 'u.id as user_id', 'u.name', 'u.email', 's.rut', 's.activo')
             ->distinct();
     }
 
