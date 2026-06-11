@@ -24,7 +24,7 @@ if (!function_exists('pdfDienteTable')) {
 <head>
 <meta charset="UTF-8" />
 <style>
-  * { margin: 0; padding: 0; box-sizing: border-box; }
+  * { margin: 0; padding: 0; box-sizing: border-box; word-wrap: break-word; overflow-wrap: break-word; word-break: break-all; }
   body { font-family: DejaVu Sans, sans-serif; font-size: 11px; color: #1e293b; background: #fff; }
   .page { padding: 28px 32px; }
   .header { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #3452ff; padding-bottom: 12px; margin-bottom: 18px; }
