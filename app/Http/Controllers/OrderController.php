@@ -1475,8 +1475,13 @@ class OrderController extends Controller
             // Agregar nuevos exámenes
             foreach ((array) $request->input('nuevos_examenes', []) as $kindId) {
                 if (!$kindId) continue;
+                $piezasNuevoRaw = (array) $request->input("piezas_nuevo_{$kindId}", []);
+                $piezasNuevoStr = !empty($piezasNuevoRaw) ? implode(',', array_map('intval', $piezasNuevoRaw)) : null;
+                $urlNuevo       = $request->input("url_nuevo_{$kindId}");
                 $examinationId = DB::table('examinations')->insertGetId([
                     'kind_id'    => (int) $kindId,
+                    'piezas'     => $piezasNuevoStr,
+                    'url_texto'  => $urlNuevo ?: null,
                     'created_at' => now(),
                     'updated_at' => now(),
                 ]);
