@@ -50,32 +50,43 @@ class FileController extends Controller
     /**
      * Stream a file directly from S3 so the browser can display it inline.
      */
-    public function download(int $id): StreamedResponse|\Symfony\Component\HttpFoundation\BinaryFileResponse
+    public function download(int $id): \Illuminate\Http\RedirectResponse|StreamedResponse|\Symfony\Component\HttpFoundation\BinaryFileResponse
     {
         $file = DB::table('files')->where('id', $id)->first(['ruta', 'nombre_dcm', 'ruta_dcm', 'name', 'extension']);
         abort_if(!$file || !$file->ruta || $file->ruta === '0', 404);
 
-        // CBCT serie: prefer original ZIP, then build one on demand, then fall back to first DCM
+        // CBCT serie procesada
         if ($file->ruta_dcm && $file->ruta_dcm !== 'processing') {
             $zipPath = ($file->nombre_dcm && Storage::disk('s3')->exists($file->nombre_dcm))
                 ? $file->nombre_dcm
                 : null;
 
             if ($zipPath) {
-                $stream = Storage::disk('s3')->readStream($zipPath);
-                abort_if(!is_resource($stream), 404);
-                $zipName = $file->name ?: basename($zipPath);
-                return response()->stream(function () use ($stream) {
-                    fpassthru($stream);
-                    if (is_resource($stream)) fclose($stream);
-                }, 200, [
-                    'Content-Type'        => 'application/zip',
-                    'Content-Disposition' => 'attachment; filename="' . rawurlencode($zipName) . '"',
-                    'Cache-Control'       => 'no-cache',
-                ]);
+                // ZIP original disponible — presigned URL: el browser descarga directo de S3 (instantáneo)
+                try {
+                    $zipName = $file->name ?: basename($zipPath);
+                    $url = Storage::disk('s3')->temporaryUrl(
+                        $zipPath,
+                        now()->addMinutes(30),
+                        ['ResponseContentDisposition' => 'attachment; filename="' . rawurlencode($zipName) . '"']
+                    );
+                    return redirect()->to($url);
+                } catch (\Throwable) {
+                    // S3 driver sin soporte de presigned URLs → stream directo
+                    $stream = Storage::disk('s3')->readStream($zipPath);
+                    abort_if(!is_resource($stream), 404);
+                    $zipName = $file->name ?: basename($zipPath);
+                    return response()->stream(function () use ($stream) {
+                        fpassthru($stream); if (is_resource($stream)) fclose($stream);
+                    }, 200, [
+                        'Content-Type'        => 'application/zip',
+                        'Content-Disposition' => 'attachment; filename="' . rawurlencode($zipName) . '"',
+                        'Cache-Control'       => 'no-cache',
+                    ]);
+                }
             }
 
-            // ZIP deleted (processed before fix) — rebuild from DCM series
+            // ZIP borrado antes del fix — reconstruir desde la serie DCM (lento pero funciona)
             $paths = $this->seriePaths($id, $file->ruta_dcm);
             if (!empty($paths)) {
                 $baseName = pathinfo($file->name ?: 'CBCT', PATHINFO_FILENAME);
@@ -89,9 +100,7 @@ class FileController extends Controller
                         if (is_resource($s)) {
                             $content = stream_get_contents($s);
                             fclose($s);
-                            if ($content !== false) {
-                                $za->addFromString(basename($path), $content);
-                            }
+                            if ($content !== false) $za->addFromString(basename($path), $content);
                         }
                     }
                     $za->close();
@@ -103,22 +112,24 @@ class FileController extends Controller
             }
         }
 
-        // Default: serve the file as-is
+        // Archivo normal (imagen, PDF, DCM individual) — presigned URL si es posible
         $ext  = strtolower($file->extension ?? pathinfo($file->ruta, PATHINFO_EXTENSION));
-        $mime = $this->mime($ext);
         $name = $file->name ?: basename($file->ruta);
-
         try {
-            $stream = Storage::disk('s3')->readStream($file->ruta);
-        } catch (\Throwable) {
-            abort(404);
-        }
+            $url = Storage::disk('s3')->temporaryUrl(
+                $file->ruta,
+                now()->addMinutes(30),
+                ['ResponseContentDisposition' => 'attachment; filename="' . rawurlencode($name) . '"']
+            );
+            return redirect()->to($url);
+        } catch (\Throwable) {}
 
+        // Fallback streaming
+        $mime = $this->mime($ext);
+        try { $stream = Storage::disk('s3')->readStream($file->ruta); } catch (\Throwable) { abort(404); }
         abort_if(!is_resource($stream), 404);
-
         return response()->stream(function () use ($stream) {
-            fpassthru($stream);
-            if (is_resource($stream)) fclose($stream);
+            fpassthru($stream); if (is_resource($stream)) fclose($stream);
         }, 200, [
             'Content-Type'        => $mime,
             'Content-Disposition' => 'attachment; filename="' . rawurlencode($name) . '"',

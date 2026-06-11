@@ -23,34 +23,40 @@
 
         <!-- DCM (individual o serie CBCT) → toda la tarjeta es clickeable para abrir el visor -->
         <template v-else-if="isDcm">
-            <a :href="visorUrl" target="_blank"
-                style="display:flex; flex-direction:column; align-items:center; justify-content:center; width:100%; height:100%; background:#0b2a4a; position:relative; text-decoration:none;"
-                @click.stop>
-                <i class="pi pi-box" style="font-size:2.5rem; color:#60a5fa;" />
-                <span style="font-size:10px; margin-top:5px; color:#93c5fd; font-weight:700; letter-spacing:0.08em;">
-                    {{ isCbctSerie ? 'CBCT / DICOM' : 'DICOM' }}
-                </span>
-                <span style="font-size:10px; margin-top:3px; padding:0 6px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:130px; color:#60a5fa; text-align:center;">
-                    {{ file.name || 'Archivo' }}
-                </span>
-                <!-- Botón visor siempre visible abajo -->
-                <div style="position:absolute; bottom:6px; right:6px; display:flex; gap:4px;">
-                    <span style="display:flex; align-items:center; justify-content:center; width:26px; height:26px; border-radius:5px; background:rgba(52,82,255,0.9); color:#fff;">
-                        <i class="pi pi-eye" style="font-size:12px;" />
+            <!-- Contenedor relativo: el <a> ocupa el área de click del visor,
+                 los botones están FUERA del <a> para evitar conflictos de click -->
+            <div style="position:relative; width:100%; height:100%; background:#0b2a4a;">
+                <a :href="visorUrl" target="_blank"
+                    style="display:flex; flex-direction:column; align-items:center; justify-content:center; width:100%; height:100%; text-decoration:none;"
+                    @click.stop>
+                    <i class="pi pi-box" style="font-size:2.5rem; color:#60a5fa;" />
+                    <span style="font-size:10px; margin-top:5px; color:#93c5fd; font-weight:700; letter-spacing:0.08em;">
+                        {{ isCbctSerie ? 'CBCT / DICOM' : 'DICOM' }}
                     </span>
+                    <span style="font-size:10px; margin-top:3px; padding:0 6px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:130px; color:#60a5fa; text-align:center;">
+                        {{ file.name || 'Archivo' }}
+                    </span>
+                </a>
+                <!-- Botones fuera del <a> para que no abran el visor -->
+                <div style="position:absolute; bottom:6px; right:6px; display:flex; gap:4px; z-index:2;">
+                    <a :href="visorUrl" target="_blank" title="Ver en visor"
+                        style="display:flex; align-items:center; justify-content:center; width:26px; height:26px; border-radius:5px; background:rgba(52,82,255,0.9); color:#fff; text-decoration:none;"
+                        @click.stop>
+                        <i class="pi pi-eye" style="font-size:12px;" />
+                    </a>
                     <button :title="preparandoZip ? 'Preparando ZIP...' : 'Descargar ZIP'"
-                        style="display:flex; align-items:center; justify-content:center; width:26px; height:26px; border-radius:5px; background:rgba(255,255,255,0.15); color:#fff; border:none; cursor:pointer;"
-                        :style="preparandoZip ? 'background:rgba(96,165,250,0.4);cursor:wait;' : ''"
+                        style="display:flex; align-items:center; justify-content:center; width:26px; height:26px; border-radius:5px; color:#fff; border:none; cursor:pointer;"
+                        :style="preparandoZip ? 'background:rgba(96,165,250,0.4);cursor:wait;' : 'background:rgba(255,255,255,0.15);'"
                         @click.stop="descargarZip">
                         <i :class="preparandoZip ? 'pi pi-spin pi-spinner' : 'pi pi-download'" style="font-size:12px;" />
                     </button>
                 </div>
                 <!-- Etiqueta "Preparando..." flotante -->
                 <div v-if="preparandoZip"
-                    style="position:absolute; bottom:38px; right:4px; background:rgba(11,42,74,0.95); color:#93c5fd; font-size:9px; padding:3px 6px; border-radius:4px; white-space:nowrap; pointer-events:none;">
+                    style="position:absolute; bottom:38px; right:4px; background:rgba(11,42,74,0.95); color:#93c5fd; font-size:9px; padding:3px 6px; border-radius:4px; white-space:nowrap; pointer-events:none; z-index:2;">
                     Preparando ZIP...
                 </div>
-            </a>
+            </div>
         </template>
 
         <!-- ZIP CBCT en cola (procesando en background) -->
