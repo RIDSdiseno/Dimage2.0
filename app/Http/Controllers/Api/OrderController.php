@@ -169,6 +169,10 @@ class OrderController extends Controller
             $order->profesional_rut = $formatRut($order->profesional_rut);
         }
 
+        // Campos calculados que DentalSoft usa para mostrar/ocultar el botón de editar
+        $order->editable  = (int) $order->estadoradiologo !== 1 ? 1 : 0;
+        $order->visitable = in_array((int) $order->estadoradiologo, [1, 4]) ? 1 : 0;
+
         $examenes = DB::table('examinations as e')
             ->join('examination_order as eo', 'eo.examination_id', '=', 'e.id')
             ->join('kinds as k', 'k.id', '=', 'e.kind_id')
@@ -557,14 +561,37 @@ class OrderController extends Controller
             'content' => $request->getContent(),
         ]);
 
-        $data = [
-            'diagnostico' => $request->input('diagnostico')
-                ?? $request->input('diagnostico_clinico'),
+        // Solo actualizar campos que vienen en la solicitud para no sobreescribir con null
+        $data = [];
 
-            'observaciones' => $request->input('observaciones'),
+        if ($request->hasAny(['diagnostico', 'diagnostico_clinico'])) {
+            $data['diagnostico'] = $request->input('diagnostico') ?? $request->input('diagnostico_clinico');
+        }
+        if ($request->has('observaciones')) {
+            $data['observaciones'] = $request->input('observaciones');
+        }
+        if ($request->has('prioridad')) {
+            $data['prioridad'] = $request->input('prioridad');
+        }
 
-            'prioridad' => $request->input('prioridad'),
-        ];
+        // Cambio de odontólogo (enviado como RUT)
+        if ($request->filled('odontologo')) {
+            $rutOdont = strtoupper(preg_replace('/[^0-9K]/', '', $request->input('odontologo')));
+            $odont = DB::table('staffs')
+                ->where('type_staff', 6)
+                ->whereRaw("REPLACE(REPLACE(UPPER(rut), '.', ''), '-', '') = ?", [$rutOdont])
+                ->orderByRaw('CASE WHEN id_externo IS NULL THEN 1 ELSE 0 END')
+                ->orderBy('id')
+                ->first();
+            if ($odont) {
+                $data['odontologo_id'] = $odont->id;
+            }
+        }
+
+        // Cambio de clínica
+        if ($request->filled('clinica')) {
+            $data['clinic_id'] = $request->input('clinica');
+        }
 
         \Log::info('UPDATE_MAPPED_DATA', [
             'mapped' => $data,
@@ -575,9 +602,11 @@ class OrderController extends Controller
             'data' => $data,
         ]);
 
-        DB::table('orders')->where('id', $id)->update(
-            array_merge($data, ['updated_at' => now()])
-        );
+        if (! empty($data)) {
+            DB::table('orders')->where('id', $id)->update(
+                array_merge($data, ['updated_at' => now()])
+            );
+        }
 
         if ($request->has('examenes')) {
 

@@ -36,6 +36,8 @@ $row = $this->query($request->_holding_id)
         $rows = $this->query($request->_holding_id)
             ->orderBy('u.name')
             ->get()
+            ->unique('rut')
+            ->values()
             ->map(fn ($r) => $this->format($r));
 
         return response()->json($rows);
@@ -66,16 +68,40 @@ $row = $this->query($request->_holding_id)
 
         $password = $request->input('password') ?? '123456';
 
+        $idExterno = $request->input('id_externo')
+            ?? $request->input('profesional_id')
+            ?? $request->input('odontologo_id_externo')
+            ?? null;
+
+        // Búsqueda global por RUT (sin filtrar por holding/clinic_staff)
+        // para evitar duplicados cuando el staff existe pero no tiene vínculo a esa clínica.
         $rutDb = "REPLACE(REPLACE(UPPER(s.rut), '.', ''), '-', '')";
 
-        $existing = $this->query($request->_holding_id)
+        $existing = DB::table('staffs as s')
+            ->join('users as u', 'u.id', '=', 's.user_id')
+            ->where('s.type_staff', 6)
             ->where(function ($q) use ($rutInput, $rutDb) {
-                $q->whereRaw("$rutDb = ?", [$rutInput])
-                  ->orWhereRaw("LEFT($rutDb, CHAR_LENGTH($rutDb) - 1) = ?", [$rutInput]);
+                $q->whereRaw("{$rutDb} = ?", [$rutInput])
+                  ->orWhereRaw("LEFT({$rutDb}, CHAR_LENGTH({$rutDb}) - 1) = ?", [$rutInput]);
             })
+            ->select('s.id as staff_id', 'u.id as user_id', 'u.name', 'u.email', 's.rut', 's.activo')
+            ->orderBy('s.id')
             ->first();
 
         if ($existing) {
+            // Actualizar id_externo si se provee y aún no está guardado
+            if ($idExterno) {
+                $currentIdExterno = DB::table('staffs')->where('id', $existing->staff_id)->value('id_externo');
+                if (!$currentIdExterno) {
+                    DB::table('staffs')->where('id', $existing->staff_id)->update(['id_externo' => $idExterno]);
+                }
+            }
+            if ($request->filled('clinic_id')) {
+                DB::table('clinic_staff')->insertOrIgnore([
+                    'clinic_id' => $request->input('clinic_id'),
+                    'staff_id'  => $existing->staff_id,
+                ]);
+            }
             return response()->json($this->format($existing), 200);
         }
 
@@ -97,6 +123,7 @@ $row = $this->query($request->_holding_id)
             'rut'        => $rutInput,
             'type_staff' => 6,
             'activo'     => 1,
+            'id_externo' => $idExterno,
             'created_at' => now(),
             'updated_at' => now(),
         ]);
