@@ -58,12 +58,30 @@ class FileController extends Controller
 
         // CBCT serie procesada
         if ($file->ruta_dcm && $file->ruta_dcm !== 'processing') {
+            // 1. nombre_dcm seteado (nuevo, post-fix) — verificar que el ZIP sigue en S3
             $zipPath = ($file->nombre_dcm && Storage::disk('s3')->exists($file->nombre_dcm))
                 ? $file->nombre_dcm
                 : null;
 
+            // 2. nombre_dcm nulo (viejo) — buscar cualquier ZIP en el directorio raíz de la orden
+            if (!$zipPath) {
+                preg_match('/^ordenes\/(\d+)\//', $file->ruta_dcm, $m);
+                $orderId = isset($m[1]) ? (int) $m[1] : 0;
+                if ($orderId) {
+                    $topFiles = Storage::disk('s3')->files("ordenes/{$orderId}");
+                    foreach ($topFiles as $tf) {
+                        if (strtolower(pathinfo($tf, PATHINFO_EXTENSION)) === 'zip') {
+                            $zipPath = $tf;
+                            // Cachear para próximas peticiones
+                            DB::table('files')->where('id', $id)->update(['nombre_dcm' => $zipPath]);
+                            break;
+                        }
+                    }
+                }
+            }
+
             if ($zipPath) {
-                // ZIP original disponible — presigned URL: el browser descarga directo de S3 (instantáneo)
+                // ZIP disponible — presigned URL: el browser descarga directo de S3 (instantáneo)
                 try {
                     $zipName = $file->name ?: basename($zipPath);
                     $url = Storage::disk('s3')->temporaryUrl(
@@ -87,7 +105,7 @@ class FileController extends Controller
                 }
             }
 
-            // ZIP borrado antes del fix — reconstruir desde la serie DCM (lento pero funciona)
+            // 3. ZIP borrado Y no hay ZIP en el directorio — reconstruir desde la serie DCM
             $paths = $this->seriePaths($id, $file->ruta_dcm);
             if (!empty($paths)) {
                 $baseName = pathinfo($file->name ?: 'CBCT', PATHINFO_FILENAME);

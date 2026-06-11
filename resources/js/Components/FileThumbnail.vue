@@ -198,14 +198,10 @@ const preparandoZip  = ref(false);
 function descargarZip() {
     if (preparandoZip.value) return;
     preparandoZip.value = true;
-    const a = document.createElement('a');
-    a.href = downloadUrl.value;
-    a.download = '';
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    // El servidor puede tardar hasta ~2 min en construir el ZIP desde los DCM
-    setTimeout(() => { preparandoZip.value = false; }, 120000);
+    // window.location.href evita que Inertia intercepte el click (su handler global de
+    // document convierte clicks en XHR, lo que bloquea la descarga hasta que termina).
+    window.location.href = downloadUrl.value;
+    setTimeout(() => { preparandoZip.value = false; }, 5000);
 }
 
 function onImgError() {
