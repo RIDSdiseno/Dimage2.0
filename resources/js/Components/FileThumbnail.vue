@@ -49,19 +49,21 @@
 
         <!-- ZIP CBCT en cola (procesando en background) -->
         <template v-else-if="isProcessing">
-            <div style="display:flex; flex-direction:column; align-items:center; justify-content:center; width:100%; height:100%; background:#0b2a4a; position:relative;">
-                <i class="pi pi-spin pi-spinner" style="font-size:2.5rem; color:#60a5fa;" />
-                <span style="font-size:10px; margin-top:5px; color:#93c5fd; font-weight:700; letter-spacing:0.08em;">CBCT</span>
-                <span style="font-size:10px; margin-top:3px; color:#60a5fa; text-align:center; padding:0 6px;">Procesando...</span>
-                <!-- Hover: abrir visor ahora (ZIP carga directo en dwv) -->
-                <div class="opacity-0 group-hover:opacity-100 transition-opacity"
-                    style="position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:6px; background:rgba(11,42,74,0.92); border-radius:inherit;">
+            <div style="display:flex; flex-direction:column; align-items:center; justify-content:center; width:100%; height:100%; background:#0b2a4a; position:relative; gap:4px; padding:6px;">
+                <i class="pi pi-spin pi-spinner" style="font-size:2rem; color:#60a5fa;" />
+                <span style="font-size:10px; color:#93c5fd; font-weight:700; letter-spacing:0.08em;">CBCT</span>
+                <span style="font-size:9px; color:#60a5fa; text-align:center;">Procesando...</span>
+                <div style="display:flex; flex-direction:column; align-items:center; gap:4px; margin-top:4px; width:100%;">
                     <a :href="processingVisorUrl" target="_blank"
-                        style="display:flex; align-items:center; gap:5px; padding:6px 12px; border-radius:6px; background:#3452ff; color:#fff; text-decoration:none; font-size:11px; font-weight:600;"
+                        style="display:flex; align-items:center; justify-content:center; gap:4px; padding:4px 8px; border-radius:5px; background:#3452ff; color:#fff; text-decoration:none; font-size:10px; font-weight:600; width:90%;"
                         @click.stop>
-                        <i class="pi pi-eye" style="font-size:11px;" /> Ver ahora
+                        <i class="pi pi-eye" style="font-size:10px;" /> Ver ahora
                     </a>
-                    <span style="font-size:9px; color:#93c5fd; text-align:center; padding:0 8px;">Extracción en segundo plano</span>
+                    <a :href="downloadUrl" :download="file.name"
+                        style="display:flex; align-items:center; justify-content:center; gap:4px; padding:4px 8px; border-radius:5px; background:rgba(255,255,255,0.12); color:#93c5fd; text-decoration:none; font-size:10px; width:90%;"
+                        @click.stop>
+                        <i class="pi pi-download" style="font-size:10px;" /> Descargar ZIP
+                    </a>
                 </div>
             </div>
         </template>

@@ -25,11 +25,14 @@ class ProcessCbctZip implements ShouldQueue
         $tmpZip = tempnam(sys_get_temp_dir(), 'cbct_') . '.zip';
 
         try {
-            $zipContents = Storage::disk('s3')->get($this->zipS3Path);
-            if (! $zipContents) {
+            $stream = Storage::disk('s3')->readStream($this->zipS3Path);
+            if (! is_resource($stream)) {
                 return;
             }
-            file_put_contents($tmpZip, $zipContents);
+            $fp = fopen($tmpZip, 'wb');
+            stream_copy_to_stream($stream, $fp);
+            fclose($fp);
+            if (is_resource($stream)) fclose($stream);
 
             $za = new \ZipArchive();
             if ($za->open($tmpZip) !== true) {
