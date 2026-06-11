@@ -10,6 +10,7 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 
 class FileController extends Controller
 {
@@ -398,6 +399,31 @@ class FileController extends Controller
         Cache::forget("serie_paths_{$id}");
 
         return response()->json(['ok' => true, 'count' => $count, 'message' => "{$count} archivos DICOM procesados."]);
+    }
+
+    /**
+     * Upload a CBCT ZIP to a temporary S3 path and return the path + metadata.
+     * Called eagerly from the frontend as soon as the user selects a ZIP file,
+     * so the upload runs in the background while they fill the order form.
+     */
+    public function uploadCbctTemp(\Illuminate\Http\Request $request): JsonResponse
+    {
+        $file = $request->file('file');
+        abort_if(!$file, 422, 'No file provided');
+        abort_if(strtolower($file->getClientOriginalExtension()) !== 'zip', 422, 'Solo archivos ZIP');
+
+        $safeName = preg_replace('/[^a-zA-Z0-9._()-]/', '_', $file->getClientOriginalName());
+        $tempPath = 'cbct-temp/' . Str::uuid() . '/' . $safeName;
+
+        $stream = fopen($file->getRealPath(), 'rb');
+        Storage::disk('s3')->put($tempPath, $stream);
+        if (is_resource($stream)) fclose($stream);
+
+        return response()->json([
+            's3_path'   => $tempPath,
+            'filename'  => $file->getClientOriginalName(),
+            'file_size' => (int) $file->getSize(),
+        ]);
     }
 
     private function mime(string $ext): string

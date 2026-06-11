@@ -474,6 +474,29 @@ class OrderController extends Controller
                     'updated_at'     => now(),
                 ];
 
+                // ZIP CBCT pre-subido en segundo plano (eager upload)
+                $cbctTempPath = $request->input("cbct_s3_path_{$kindId}");
+                if ($cbctTempPath) {
+                    $finalPath = "ordenes/{$order->id}/" . basename($cbctTempPath);
+                    Storage::disk('s3')->move($cbctTempPath, $finalPath);
+                    $fileRows[] = [
+                        'ruta'               => $finalPath,
+                        'examination_id'     => $examinationId,
+                        'created_at'         => now(),
+                        'updated_at'         => now(),
+                        'name'               => $request->input("cbct_s3_name_{$kindId}", basename($finalPath)),
+                        'type_id'            => 0,
+                        'extension'          => 'zip',
+                        'ruta_dcm'           => 'processing',
+                        'nombre_dcm'         => null,
+                        'file_size'          => (int) $request->input("cbct_s3_size_{$kindId}", 0),
+                        'file_size_procesed' => 1,
+                        'file_size_error'    => null,
+                        'desde_informar'     => 0,
+                    ];
+                    continue;
+                }
+
                 $fileKey = "files_{$kindId}";
                 if (!$request->hasFile($fileKey)) {
                     continue;

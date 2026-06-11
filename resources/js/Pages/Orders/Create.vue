@@ -9,6 +9,22 @@
                 <h1 class="text-2xl font-bold text-gray-800">Nueva Orden Radiográfica</h1>
             </div>
 
+            <!-- Indicador de upload CBCT en progreso (mientras llena el formulario) -->
+            <div v-if="cbctStillUploading && !submitting"
+                class="fixed bottom-6 right-6 z-40 bg-[#0b2a4a] text-white rounded-xl shadow-xl px-4 py-3 flex items-center gap-3" style="min-width:260px;">
+                <i class="pi pi-spin pi-spinner text-blue-400" style="font-size:1.1rem;" />
+                <div class="flex-1">
+                    <p class="text-xs font-semibold text-blue-200">Subiendo archivo 3D/CBCT...</p>
+                    <div class="w-full bg-white/20 rounded-full h-1.5 mt-1 overflow-hidden">
+                        <div class="h-1.5 rounded-full bg-blue-400 transition-all duration-300"
+                            :style="`width:${Object.values(cbctUploads).find(u=>u.uploading)?.progress ?? 0}%`" />
+                    </div>
+                    <p class="text-[10px] text-blue-300 mt-1">
+                        {{ Object.values(cbctUploads).find(u=>u.uploading)?.progress ?? 0 }}% — El formulario sigue disponible
+                    </p>
+                </div>
+            </div>
+
             <!-- Overlay de carga -->
             <div v-if="submitting"
                 class="fixed inset-0 z-50 flex flex-col items-center justify-center gap-6 bg-white/80 backdrop-blur-sm">
@@ -28,8 +44,8 @@
                         </div>
                     </div>
                     <p class="text-xs text-gray-400 mt-3">
-                        <template v-if="uploadProgress < 100">{{ uploadProgress }}% — Por favor espere...</template>
-                        <template v-else-if="hasCbctFiles">Procesando archivos 3D/CBCT, puede tardar unos segundos...</template>
+                        <template v-if="uploadProgress < 100">{{ uploadProgress }}% — Enviando datos...</template>
+                        <template v-else-if="hasCbctFiles">Guardando orden con archivos 3D/CBCT...</template>
                         <template v-else>Procesando, por favor espere...</template>
                     </p>
                 </div>
@@ -334,11 +350,51 @@ const submitting          = ref(false);
 const uploadProgress      = ref(0);
 const fileError           = ref(null);
 
+// Eager upload: ZIP CBCT sube a S3 en segundo plano al seleccionarlo
+const cbctUploads = reactive({}); // { [examId]: {uploading, progress, s3_path, filename, file_size, error} }
+
 const hasCbctFiles = computed(() =>
     Object.values(examFiles).some(files =>
         files?.some(f => f.name?.toLowerCase().endsWith('.zip'))
     )
 );
+
+const cbctStillUploading = computed(() =>
+    Object.values(cbctUploads).some(u => u.uploading)
+);
+
+function startEagerUpload(examId, file) {
+    cbctUploads[examId] = { uploading: true, progress: 0, s3_path: null, filename: file.name, file_size: file.size, error: null };
+
+    const fd = new FormData();
+    fd.append('file', file);
+
+    const xhr = new XMLHttpRequest();
+    xhr.open('POST', route('archivos.cbct-temp'));
+    const csrf = document.querySelector('meta[name="csrf-token"]')?.content;
+    if (csrf) xhr.setRequestHeader('X-CSRF-TOKEN', csrf);
+    xhr.setRequestHeader('Accept', 'application/json');
+
+    xhr.upload.onprogress = (e) => {
+        if (e.lengthComputable) cbctUploads[examId].progress = Math.round((e.loaded / e.total) * 100);
+    };
+    xhr.onload = () => {
+        if (xhr.status === 200) {
+            const data = JSON.parse(xhr.responseText);
+            cbctUploads[examId].s3_path  = data.s3_path;
+            cbctUploads[examId].filename = data.filename;
+            cbctUploads[examId].uploading = false;
+        } else {
+            cbctUploads[examId].error    = 'Error subiendo ZIP';
+            cbctUploads[examId].uploading = false;
+        }
+    };
+    xhr.onerror = () => {
+        cbctUploads[examId].error    = 'Error de red';
+        cbctUploads[examId].uploading = false;
+    };
+    xhr.send(fd);
+}
 
 // ── Tabs de examen ─────────────────────────────────────────────────────────
 const activeTab = ref('intraorales');
@@ -391,7 +447,12 @@ const onPatientSelect = (event) => {
 };
 
 // Guardar archivos, piezas y URL por tipo de examen
-const onFilesSelect   = (examId, event) => { examFiles[examId]    = event.files; };
+const onFilesSelect   = (examId, event) => {
+    examFiles[examId] = event.files;
+    // ZIP CBCT → subir inmediatamente en segundo plano
+    const zip = event.files.find(f => f.name?.toLowerCase().endsWith('.zip'));
+    if (zip) startEagerUpload(examId, zip);
+};
 const onPiezasSelect  = (examId, piezas) => { examPiezas[examId]  = piezas; };
 const onUrlTextChange = (examId, val)   => { examUrlTexts[examId] = val; };
 
@@ -399,6 +460,12 @@ const onUrlTextChange = (examId, val)   => { examUrlTexts[examId] = val; };
 const submitAction = (action) => {
     form.action = action;
     fileError.value = null;
+
+    // Esperar a que terminen uploads CBCT en progreso
+    if (cbctStillUploading.value) {
+        fileError.value = 'Esperando que termine de subir el archivo 3D/CBCT...';
+        return;
+    }
 
     // Al enviar a informar, verificar que cada examen tenga al menos un archivo
     if (action === 'enviar') {
@@ -441,7 +508,18 @@ const submitAction = (action) => {
 
     // Adjuntar archivos, piezas y URLs por examen
     Object.entries(examFiles).forEach(([examId, files]) => {
-        files.forEach(file => data.append(`files_${examId}[]`, file));
+        files.forEach(file => {
+            const isZip = file.name?.toLowerCase().endsWith('.zip');
+            const upload = cbctUploads[examId];
+            if (isZip && upload?.s3_path) {
+                // Ya subido a S3 en segundo plano — solo enviar la ruta
+                data.append(`cbct_s3_path_${examId}`, upload.s3_path);
+                data.append(`cbct_s3_name_${examId}`, upload.filename || file.name);
+                data.append(`cbct_s3_size_${examId}`, upload.file_size || file.size);
+            } else {
+                data.append(`files_${examId}[]`, file);
+            }
+        });
     });
     Object.entries(examPiezas).forEach(([examId, piezas]) => {
         piezas.forEach(p => data.append(`piezas_${examId}[]`, p));
