@@ -20,10 +20,11 @@
                         class="hidden sm:inline-flex items-center px-4 py-2 rounded-lg border border-gray-200 text-sm font-semibold text-gray-600 hover:border-gray-400 transition">
                         Acceso Profesionales
                     </a>
-                    <span class="px-4 py-2 rounded-lg text-sm font-semibold text-white"
-                        style="background:#1b96cc;">
+                    <a :href="route('login')"
+                        class="px-4 py-2 rounded-lg text-sm font-semibold text-white"
+                        style="background:#1b96cc; text-decoration:none;">
                         Acceso MorfoX
-                    </span>
+                    </a>
                 </div>
             </div>
         </header>
