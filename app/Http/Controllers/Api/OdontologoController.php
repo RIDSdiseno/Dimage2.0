@@ -102,7 +102,8 @@ $row = $this->query($request->_holding_id)
                     'staff_id'  => $existing->staff_id,
                 ]);
             }
-            return response()->json($this->format($existing), 200);
+            // Retorna 201 (igual que al crear) para que DentalSoft no distinga entre nuevo y existente
+            return response()->json($this->format($existing), 201);
         }
 
         $userId = DB::table('users')->insertGetId([
