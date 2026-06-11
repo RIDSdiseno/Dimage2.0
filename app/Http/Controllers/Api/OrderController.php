@@ -153,22 +153,15 @@ class OrderController extends Controller
 
         if (! $order) return response()->json(['error' => 'Orden no encontrada.'], 404);
 
-        $formatRut = function ($rut) {
-            $clean = strtoupper(preg_replace('/[^0-9K]/', '', (string) $rut));
-
-            if (strlen($clean) < 2) {
-                return $rut;
-            }
-
-            return substr($clean, 0, -1) . '-' . substr($clean, -1);
-        };
+        // Devolver RUT sin guión ni puntos — DentalSoft almacena y compara en formato limpio
+        $stripRut = fn($rut) => strtoupper(preg_replace('/[^0-9K]/', '', (string) $rut));
 
         if (!empty($order->rut_odontologo)) {
-            $order->rut_odontologo = $formatRut($order->rut_odontologo);
+            $order->rut_odontologo = $stripRut($order->rut_odontologo);
         }
 
         if (!empty($order->profesional_rut)) {
-            $order->profesional_rut = $formatRut($order->profesional_rut);
+            $order->profesional_rut = $stripRut($order->profesional_rut);
         }
 
         // Campos calculados que DentalSoft usa para mostrar/ocultar el botón de editar
