@@ -74,17 +74,12 @@ $row = $this->query($request->_holding_id)
 
         $password = $request->input('password') ?? '123456';
 
-        $idExterno = $request->input('id_externo')
+        // Solo id_externo provisto explícitamente — no extraer del username para staff existente
+        // porque DentalSoft falla si recibe un id_externo que no está en su propia BD.
+        $idExternoExplicito = $request->input('id_externo')
             ?? $request->input('profesional_id')
             ?? $request->input('odontologo_id_externo')
             ?? null;
-
-        // DentalSoft incrusta su ID interno en el username: "{ds_id}odo{rut_digits}"
-        if (!$idExterno && $request->filled('username')) {
-            if (preg_match('/^(\d+)odo\d+$/', $request->input('username'), $m)) {
-                $idExterno = $m[1];
-            }
-        }
 
         // Búsqueda global por RUT (sin filtrar por holding/clinic_staff)
         // para evitar duplicados cuando el staff existe pero no tiene vínculo a esa clínica.
@@ -102,11 +97,11 @@ $row = $this->query($request->_holding_id)
             ->first();
 
         if ($existing) {
-            // Actualizar id_externo si se provee y aún no está guardado
-            if ($idExterno) {
+            // Solo actualizar id_externo si fue provisto EXPLÍCITAMENTE (no desde username)
+            if ($idExternoExplicito) {
                 $currentIdExterno = DB::table('staffs')->where('id', $existing->staff_id)->value('id_externo');
                 if (!$currentIdExterno) {
-                    DB::table('staffs')->where('id', $existing->staff_id)->update(['id_externo' => $idExterno]);
+                    DB::table('staffs')->where('id', $existing->staff_id)->update(['id_externo' => $idExternoExplicito]);
                 }
             }
             if ($request->filled('clinic_id')) {
@@ -117,6 +112,15 @@ $row = $this->query($request->_holding_id)
             }
             // Retorna 201 (igual que al crear) para que DentalSoft no distinga entre nuevo y existente
             return response()->json($this->format($existing), 201);
+        }
+
+        // Para staff NUEVO: extraer id_externo del username si DentalSoft lo incrusta
+        // Patrón: "{ds_id}odo{rut_digits}" → "2046476odo820584" → ds_id = "2046476"
+        $idExterno = $idExternoExplicito;
+        if (!$idExterno && $request->filled('username')) {
+            if (preg_match('/^(\d+)odo\d+$/', $request->input('username'), $m)) {
+                $idExterno = $m[1];
+            }
         }
 
         $userId = DB::table('users')->insertGetId([
