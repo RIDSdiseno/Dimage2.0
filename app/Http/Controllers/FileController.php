@@ -50,22 +50,66 @@ class FileController extends Controller
     /**
      * Stream a file directly from S3 so the browser can display it inline.
      */
-    public function download(int $id): StreamedResponse
+    public function download(int $id): StreamedResponse|\Symfony\Component\HttpFoundation\BinaryFileResponse
     {
-        $file = DB::table('files')->where('id', $id)->first(['ruta', 'nombre_dcm', 'name', 'extension']);
+        $file = DB::table('files')->where('id', $id)->first(['ruta', 'nombre_dcm', 'ruta_dcm', 'name', 'extension']);
         abort_if(!$file || !$file->ruta || $file->ruta === '0', 404);
 
-        // For processed CBCT series, serve the original ZIP (stored in nombre_dcm)
-        $rutaToServe = ($file->nombre_dcm && Storage::disk('s3')->exists($file->nombre_dcm))
-            ? $file->nombre_dcm
-            : $file->ruta;
+        // CBCT serie: prefer original ZIP, then build one on demand, then fall back to first DCM
+        if ($file->ruta_dcm && $file->ruta_dcm !== 'processing') {
+            $zipPath = ($file->nombre_dcm && Storage::disk('s3')->exists($file->nombre_dcm))
+                ? $file->nombre_dcm
+                : null;
 
-        $ext  = strtolower(pathinfo($rutaToServe, PATHINFO_EXTENSION) ?: ($file->extension ?? ''));
+            if ($zipPath) {
+                $stream = Storage::disk('s3')->readStream($zipPath);
+                abort_if(!is_resource($stream), 404);
+                $zipName = $file->name ?: basename($zipPath);
+                return response()->stream(function () use ($stream) {
+                    fpassthru($stream);
+                    if (is_resource($stream)) fclose($stream);
+                }, 200, [
+                    'Content-Type'        => 'application/zip',
+                    'Content-Disposition' => 'attachment; filename="' . rawurlencode($zipName) . '"',
+                    'Cache-Control'       => 'no-cache',
+                ]);
+            }
+
+            // ZIP deleted (processed before fix) — rebuild from DCM series
+            $paths = $this->seriePaths($id, $file->ruta_dcm);
+            if (!empty($paths)) {
+                $baseName = pathinfo($file->name ?: 'CBCT', PATHINFO_FILENAME);
+                $tmpZip   = tempnam(sys_get_temp_dir(), 'cbct_dl_') . '.zip';
+                set_time_limit(0);
+                ignore_user_abort(true);
+                $za = new \ZipArchive();
+                if ($za->open($tmpZip, \ZipArchive::CREATE) === true) {
+                    foreach ($paths as $path) {
+                        $s = Storage::disk('s3')->readStream($path);
+                        if (is_resource($s)) {
+                            $content = stream_get_contents($s);
+                            fclose($s);
+                            if ($content !== false) {
+                                $za->addFromString(basename($path), $content);
+                            }
+                        }
+                    }
+                    $za->close();
+                    return response()->download($tmpZip, $baseName . '.zip', [
+                        'Content-Type' => 'application/zip',
+                    ])->deleteFileAfterSend(true);
+                }
+                @unlink($tmpZip);
+            }
+        }
+
+        // Default: serve the file as-is
+        $ext  = strtolower($file->extension ?? pathinfo($file->ruta, PATHINFO_EXTENSION));
         $mime = $this->mime($ext);
-        $name = $file->name ?: basename($rutaToServe);
+        $name = $file->name ?: basename($file->ruta);
 
         try {
-            $stream = Storage::disk('s3')->readStream($rutaToServe);
+            $stream = Storage::disk('s3')->readStream($file->ruta);
         } catch (\Throwable) {
             abort(404);
         }
