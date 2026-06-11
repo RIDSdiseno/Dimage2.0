@@ -226,6 +226,8 @@ class OrderController extends Controller
                     'descripcion'    => $e->descripcion,
                     'grupo'          => $e->grupo,
                     'url_texto'      => $e->url_texto,
+                    // trazados en formato DentalSoft (array de nombres cortos)
+                    'trazados'       => $this->urlTextoToTrazados($e->url_texto),
                     'radiologo'      => $e->radiologo,
                     'rut_radiologo'  => $e->rut_radiologo,
                     'respondida'     => $e->respondida,
@@ -788,6 +790,35 @@ class OrderController extends Controller
         } catch (\Throwable) {
             return $this->apiFileUrl($ruta);
         }
+    }
+
+    /**
+     * Convierte url_texto almacenado en Dimage ("Análisis Rickets,Análisis Roth")
+     * al array de nombres cortos que usa DentalSoft (["rickets","roth"]).
+     * Se incluye en la respuesta del API para que DentalSoft pueda pre-marcar
+     * los checkboxes al cargar una orden guardada.
+     */
+    private function urlTextoToTrazados(?string $urlTexto): array
+    {
+        if (!$urlTexto) return [];
+        $reverseMap = [
+            'análisis rickets'  => 'rickets',
+            'análisis roth'     => 'roth',
+            'análisis jaraback' => 'jaraback',
+            'análisis steiner'  => 'steiner',
+            'análisis mcnamara' => 'mcnamara',
+            'otros'             => 'otros',
+        ];
+        $result = [];
+        foreach (explode(',', $urlTexto) as $part) {
+            $lower = strtolower(trim($part));
+            if (str_starts_with($lower, 'otros:')) {
+                $result[] = 'otros';
+            } else {
+                $result[] = $reverseMap[$lower] ?? $lower;
+            }
+        }
+        return array_values(array_filter($result));
     }
 
     /**
