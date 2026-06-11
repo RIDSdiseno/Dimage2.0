@@ -112,16 +112,18 @@
                                 style="width:130px; border:1px solid #e2e8f0; border-radius:10px; overflow:hidden; background:#f8fafc;">
                                 <!-- Thumbnail imagen -->
                                 <div style="width:130px; height:110px; overflow:hidden; background:#f1f5f9; display:flex; align-items:center; justify-content:center; position:relative;">
-                                    <img v-if="isImage(f.extension)"
+                                    <img v-if="f.url && !failedImages[f.id]"
                                         :src="f.url"
                                         :alt="f.name"
                                         loading="lazy"
                                         style="width:100%; height:100%; object-fit:cover;"
-                                        @error="e => e.target.style.display='none'" />
-                                    <i v-else-if="f.extension === 'pdf'" class="pi pi-file-pdf"
-                                        style="font-size:36px; color:#e3342f;" />
-                                    <i v-else class="pi pi-file"
-                                        style="font-size:36px; color:#94a3b8;" />
+                                        @error="onImgError(f.id)" />
+                                    <template v-else>
+                                        <i v-if="f.extension === 'pdf'" class="pi pi-file-pdf"
+                                            style="font-size:36px; color:#e3342f;" />
+                                        <i v-else class="pi pi-file"
+                                            style="font-size:36px; color:#94a3b8;" />
+                                    </template>
                                 </div>
                                 <!-- Nombre + botones -->
                                 <div style="padding:8px;">
@@ -307,7 +309,11 @@
 </template>
 
 <script setup>
+import { reactive } from 'vue';
 import { router, usePage } from '@inertiajs/vue3';
+
+const failedImages = reactive({});
+function onImgError(id) { failedImages[id] = true; }
 
 const props = defineProps({
     order:      { type: Object, required: true },
@@ -332,9 +338,6 @@ function getDientes(respuesta) {
         .map(n => ({ n, val: respuesta[`diente_${n}`] }));
 }
 
-function isImage(ext) {
-    return ['jpg','jpeg','png','gif','webp','bmp'].includes((ext || '').toLowerCase());
-}
 
 function badgeStyle(color) {
     const map = {
