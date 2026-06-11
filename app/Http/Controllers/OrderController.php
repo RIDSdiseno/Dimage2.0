@@ -1733,7 +1733,7 @@ class OrderController extends Controller
                 return \Illuminate\Support\Facades\Storage::disk('s3')
                     ->temporaryUrl($ruta, now()->addMinutes(60));
             });
-            \Log::debug('SIGNED_URL_OK', ['ruta' => $ruta, 'url_prefix' => substr($url ?? '', 0, 80)]);
+            \Log::info('SIGNED_URL_OK', ['ruta' => $ruta, 'url_prefix' => substr($url ?? '', 0, 80)]);
             return $url;
         } catch (\Throwable $e) {
             \Log::warning('SIGNED_URL_FAIL', ['ruta' => $ruta, 'error' => $e->getMessage()]);
