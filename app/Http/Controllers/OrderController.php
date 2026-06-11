@@ -1265,9 +1265,9 @@ class OrderController extends Controller
         $estado   = (int) $order->estadoradiologo;
         $typeId   = (int) ($user->type_id ?? 0);
 
-        // Perfil clínica: solo puede editar correcciones de su propia clínica (no borradores)
+        // Perfil clínica: puede editar borradores propios (estado 4) y correcciones (estado 2)
         if ($user->hasRole('clinica') || $typeId === 4) {
-            if ($estado !== 2) return false;
+            if (!in_array($estado, [2, 4])) return false;
             return (int) $order->clinic_id === (int) ($user->clinic?->id ?? 0);
         }
 
