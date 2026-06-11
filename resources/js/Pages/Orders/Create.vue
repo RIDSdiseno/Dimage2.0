@@ -182,9 +182,9 @@
                             </button>
                         </div>
 
-                        <!-- Tab content -->
+                        <!-- Tab content — v-show keeps ExamCol mounted so selectedPiezas state is preserved across tab switches -->
                         <div class="p-5">
-                            <div v-if="activeTab === 'intraorales'" class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div v-show="activeTab === 'intraorales'" class="grid grid-cols-1 md:grid-cols-2 gap-6">
                                 <div v-for="col in intraoralesCols" :key="col.group_id">
                                     <ExamCol :col="col" :selected="form.examenes" :examFiles="examFiles"
                                         :examLabel="examLabel" :stripSuffix="stripGroupSuffix"
@@ -192,7 +192,7 @@
                                         @urltext="onUrlTextChange" />
                                 </div>
                             </div>
-                            <div v-else class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div v-show="activeTab === 'extraorales'" class="grid grid-cols-1 md:grid-cols-2 gap-6">
                                 <div v-for="col in extraoralesCols" :key="col.group_id">
                                     <ExamCol :col="col" :selected="form.examenes" :examFiles="examFiles"
                                         :examLabel="examLabel" :stripSuffix="(l) => l"
