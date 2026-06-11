@@ -222,12 +222,15 @@ let   searchTimer = null;
 
 const filters = reactive({ q: '', estado: null, solo_mis: false });
 
-const estadoOptions = [
-    { label: 'No Informada', value: 0 },
-    { label: 'Informada',    value: 1 },
-    { label: 'Corrección',   value: 2 },
-    { label: 'Guardada',     value: 4 },
-];
+const estadoOptions = computed(() => {
+    const base = [
+        { label: 'No Informada', value: 0 },
+        { label: 'Informada',    value: 1 },
+        { label: 'Corrección',   value: 2 },
+    ];
+    if (!esRadiologo.value) base.push({ label: 'Guardada', value: 4 });
+    return base;
+});
 
 const fetchOrders = async () => {
     loading.value = true;

@@ -1419,8 +1419,8 @@ class OrderController extends Controller
                 'observaciones'    => $request->input('observaciones') ?? '',
                 'prioridad'        => $request->input('prioridad'),
                 'sin_diagnostico'  => $request->boolean('sin_diagnostico') ? 1 : 0,
-                'estadoradiologo'  => $enviar ? 0 : ($yaEstabaEnviada ? 0 : 4),
-                'estadoodontologo' => $enviar ? 0 : ($yaEstabaEnviada ? 0 : 1),
+                'estadoradiologo'  => $enviar ? 0 : ($yaEstabaEnviada ? $order->estadoradiologo : 4),
+                'estadoodontologo' => $enviar ? 0 : ($yaEstabaEnviada ? $order->estadoodontologo : 1),
                 'enviada'          => $enviar && !$order->enviada ? now() : $order->enviada,
             ]);
 
