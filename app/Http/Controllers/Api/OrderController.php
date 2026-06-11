@@ -347,22 +347,34 @@ class OrderController extends Controller
     }
 
     // POST /api/v3/order/{id}/files/{examination_id}
+    // DentalSoft envía el kind_id (tipo) como examinationId, no el examination.id real.
+    // Buscamos primero por examination_id directo y si no existe, por kind_id.
     public function uploadFiles(Request $request, int $id, int $examinationId)
     {
-        $exists = DB::table('examination_order')
-            ->where('order_id', $id)
-            ->where('examination_id', $examinationId)
-            ->exists();
+        \Log::info('UPLOAD_FILES', ['order_id' => $id, 'examination_id_param' => $examinationId]);
 
-        if (! $exists) return response()->json(['error' => 'Examen no pertenece a esta orden.'], 404);
+        $exam = DB::table('examination_order as eo')
+            ->join('examinations as e', 'e.id', '=', 'eo.examination_id')
+            ->where('eo.order_id', $id)
+            ->where(function ($q) use ($examinationId) {
+                $q->where('eo.examination_id', $examinationId)
+                  ->orWhere('e.kind_id', $examinationId);
+            })
+            ->select('eo.examination_id')
+            ->orderBy('eo.examination_id')
+            ->first();
+
+        if (! $exam) return response()->json(['error' => 'Examen no pertenece a esta orden.'], 404);
+
+        $realExamId = $exam->examination_id;
 
         $request->validate(['archivos' => ['required', 'array'], 'archivos.*' => ['file']]);
 
         $uploaded = [];
         foreach ($request->file('archivos', []) as $file) {
-            $path = $file->store("orders/{$id}/examinations/{$examinationId}", 's3');
+            $path = $file->store("orders/{$id}/examinations/{$realExamId}", 's3');
             $fileId = DB::table('files')->insertGetId([
-                'examination_id' => $examinationId,
+                'examination_id' => $realExamId,
                 'name'           => $file->getClientOriginalName(),
                 'ruta'           => $path,
                 'extension'      => strtolower($file->getClientOriginalExtension()),
