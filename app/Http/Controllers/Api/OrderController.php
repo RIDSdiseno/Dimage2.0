@@ -210,7 +210,8 @@ class OrderController extends Controller
                         'file_size'      => $f->file_size,
                         'desde_informar' => (bool) $f->desde_informar,
                         'url'            => $this->apiFileUrl($f->ruta),
-                        'ruta'           => $this->apiFileUrl($f->ruta),
+                        // ruta como URL pública sin query params para que DentalSoft pueda detectar extensión
+                        'ruta'           => $this->apiPublicUrl($f->ruta),
                         'download_url'   => $this->apiDownloadUrl($f->ruta, $f->name, $f->extension),
                         'ruta_dcm'       => $f->ruta_dcm ? $this->apiFileUrl($f->ruta_dcm) : null,
                     ]);
@@ -827,6 +828,19 @@ class OrderController extends Controller
         } catch (\Throwable) {
             return $ruta;
         }
+    }
+
+    // URL pública sin query params — DentalSoft usa ruta para detectar extensión del archivo
+    private function apiPublicUrl(?string $ruta): ?string
+    {
+        if (!$ruta || $ruta === '0') {
+            return null;
+        }
+        $base = rtrim(env('RUTA_IMG', ''), '/');
+        if ($base) {
+            return $base . '/' . ltrim($ruta, '/');
+        }
+        return $this->apiFileUrl($ruta);
     }
 
     /**
