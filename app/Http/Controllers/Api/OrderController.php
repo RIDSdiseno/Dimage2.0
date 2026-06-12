@@ -422,7 +422,7 @@ class OrderController extends Controller
                 'file_size'      => $file->getSize(),
                 'desde_informar' => false,
                 'url'            => $this->apiFileUrl($path),
-                'ruta'           => $this->apiFileUrl($path),
+                'ruta'           => $this->apiPublicUrl($path),
                 'download_url'   => $this->apiDownloadUrl($path, $file->getClientOriginalName(), $ext),
                 'ruta_dcm'       => null,
             ];
