@@ -13,7 +13,7 @@ class RadiologoController extends Controller
     // GET /api/v3/radiologo/by-rut/{rut}
     public function findByRut(Request $request, string $rut)
     {
-        $row = $this->baseQuery()->where('u.rut', $rut)->first();
+        $row = $this->baseQuery()->where('s.rut', $rut)->first();
 
         if (! $row) {
             return response()->json(['error' => 'Radiólogo no encontrado.'], 404);
@@ -44,14 +44,13 @@ class RadiologoController extends Controller
         $data = $request->validate([
             'rut'      => ['required', 'string', 'unique:staffs,rut'],
             'name'     => ['required', 'string', 'max:255'],
-            'email'    => ['required', 'email', 'unique:users,email'],
+            'email'    => ['required', 'email', 'unique:users,mail'],
             'password' => ['required', 'string', 'min:6'],
         ]);
 
         $userId = DB::table('users')->insertGetId([
-            'rut'        => $data['rut'],
             'name'       => $data['name'],
-            'email'      => $data['email'],
+            'mail'       => $data['email'],
             'password'   => Hash::make($data['password']),
             'type_id'    => 5,
             'created_at' => now(),
@@ -60,6 +59,7 @@ class RadiologoController extends Controller
 
         $staffId = DB::table('staffs')->insertGetId([
             'user_id'    => $userId,
+            'rut'        => $data['rut'],
             'type_staff' => 3,
             'activo'     => 1,
             'created_at' => now(),
@@ -72,15 +72,22 @@ class RadiologoController extends Controller
     // PUT /api/v3/radiologo/{rut}
     public function update(Request $request, string $rut)
     {
-        $user = DB::table('staffs')->where('rut', $rut)->first();
-        if (! $user) return response()->json(['error' => 'No encontrado.'], 404);
+        $staff = DB::table('staffs')->where('rut', $rut)->first(['id', 'user_id']);
+        if (! $staff) return response()->json(['error' => 'No encontrado.'], 404);
 
         $data = $request->validate([
             'name'  => ['sometimes', 'string', 'max:255'],
             'email' => ['sometimes', 'email', 'max:255'],
         ]);
 
-        DB::table('staffs')->where('rut', $rut)->update(array_merge($data, ['updated_at' => now()]));
+        $userUpdate = [];
+        if (isset($data['name']))  $userUpdate['name'] = $data['name'];
+        if (isset($data['email'])) $userUpdate['mail'] = $data['email'];
+
+        if (!empty($userUpdate)) {
+            $userUpdate['updated_at'] = now();
+            DB::table('users')->where('id', $staff->user_id)->update($userUpdate);
+        }
 
         return response()->json(['message' => 'Radiólogo actualizado.']);
     }
@@ -94,7 +101,7 @@ class RadiologoController extends Controller
             ->join('users as u', 'u.id', '=', 's.user_id')
             ->join('clinic_staff as cs', 'cs.staff_id', '=', 's.id')
             ->join('clinics as c', 'c.id', '=', 'cs.clinic_id')
-            ->where('u.rut', $rut)
+            ->where('s.rut', $rut)
             ->where('s.type_staff', 3)
             ->where('c.holding_id', $holdingId)
             ->select('s.id as staff_id', 'u.id as user_id', 'u.name')
@@ -133,10 +140,8 @@ class RadiologoController extends Controller
     // DELETE /api/v3/radiologo/{rut}
     public function destroy(Request $request, string $rut)
     {
-        $user = DB::table('staffs')->where('rut', $rut)->first();
-        if (! $user) return response()->json(['error' => 'No encontrado.'], 404);
-
-        DB::table('staffs')->where('user_id', $user->id)->update(['activo' => 0, 'updated_at' => now()]);
+        $affected = DB::table('staffs')->where('rut', $rut)->update(['activo' => 0, 'updated_at' => now()]);
+        if (! $affected) return response()->json(['error' => 'No encontrado.'], 404);
 
         return response()->json(['message' => 'Radiólogo desactivado.']);
     }
@@ -146,7 +151,7 @@ class RadiologoController extends Controller
         return DB::table('staffs as s')
             ->join('users as u', 'u.id', '=', 's.user_id')
             ->where('s.type_staff', 3)
-            ->select('s.id as staff_id', 'u.id as user_id', 'u.name', 'u.email', 'u.rut', 's.activo')
+            ->select('s.id as staff_id', 'u.id as user_id', 'u.name', 'u.mail as email', 's.rut', 's.activo')
             ->distinct();
     }
 
