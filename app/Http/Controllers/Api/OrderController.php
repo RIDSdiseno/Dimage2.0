@@ -96,7 +96,7 @@ class OrderController extends Controller
             )
             ->selectRaw("case when o.estadoradiologo = 0 then 'No Informada' when o.estadoradiologo = 1 then 'Informada' when o.estadoradiologo = 2 and o.estadoodontologo = 3 then 'Corrección' else 'Guardada' end as estado_texto")
             ->selectRaw("case when o.estadoradiologo = 4 then 1 else 0 end as editable")
-            ->selectRaw("case when o.estadoradiologo in (1,4) then 1 else 0 end as visitable")
+            ->selectRaw("case when o.estadoradiologo = 1 then 1 else 0 end as visitable")
             ->orderByDesc('o.id')
             ->offset(($page - 1) * $perPage)
             ->limit($perPage)
@@ -156,6 +156,10 @@ class OrderController extends Controller
         // Devolver RUT sin guión ni puntos — DentalSoft almacena y compara en formato limpio
         $stripRut = fn($rut) => strtoupper(preg_replace('/[^0-9K]/', '', (string) $rut));
 
+        // Guardar RUT original (con guión) antes de limpiar — se usa como profesional_id_externo
+        // igual que el Dimage antiguo, que almacenaba el RUT en id_externo (ej: "794350-4").
+        $rawProfesionalRut = $order->profesional_rut ?? null;
+
         if (!empty($order->rut_odontologo)) {
             $order->rut_odontologo = $stripRut($order->rut_odontologo);
         }
@@ -164,10 +168,12 @@ class OrderController extends Controller
             $order->profesional_rut = $stripRut($order->profesional_rut);
         }
 
-        // Solo enviar profesional_id_externo cuando tiene un ID real de Dentalsoft.
-        // Sin este campo, Dentalsoft no valida al profesional (comportamiento igual al Dimage antiguo).
-        // Con "0" o null, Dentalsoft intenta validar por RUT y falla para odontólogos no sincronizados.
-        if (empty($order->profesional_id_externo) || $order->profesional_id_externo === '0' || $order->profesional_id_externo === 0) {
+        // El Dimage antiguo guardaba id_externo = RUT del odontólogo y lo enviaba como
+        // profesional_id_externo. DentalSoft valida al profesional por RUT, no por ID numérico.
+        // Replicamos ese comportamiento para que la validación funcione igual que antes.
+        if (!empty($rawProfesionalRut)) {
+            $order->profesional_id_externo = $rawProfesionalRut;
+        } else {
             unset($order->profesional_id_externo);
         }
 

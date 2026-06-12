@@ -10,6 +10,13 @@ class ApiAuthenticate
 {
     public function handle(Request $request, Closure $next)
     {
+        \Log::info('API_REQUEST', [
+            'ip'     => $request->ip(),
+            'method' => $request->method(),
+            'uri'    => $request->getRequestUri(),
+            'has_key'=> !empty($request->header('X-API-KEY')),
+        ]);
+
         $apiKey = $request->header('X-API-KEY');
 
         if (! $apiKey) {
