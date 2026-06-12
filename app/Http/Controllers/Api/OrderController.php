@@ -227,23 +227,37 @@ class OrderController extends Controller
                     ->where('examination_id', $e->id)
                     ->first();
 
+                // Separar piezas en permanentes y temporales — mismo formato que API v3 antigua.
+                // piezas_adultos/piezas_ninos: enteros separados por punto ("26.27").
+                $permanentes = [11,12,13,14,15,16,17,18,21,22,23,24,25,26,27,28,
+                                31,32,33,34,35,36,37,38,41,42,43,44,45,46,47,48];
+                $temporales  = [51,52,53,54,55,61,62,63,64,65,71,72,73,74,75,81,82,83,84,85];
+                $dList = $e->piezas
+                    ? array_map('intval', array_filter(array_map('trim', explode(',', $e->piezas)), 'strlen'))
+                    : [];
+                $piezasAdultos = implode('.', array_values(array_filter($dList, fn($d) => in_array($d, $permanentes))));
+                $piezasNinos   = implode('.', array_values(array_filter($dList, fn($d) => in_array($d, $temporales))));
+
                 return [
-                    'id'             => $e->id,
-                    'id_tipo_examen' => $e->id_tipo_examen,
-                    'tipo_examen'    => $e->tipo_examen,
-                    'descripcion'    => $e->descripcion,
-                    'grupo'          => $e->grupo,
-                    'dientes'        => $e->piezas ? array_map('trim', explode(',', $e->piezas)) : [],
-                    'url_texto'      => implode(',', $this->urlTextoToTrazados($e->url_texto)) ?: null,
-                    'trazados'       => $this->urlTextoToTrazados($e->url_texto),
+                    'id'              => $e->id,
+                    'id_tipo_examen'  => $e->id_tipo_examen,
+                    'tipo_examen'     => $e->tipo_examen,
+                    'descripcion'     => $e->descripcion,
+                    'grupo'           => $e->grupo,
+                    'piezas_adultos'  => $piezasAdultos,
+                    'piezas_ninos'    => $piezasNinos,
+                    'dientes'         => $dList,
+                    'url_texto'       => implode(',', $this->urlTextoToTrazados($e->url_texto)) ?: null,
+                    'trazados'        => $this->urlTextoToTrazados($e->url_texto),
                     // columnas individuales que DentalSoft usa para pre-poblar checkboxes
-                    'otrocheck'      => (int) $e->otrocheck,
-                    'otrocheck1'     => (int) $e->otrocheck1,
-                    'otrocheck2'     => (int) $e->otrocheck2,
-                    'otrocheck3'     => (int) $e->otrocheck3,
-                    'otrocheck4'     => (int) $e->otrocheck4,
-                    'otrocheck5'     => (int) $e->otrocheck5,
-                    'otroinput'      => $e->otroinput,
+                    'otrocheck'       => (int) $e->otrocheck,
+                    'otrocheck1'      => (int) $e->otrocheck1,
+                    'otrocheck2'      => (int) $e->otrocheck2,
+                    'otrocheck3'      => (int) $e->otrocheck3,
+                    'otrocheck4'      => (int) $e->otrocheck4,
+                    'otrocheck5'      => (int) $e->otrocheck5,
+                    'otroinput'       => $e->otroinput,
+                    'trazados_otros_texto' => $e->otroinput,
                     'radiologo'      => $e->radiologo,
                     'rut_radiologo'  => $e->rut_radiologo,
                     'respondida'     => $e->respondida,
@@ -351,7 +365,7 @@ class OrderController extends Controller
                 'kind_id'    => $kindId,
                 'piezas'     => $piezas,
                 'url_texto'  => $urlTextoCreate,
-                'otroinput'  => $ex['otroinput'] ?? null,
+                'otroinput'  => $ex['trazados_otros_texto'] ?? $ex['otroinput'] ?? null,
                 ...$this->trazadosToOtrochecks($urlTextoCreate),
                 'created_at' => now(),
                 'updated_at' => now(),
@@ -784,7 +798,7 @@ class OrderController extends Controller
 
                 $hasTrazados  = array_key_exists('url_texto', $srcEx) || array_key_exists('trazados', $srcEx);
                 $hasDientes   = array_key_exists('dientes', $srcEx);
-                $hasOtroinput = array_key_exists('otroinput', $srcEx);
+                $hasOtroinput = array_key_exists('trazados_otros_texto', $srcEx) || array_key_exists('otroinput', $srcEx);
 
                 if (!$hasTrazados && !$hasDientes && !$hasOtroinput) continue;
 
@@ -804,7 +818,7 @@ class OrderController extends Controller
                         : null;
                 }
                 if ($hasOtroinput) {
-                    $updateData['otroinput'] = $srcEx['otroinput'];
+                    $updateData['otroinput'] = $srcEx['trazados_otros_texto'] ?? $srcEx['otroinput'];
                 }
 
                 DB::table('examinations')->where('id', $row->examination_id)->update($updateData);
@@ -822,7 +836,7 @@ class OrderController extends Controller
                     'kind_id'    => $kindId,
                     'piezas'     => $piezas,
                     'url_texto'  => $urlTextoNew,
-                    'otroinput'  => $srcEx['otroinput'] ?? null,
+                    'otroinput'  => $srcEx['trazados_otros_texto'] ?? $srcEx['otroinput'] ?? null,
                     ...$this->trazadosToOtrochecks($urlTextoNew),
                     'created_at' => now(),
                     'updated_at' => now(),
