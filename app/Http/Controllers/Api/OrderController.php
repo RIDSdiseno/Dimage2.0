@@ -160,10 +160,6 @@ class OrderController extends Controller
         // Devolver RUT sin guión ni puntos — DentalSoft almacena y compara en formato limpio
         $stripRut = fn($rut) => strtoupper(preg_replace('/[^0-9K]/', '', (string) $rut));
 
-        // Guardar RUT original (con guión) antes de limpiar — se usa como profesional_id_externo
-        // igual que el Dimage antiguo, que almacenaba el RUT en id_externo (ej: "794350-4").
-        $rawProfesionalRut = $order->profesional_rut ?? null;
-
         if (!empty($order->rut_odontologo)) {
             $order->rut_odontologo = $stripRut($order->rut_odontologo);
         }
@@ -172,13 +168,13 @@ class OrderController extends Controller
             $order->profesional_rut = $stripRut($order->profesional_rut);
         }
 
-        // El Dimage antiguo guardaba id_externo = RUT del odontólogo y lo enviaba como
-        // profesional_id_externo. DentalSoft valida al profesional por RUT, no por ID numérico.
-        // Replicamos ese comportamiento para que la validación funcione igual que antes.
-        if (!empty($rawProfesionalRut)) {
-            $order->profesional_id_externo = $rawProfesionalRut;
-        } else {
-            unset($order->profesional_id_externo);
+        // Dentalsoft salta la validación del profesional cuando profesional_id_externo es null.
+        // Cuando el campo está ausente (unset) hace loop infinito.
+        // Cuando tiene un valor (RUT o ID) intenta validar y falla para usuarios no registrados.
+        // → Enviar null cuando no hay ID válido de Dentalsoft.
+        $idExterno = $order->profesional_id_externo;
+        if (empty($idExterno) || $idExterno === '0' || $idExterno === 0) {
+            $order->profesional_id_externo = null;
         }
 
         // Igual que el Dimage antiguo: editable solo cuando está en borrador (estado 4),
