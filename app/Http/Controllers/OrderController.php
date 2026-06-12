@@ -480,23 +480,15 @@ class OrderController extends Controller
                     $finalPath = "ordenes/{$order->id}/" . basename($cbctTempPath);
                     Storage::disk('s3')->move($cbctTempPath, $finalPath);
 
-                    // Si ProcessCbctZipTemp ya terminó durante el llenado del form, usar esos DCMs
-                    $uuid         = explode('/', $cbctTempPath)[1] ?? '';
-                    $preProcessed = $uuid ? Cache::get("cbct_preprocess_{$uuid}") : null;
-                    if ($preProcessed && $uuid) {
-                        Cache::forget("cbct_preprocess_{$uuid}");
-                        Cache::forget("cbct_preprocess_dispatched_{$uuid}");
-                    }
-
                     $fileRows[] = [
-                        'ruta'               => $preProcessed ? $preProcessed['first_dcm'] : $finalPath,
+                        'ruta'               => $finalPath,
                         'examination_id'     => $examinationId,
                         'created_at'         => now(),
                         'updated_at'         => now(),
                         'name'               => $request->input("cbct_s3_name_{$kindId}", basename($finalPath)),
                         'type_id'            => 0,
-                        'extension'          => $preProcessed ? 'dcm' : 'zip',
-                        'ruta_dcm'           => $preProcessed ? $preProcessed['prefix'] : 'processing',
+                        'extension'          => 'zip',
+                        'ruta_dcm'           => 'processing',
                         'nombre_dcm'         => $finalPath,
                         'file_size'          => (int) $request->input("cbct_s3_size_{$kindId}", 0),
                         'file_size_procesed' => 1,
@@ -567,10 +559,22 @@ class OrderController extends Controller
             }
         }
 
-        // Fallback asíncrono: si ProcessCbctZipTemp no terminó antes del submit
-        foreach ($cbctJobs as [$fid, $zipPath]) {
-            ProcessCbctZip::dispatch($fid, $this->extractOrderIdFromPath($zipPath), $zipPath)
-                ->onConnection('database')->onQueue('default');
+        // Procesar ZIPs CBCT de forma síncrona (visor disponible al abrir la orden)
+        if (!empty($cbctJobs)) {
+            set_time_limit(600);
+            ignore_user_abort(true);
+            foreach ($cbctJobs as [$fid, $zipPath]) {
+                try {
+                    (new ProcessCbctZip($fid, $this->extractOrderIdFromPath($zipPath), $zipPath))->handle();
+                } catch (\Throwable $e) {
+                    \Log::error("CBCT sync processing failed for file {$fid}: " . $e->getMessage());
+                    DB::table('files')->where('id', $fid)->update([
+                        'ruta_dcm'   => null,
+                        'extension'  => 'zip_error',
+                        'updated_at' => now(),
+                    ]);
+                }
+            }
         }
 
         return redirect()
@@ -1648,10 +1652,22 @@ class OrderController extends Controller
             }
         });
 
-        // Fallback asíncrono: si ProcessCbctZipTemp no terminó antes del submit
-        foreach ($updateCbctJobs as [$fid, $zipPath]) {
-            ProcessCbctZip::dispatch($fid, $this->extractOrderIdFromPath($zipPath), $zipPath)
-                ->onConnection('database')->onQueue('default');
+        // Procesar ZIPs CBCT de forma síncrona (visor disponible al abrir la orden)
+        if (!empty($updateCbctJobs)) {
+            set_time_limit(600);
+            ignore_user_abort(true);
+            foreach ($updateCbctJobs as [$fid, $zipPath]) {
+                try {
+                    (new ProcessCbctZip($fid, $this->extractOrderIdFromPath($zipPath), $zipPath))->handle();
+                } catch (\Throwable $e) {
+                    \Log::error("CBCT sync processing failed for file {$fid}: " . $e->getMessage());
+                    DB::table('files')->where('id', $fid)->update([
+                        'ruta_dcm'   => null,
+                        'extension'  => 'zip_error',
+                        'updated_at' => now(),
+                    ]);
+                }
+            }
         }
 
         if ($enviar && ! $yaEstabaEnviada) {
