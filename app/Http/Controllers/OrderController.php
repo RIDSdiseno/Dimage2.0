@@ -1031,6 +1031,11 @@ class OrderController extends Controller
             || $user->hasAnyRole(['admin', 'secretaria', 'radiologo'])
             || (int) ($user->type_id ?? 0) === 1;
 
+        return $this->buildOrderPdf($order, $canSeeInforme)->stream("orden-{$order->id}.pdf");
+    }
+
+    private function buildOrderPdf(Order $order, bool $canSeeInforme): \Barryvdh\DomPDF\PDF
+    {
         $examenes = DB::table('examinations')
             ->join('examination_order', 'examination_order.examination_id', '=', 'examinations.id')
             ->join('kinds', 'kinds.id', '=', 'examinations.kind_id')
@@ -1085,15 +1090,13 @@ class OrderController extends Controller
                 return $rad;
             });
 
-        $pdf = \Barryvdh\DomPDF\Facade\Pdf::loadView('pdf.orden', [
+        return \Barryvdh\DomPDF\Facade\Pdf::loadView('pdf.orden', [
             'order'      => $order,
             'paciente'   => $paciente,
             'clinica'    => $clinica,
             'radiologos' => $radiologos,
             'examenes'   => $examenes,
         ]);
-
-        return $pdf->stream("orden-{$order->id}.pdf");
     }
 
     // GET /ordenes/{id}/pdf-signed — acceso sin sesión, URL firmada para DentalSoft
@@ -1751,6 +1754,17 @@ class OrderController extends Controller
         try {
             $zip = new \ZipArchive();
             $zip->open($tmpPath, \ZipArchive::CREATE | \ZipArchive::OVERWRITE);
+
+            // Incluir el PDF de la orden (igual que el servidor antiguo)
+            try {
+                $user = Auth::user();
+                $canSeeInforme = (int) $order->estadoradiologo === 1
+                    || ($user && (
+                        $user->hasAnyRole(['admin', 'secretaria', 'radiologo'])
+                        || (int) ($user->type_id ?? 0) === 1
+                    ));
+                $zip->addFromString("orden-{$order->id}.pdf", $this->buildOrderPdf($order, $canSeeInforme)->output());
+            } catch (\Throwable) {}
 
             $usedNames = [];
             foreach ($files as $f) {
