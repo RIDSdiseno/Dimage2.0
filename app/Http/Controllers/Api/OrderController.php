@@ -168,13 +168,14 @@ class OrderController extends Controller
             $order->profesional_rut = $stripRut($order->profesional_rut);
         }
 
-        // Dentalsoft salta la validación del profesional cuando profesional_id_externo es null.
-        // Cuando el campo está ausente (unset) hace loop infinito.
-        // Cuando tiene un valor (RUT o ID) intenta validar y falla para usuarios no registrados.
-        // → Enviar null cuando no hay ID válido de Dentalsoft.
+        // Dentalsoft salta TODA validación cuando profesional_id_externo es 0 (entero).
+        // - Ausente (unset) → loop infinito en Dentalsoft.
+        // - null → salta validación por ID pero sigue validando por rut_odontologo → "profesional no existe".
+        // - RUT o DS-ID real → valida y falla para usuarios no registrados en Dentalsoft.
+        // - 0 (entero) → salta toda validación, igual que el servidor antiguo.
         $idExterno = $order->profesional_id_externo;
         if (empty($idExterno) || $idExterno === '0' || $idExterno === 0) {
-            $order->profesional_id_externo = null;
+            $order->profesional_id_externo = 0;
         }
 
         // Igual que el Dimage antiguo: editable solo cuando está en borrador (estado 4),
