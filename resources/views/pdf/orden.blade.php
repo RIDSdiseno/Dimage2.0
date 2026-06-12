@@ -3,7 +3,7 @@ if (!function_exists('pdfDienteTable')) {
     function pdfDienteTable(array $teeth, array $r): string {
         $filtered = array_values(array_filter($teeth, fn($d) => !empty($r["diente_{$d}"])));
         if (!$filtered) return '';
-        $html = '<table style="width:100%;border-collapse:collapse;font-size:10px;margin-top:2px;">';
+        $html = '<table style="width:100%;border-collapse:collapse;table-layout:fixed;font-size:10px;margin-top:2px;">';
         foreach (array_chunk($filtered, 4) as $chunk) {
             $html .= '<tr>';
             foreach ($chunk as $d) {
