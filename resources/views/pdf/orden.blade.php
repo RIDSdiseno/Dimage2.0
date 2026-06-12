@@ -9,7 +9,7 @@ if (!function_exists('pdfDienteTable')) {
             foreach ($chunk as $d) {
                 $lbl = floor($d/10).'.'.($d%10);
                 $val = htmlspecialchars($r["diente_{$d}"] ?? '');
-                $html .= "<td style=\"border:1px solid #e2e8f0;padding:3px 5px;vertical-align:top;width:25%;\"><strong>{$lbl}</strong><br>{$val}</td>";
+                $html .= "<td style=\"border:1px solid #e2e8f0;padding:3px 5px;vertical-align:top;width:25%;word-break:break-word;overflow-wrap:break-word;\"><strong>{$lbl}</strong><br>{$val}</td>";
             }
             for ($f = count($chunk); $f < 4; $f++)
                 $html .= '<td style="width:25%;border:1px solid #f1f5f9;"></td>';
@@ -35,11 +35,11 @@ if (!function_exists('pdfDienteTable')) {
   .grid-2 { display: table; width: 100%; border-collapse: collapse; margin-bottom: 16px; }
   .grid-2 .col { display: table-cell; width: 50%; vertical-align: top; padding: 6px 10px; background: #f8fafc; border: 1px solid #e2e8f0; }
   .label { font-size: 9px; color: #64748b; text-transform: uppercase; margin-bottom: 2px; }
-  .value { font-size: 11px; font-weight: 600; }
+  .value { font-size: 11px; font-weight: 600; word-break: break-word; overflow-wrap: break-word; }
   .exam-box { border: 1px solid #e2e8f0; border-radius: 6px; margin-bottom: 12px; overflow: hidden; }
   .exam-header { background: #0b2a4a; color: #fff; padding: 6px 12px; font-weight: 700; font-size: 11px; }
   .exam-body { padding: 10px 12px; background: #fff; }
-  .exam-body p { margin-bottom: 4px; line-height: 1.5; }
+  .exam-body p { margin-bottom: 4px; line-height: 1.5; word-break: break-word; overflow-wrap: break-word; }
   .footer { margin-top: 20px; border-top: 1px solid #e2e8f0; padding-top: 10px; font-size: 9px; color: #94a3b8; text-align: center; }
 </style>
 </head>

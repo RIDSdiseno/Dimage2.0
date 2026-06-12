@@ -100,10 +100,10 @@
                         </p>
                         <div class="mt-2 pt-2 border-t border-gray-100">
                             <p class="text-xs text-gray-400 mb-0.5">Diagnóstico clínico</p>
-                            <p class="text-sm text-gray-700 font-medium">
+                            <p class="text-sm text-gray-700 font-medium break-words">
                                 {{ order.sin_diagnostico ? 'Sin diagnóstico' : order.diagnostico }}
                             </p>
-                            <p v-if="order.observaciones" class="text-xs text-gray-500 mt-1">
+                            <p v-if="order.observaciones" class="text-xs text-gray-500 mt-1 break-words">
                                 {{ order.observaciones }}
                             </p>
                         </div>
