@@ -143,7 +143,6 @@ class OrderController extends Controller
                 'uc.name as clinica',
                 'so.id as profesional_id',
                 'so.rut as profesional_rut',
-                'so.id_externo as profesional_id_externo',
                 'uo.name as profesional',
                 'uo.name as odontologo',
                 'so.rut as rut_odontologo',
@@ -169,10 +168,9 @@ class OrderController extends Controller
         $order->visitable = in_array((int) $order->estadoradiologo, [1, 4]) ? 1 : 0;
 
         \Log::info('BY_ID_PROFESIONAL', [
-            'order_id'              => $order->id,
-            'profesional_rut'       => $order->profesional_rut,
-            'profesional_id_externo' => $order->profesional_id_externo,
-            'odontologo_id'         => $order->odontologo_id,
+            'order_id'        => $order->id,
+            'profesional_rut' => $order->profesional_rut,
+            'odontologo_id'   => $order->odontologo_id,
         ]);
 
         $examenes = DB::table('examinations as e')
