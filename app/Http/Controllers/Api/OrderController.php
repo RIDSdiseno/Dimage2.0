@@ -403,16 +403,28 @@ class OrderController extends Controller
                 return response()->json(['error' => 'Error al subir archivo a S3.'], 500);
             }
             \Log::info('UPLOAD_FILES_S3_OK', ['path' => $path, 'name' => $file->getClientOriginalName()]);
+            $ext = strtolower($file->getClientOriginalExtension());
             $fileId = DB::table('files')->insertGetId([
                 'examination_id' => $realExamId,
                 'name'           => $file->getClientOriginalName(),
                 'ruta'           => $path,
-                'extension'      => strtolower($file->getClientOriginalExtension()),
+                'extension'      => $ext,
                 'file_size'      => $file->getSize(),
                 'created_at'     => now(),
                 'updated_at'     => now(),
             ]);
-            $uploaded[] = ['id' => $fileId, 'name' => $file->getClientOriginalName()];
+            $uploaded[] = [
+                'id'             => $fileId,
+                'name'           => $file->getClientOriginalName(),
+                'extension'      => $this->normalizeExt($ext, $file->getClientOriginalName(), $path),
+                'is_image'       => $this->isImageExt($ext, $file->getClientOriginalName(), $path),
+                'file_size'      => $file->getSize(),
+                'desde_informar' => false,
+                'url'            => $this->apiFileUrl($path),
+                'ruta'           => $this->apiFileUrl($path),
+                'download_url'   => $this->apiDownloadUrl($path, $file->getClientOriginalName(), $ext),
+                'ruta_dcm'       => null,
+            ];
         }
 
         return response()->json(['message' => 'Archivos subidos.', 'archivos' => $uploaded], 201);
