@@ -171,9 +171,10 @@ class OrderController extends Controller
             unset($order->profesional_id_externo);
         }
 
-        // Campos calculados que DentalSoft usa para mostrar/ocultar el botón de editar
-        $order->editable  = (int) $order->estadoradiologo !== 1 ? 1 : 0;
-        $order->visitable = in_array((int) $order->estadoradiologo, [1, 4]) ? 1 : 0;
+        // Igual que el Dimage antiguo: editable solo cuando está en borrador (estado 4),
+        // visitable solo cuando el radiólogo ya respondió (estado 1).
+        $order->editable  = (int) $order->estadoradiologo === 4 ? 1 : 0;
+        $order->visitable = (int) $order->estadoradiologo === 1 ? 1 : 0;
 
         \Log::info('BY_ID_PROFESIONAL', [
             'order_id'               => $order->id,
