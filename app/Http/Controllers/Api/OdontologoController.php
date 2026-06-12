@@ -92,7 +92,7 @@ $row = $this->query($request->_holding_id)
                 $q->whereRaw("{$rutDb} = ?", [$rutInput])
                   ->orWhereRaw("LEFT({$rutDb}, CHAR_LENGTH({$rutDb}) - 1) = ?", [$rutInput]);
             })
-            ->select('s.id as staff_id', 'u.id as user_id', 'u.name', 'u.email', 's.rut', 's.activo')
+            ->select('s.id as staff_id', 'u.id as user_id', 'u.name', 'u.mail as email', 's.rut', 's.activo')
             ->orderBy('s.id')
             ->first();
 
@@ -128,7 +128,6 @@ $row = $this->query($request->_holding_id)
             'password'   => Hash::make($password),
             'name'       => $name,
             'mail'       => $email,
-            'email'      => $email,
             'status'     => 1,
             'type_id'    => 6,
             'id_externo' => 0,
@@ -156,7 +155,7 @@ $row = $this->query($request->_holding_id)
         $row = DB::table('staffs as s')
             ->join('users as u', 'u.id', '=', 's.user_id')
             ->where('s.id', $staffId)
-            ->select('s.id as staff_id', 'u.id as user_id', 'u.name', 'u.email', 's.rut', 's.activo')
+            ->select('s.id as staff_id', 'u.id as user_id', 'u.name', 'u.mail as email', 's.rut', 's.activo')
             ->first();
 
         return response()->json($this->format($row), 201);
@@ -171,7 +170,7 @@ $row = $this->query($request->_holding_id)
             ->join('clinics as c', 'c.id', '=', 'cs.clinic_id')
             ->where('c.holding_id', $holdingId)
             ->where('s.type_staff', 6)
-            ->select('s.id as staff_id', 'u.id as user_id', 'u.name', 'u.email', 's.rut', 's.activo')
+            ->select('s.id as staff_id', 'u.id as user_id', 'u.name', 'u.mail as email', 's.rut', 's.activo')
             ->distinct();
     }
 

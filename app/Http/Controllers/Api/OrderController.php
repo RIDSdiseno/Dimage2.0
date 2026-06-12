@@ -633,10 +633,10 @@ class OrderController extends Controller
             ->join('users as u', 'u.id', '=', 's.user_id')
             ->join('clinic_staff as cs', 'cs.staff_id', '=', 's.id')
             ->join('clinics as c', 'c.id', '=', 'cs.clinic_id')
-            ->where('u.rut', $rut)
+            ->where('s.rut', $rut)
             ->where('s.type_staff', 3) // radiólogo
             ->where('c.holding_id', $holdingId)
-            ->select('s.id as staff_id', 'u.rut')
+            ->select('s.id as staff_id', 's.rut')
             ->first();
 
         if (! $radiologo) {
