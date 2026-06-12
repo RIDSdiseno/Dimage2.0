@@ -143,7 +143,7 @@ class OrderController extends Controller
                 'uc.name as clinica',
                 'so.id as profesional_id',
                 'so.rut as profesional_rut',
-                DB::raw('COALESCE(so.id_externo, 0) as profesional_id_externo'),
+                'so.id_externo as profesional_id_externo',
                 'uo.name as profesional',
                 'uo.name as odontologo',
                 'so.rut as rut_odontologo',
