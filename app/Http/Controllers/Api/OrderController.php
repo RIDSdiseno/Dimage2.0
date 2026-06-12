@@ -429,6 +429,12 @@ class OrderController extends Controller
     // PATCH /api/v3/order/{id}/send/radiologo
     public function sendToRadiologo(Request $request, int $id)
     {
+        \Log::info('SEND_TO_RADIOLOGO_PAYLOAD', [
+            'order_id' => $id,
+            'all'      => $request->all(),
+            'content'  => $request->getContent(),
+        ]);
+
         $order = DB::table('orders')->where('id', $id)->first(['id', 'estadoradiologo']);
         if (! $order) return response()->json(['error' => 'Orden no encontrada.'], 404);
 
