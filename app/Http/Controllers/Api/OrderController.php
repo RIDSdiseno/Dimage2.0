@@ -246,6 +246,13 @@ class OrderController extends Controller
                 'kind_id'    => $e['id_tipo_examen'],
                 'url_texto'  => $e['url_texto'],
                 'trazados'   => $e['trazados'],
+                'archivos'   => collect($e['archivos'])->map(fn($a) => [
+                    'id'        => $a['id'],
+                    'name'      => $a['name'],
+                    'extension' => $a['extension'],
+                    'is_image'  => $a['is_image'],
+                    'url_ok'    => !empty($a['url']),
+                ])->all(),
             ])->all(),
         ]);
 
