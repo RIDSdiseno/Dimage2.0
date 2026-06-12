@@ -205,7 +205,7 @@ class OrderController extends Controller
                     ->map(fn ($f) => [
                         'id'             => $f->id,
                         'name'           => $f->name,
-                        'extension'      => $this->normalizeExt($f->extension, $f->name, $f->ruta),
+                        'extension'      => $this->extToMime($this->normalizeExt($f->extension, $f->name, $f->ruta)),
                         'is_image'       => $this->isImageExt($f->extension, $f->name, $f->ruta),
                         'file_size'      => $f->file_size,
                         'desde_informar' => (bool) $f->desde_informar,
@@ -416,7 +416,7 @@ class OrderController extends Controller
             $uploaded[] = [
                 'id'             => $fileId,
                 'name'           => $file->getClientOriginalName(),
-                'extension'      => $this->normalizeExt($ext, $file->getClientOriginalName(), $path),
+                'extension'      => $this->extToMime($this->normalizeExt($ext, $file->getClientOriginalName(), $path)),
                 'is_image'       => $this->isImageExt($ext, $file->getClientOriginalName(), $path),
                 'file_size'      => $file->getSize(),
                 'desde_informar' => false,
@@ -869,6 +869,23 @@ class OrderController extends Controller
             $this->normalizeExt($ext, $name, $ruta),
             ['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp', 'tiff', 'tif']
         );
+    }
+
+    // El sistema antiguo guardaba MIME type en extension (image/jpeg, application/pdf).
+    // DentalSoft chequea extension.startsWith('image/') para mostrar thumbnail.
+    private function extToMime(?string $ext): string
+    {
+        return match(strtolower((string) $ext)) {
+            'jpg', 'jpeg' => 'image/jpeg',
+            'png'         => 'image/png',
+            'gif'         => 'image/gif',
+            'webp'        => 'image/webp',
+            'bmp'         => 'image/bmp',
+            'tif', 'tiff' => 'image/tiff',
+            'pdf'         => 'application/pdf',
+            'dcm'         => 'application/dicom',
+            default       => 'application/octet-stream',
+        };
     }
 
     private function apiFileUrl(?string $ruta): ?string
