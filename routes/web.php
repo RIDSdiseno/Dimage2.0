@@ -75,6 +75,7 @@ Route::middleware(['auth'])->group(function () {
     Route::post('/archivos/{id}/extraer',        [FileController::class, 'extractSerie'])->name('archivos.extraer');
     Route::delete('/archivos/{id}',              [FileController::class, 'destroy'])->name('archivos.destroy');
     Route::post('/archivos/upload-cbct-temp',    [FileController::class, 'uploadCbctTemp'])->name('archivos.cbct-temp');
+    Route::post('/archivos/cbct-start-preprocess',[FileController::class, 'startPreprocess'])->name('archivos.cbct-preprocess');
 
     // Pacientes - admin, secretaria, holding, clínica, odontólogo, técnico (sin radiólogo)
     Route::middleware('role:1,2,3,4,6,11')->group(function () {

@@ -382,6 +382,13 @@ async function startEagerUpload(examId, file) {
                             cbctUploads[examId].s3_path   = s3_path;
                             cbctUploads[examId].filename  = filename;
                             cbctUploads[examId].uploading = false;
+                            // Notificar al servidor para disparar el pre-procesamiento
+                            const csrf = document.querySelector('meta[name="csrf-token"]')?.content;
+                            fetch(route('archivos.cbct-preprocess'), {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': csrf || '' },
+                                body: JSON.stringify({ s3_path }),
+                            }).catch(() => {});
                         } else {
                             // S3 rechazó (CORS no configurado u otro error) — fallback a PHP
                             startEagerUploadViaPHP(examId, file);
