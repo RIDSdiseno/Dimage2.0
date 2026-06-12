@@ -251,7 +251,7 @@ class OrderController extends Controller
                     'name'      => $a['name'],
                     'extension' => $a['extension'],
                     'is_image'  => $a['is_image'],
-                    'url_ok'    => !empty($a['url']),
+                    'url_prefix' => $a['url'] ? substr($a['url'], 0, 80) : null,
                 ])->all(),
             ])->all(),
         ]);
