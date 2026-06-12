@@ -480,15 +480,23 @@ class OrderController extends Controller
                     $finalPath = "ordenes/{$order->id}/" . basename($cbctTempPath);
                     Storage::disk('s3')->move($cbctTempPath, $finalPath);
 
+                    // Si ProcessCbctZipTemp ya terminó durante el llenado del form, usar esos DCMs
+                    $uuid         = explode('/', $cbctTempPath)[1] ?? '';
+                    $preProcessed = $uuid ? Cache::get("cbct_preprocess_{$uuid}") : null;
+                    if ($preProcessed && $uuid) {
+                        Cache::forget("cbct_preprocess_{$uuid}");
+                        Cache::forget("cbct_preprocess_dispatched_{$uuid}");
+                    }
+
                     $fileRows[] = [
-                        'ruta'               => $finalPath,
+                        'ruta'               => $preProcessed ? $preProcessed['first_dcm'] : $finalPath,
                         'examination_id'     => $examinationId,
                         'created_at'         => now(),
                         'updated_at'         => now(),
                         'name'               => $request->input("cbct_s3_name_{$kindId}", basename($finalPath)),
                         'type_id'            => 0,
-                        'extension'          => 'zip',
-                        'ruta_dcm'           => 'processing',
+                        'extension'          => $preProcessed ? 'dcm' : 'zip',
+                        'ruta_dcm'           => $preProcessed ? $preProcessed['prefix'] : 'processing',
                         'nombre_dcm'         => $finalPath,
                         'file_size'          => (int) $request->input("cbct_s3_size_{$kindId}", 0),
                         'file_size_procesed' => 1,
@@ -559,22 +567,10 @@ class OrderController extends Controller
             }
         }
 
-        // Procesar ZIPs CBCT de forma síncrona (con uploads paralelos a S3)
-        if (!empty($cbctJobs)) {
-            set_time_limit(600);
-            ignore_user_abort(true);
-            foreach ($cbctJobs as [$fid, $zipPath]) {
-                try {
-                    (new ProcessCbctZip($fid, $this->extractOrderIdFromPath($zipPath), $zipPath))->handle();
-                } catch (\Throwable $e) {
-                    \Log::error("CBCT sync processing failed for file {$fid}: " . $e->getMessage());
-                    DB::table('files')->where('id', $fid)->update([
-                        'ruta_dcm'   => null,
-                        'extension'  => 'zip_error',
-                        'updated_at' => now(),
-                    ]);
-                }
-            }
+        // Fallback asíncrono: si ProcessCbctZipTemp no terminó antes del submit
+        foreach ($cbctJobs as [$fid, $zipPath]) {
+            ProcessCbctZip::dispatch($fid, $this->extractOrderIdFromPath($zipPath), $zipPath)
+                ->onConnection('database')->onQueue('default');
         }
 
         return redirect()
@@ -1554,16 +1550,18 @@ class OrderController extends Controller
                 foreach ((array) $request->file($fileKey) as $file) {
                     if (!$file) continue;
                     $stored = $this->storeUploadedFile($file, $order->id, $kindGroup);
+                    $isCbct = ($stored['ruta_dcm'] ?? null) === 'processing';
                     $fid = DB::table('files')->insertGetId([
                         'ruta' => $stored['ruta'], 'examination_id' => $examinationId,
                         'name' => $stored['name'], 'type_id' => 0,
                         'extension' => $stored['extension'],
-                        'ruta_dcm' => $stored['ruta_dcm'], 'nombre_dcm' => null,
+                        'ruta_dcm' => $stored['ruta_dcm'],
+                        'nombre_dcm' => $isCbct ? $stored['ruta'] : null,
                         'file_size' => $stored['file_size'], 'file_size_procesed' => 1,
                         'file_size_error' => null, 'desde_informar' => 0,
                         'created_at' => now(), 'updated_at' => now(),
                     ]);
-                    if (($stored['ruta_dcm'] ?? null) === 'processing') {
+                    if ($isCbct) {
                         $updateCbctJobs[] = [$fid, $stored['ruta']];
                     }
                 }
@@ -1597,15 +1595,20 @@ class OrderController extends Controller
                 foreach ((array) $request->file($fileKey) as $file) {
                     if (!$file) continue;
                     $stored = $this->storeUploadedFile($file, $order->id, $kindGroup);
-                    DB::table('files')->insert([
+                    $isCbct = ($stored['ruta_dcm'] ?? null) === 'processing';
+                    $newFid = DB::table('files')->insertGetId([
                         'ruta' => $stored['ruta'], 'examination_id' => $examinationId,
                         'name' => $stored['name'], 'type_id' => 0,
                         'extension' => $stored['extension'],
-                        'ruta_dcm' => $stored['ruta_dcm'], 'nombre_dcm' => null,
+                        'ruta_dcm' => $stored['ruta_dcm'],
+                        'nombre_dcm' => $isCbct ? $stored['ruta'] : null,
                         'file_size' => $stored['file_size'], 'file_size_procesed' => 1,
                         'file_size_error' => null, 'desde_informar' => 0,
                         'created_at' => now(), 'updated_at' => now(),
                     ]);
+                    if ($isCbct) {
+                        $updateCbctJobs[] = [$newFid, $stored['ruta']];
+                    }
                 }
             }
 
@@ -1645,22 +1648,10 @@ class OrderController extends Controller
             }
         });
 
-        // Procesar ZIPs CBCT de forma síncrona (con uploads paralelos a S3)
-        if (!empty($updateCbctJobs)) {
-            set_time_limit(600);
-            ignore_user_abort(true);
-            foreach ($updateCbctJobs as [$fid, $zipPath]) {
-                try {
-                    (new ProcessCbctZip($fid, $this->extractOrderIdFromPath($zipPath), $zipPath))->handle();
-                } catch (\Throwable $e) {
-                    \Log::error("CBCT sync processing failed for file {$fid}: " . $e->getMessage());
-                    DB::table('files')->where('id', $fid)->update([
-                        'ruta_dcm'   => null,
-                        'extension'  => 'zip_error',
-                        'updated_at' => now(),
-                    ]);
-                }
-            }
+        // Fallback asíncrono: si ProcessCbctZipTemp no terminó antes del submit
+        foreach ($updateCbctJobs as [$fid, $zipPath]) {
+            ProcessCbctZip::dispatch($fid, $this->extractOrderIdFromPath($zipPath), $zipPath)
+                ->onConnection('database')->onQueue('default');
         }
 
         if ($enviar && ! $yaEstabaEnviada) {
