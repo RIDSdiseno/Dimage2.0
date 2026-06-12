@@ -438,14 +438,19 @@ class OrderController extends Controller
         $order = DB::table('orders')->where('id', $id)->first(['id', 'estadoradiologo']);
         if (! $order) return response()->json(['error' => 'Orden no encontrada.'], 404);
 
-        if (! in_array((int) $order->estadoradiologo, [0, 4])) {
-            return response()->json(['error' => 'La orden ya fue enviada o respondida.'], 422);
+        if ((int) $order->estadoradiologo === 1) {
+            return response()->json(['error' => 'La orden ya fue respondida y no puede reenviarse.'], 422);
         }
 
-        $data = $request->validate([
-            'staff_ids' => ['required', 'array', 'min:1'],
-            'staff_ids.*' => ['exists:staffs,id'],
-        ]);
+        $staffIds = $request->input('staff_ids', []);
+
+        // Validar staff_ids solo si se enviaron
+        if (!empty($staffIds)) {
+            $request->validate([
+                'staff_ids'   => ['array'],
+                'staff_ids.*' => ['exists:staffs,id'],
+            ]);
+        }
 
         DB::table('orders')->where('id', $id)->update([
             'estadoradiologo' => 0,
@@ -453,19 +458,21 @@ class OrderController extends Controller
             'updated_at'      => now(),
         ]);
 
-        DB::table('order_staff_exam')->where('order_id', $id)->delete();
+        if (!empty($staffIds)) {
+            DB::table('order_staff_exam')->where('order_id', $id)->delete();
 
-        $examIds = DB::table('examination_order')
-            ->where('order_id', $id)
-            ->pluck('examination_id');
+            $examIds = DB::table('examination_order')
+                ->where('order_id', $id)
+                ->pluck('examination_id');
 
-        foreach ($data['staff_ids'] as $staffId) {
-            foreach ($examIds as $exId) {
-                DB::table('order_staff_exam')->insert([
-                    'order_id'       => $id,
-                    'staff_id'       => $staffId,
-                    'examination_id' => $exId,
-                ]);
+            foreach ($staffIds as $staffId) {
+                foreach ($examIds as $exId) {
+                    DB::table('order_staff_exam')->insert([
+                        'order_id'       => $id,
+                        'staff_id'       => $staffId,
+                        'examination_id' => $exId,
+                    ]);
+                }
             }
         }
 
