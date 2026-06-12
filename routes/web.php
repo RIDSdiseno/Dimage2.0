@@ -35,6 +35,11 @@ Route::post('/revisar-orden/logout',         [PatientPortalController::class, 'l
 Route::get('/revisar-orden/{id}',            [PatientPortalController::class, 'show'])->name('paciente.show');
 Route::get('/revisar-orden/{id}/pdf',        [PatientPortalController::class, 'pdf'])->name('paciente.pdf');
 
+// PDF firmado para DentalSoft (URL temporal firmada, sin sesión de usuario)
+Route::get('/ordenes/{id}/pdf-signed', [OrderController::class, 'pdfSigned'])
+    ->name('ordenes.pdf.signed')
+    ->middleware('signed');
+
 // App (autenticado)
 Route::middleware(['auth'])->group(function () {
     Route::get('/', [HomeController::class, 'index'])->name('home');

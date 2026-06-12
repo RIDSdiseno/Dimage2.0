@@ -1096,6 +1096,75 @@ class OrderController extends Controller
         return $pdf->stream("orden-{$order->id}.pdf");
     }
 
+    // GET /ordenes/{id}/pdf-signed — acceso sin sesión, URL firmada para DentalSoft
+    public function pdfSigned(Request $request, int $id): \Illuminate\Http\Response
+    {
+        $order = Order::findOrFail($id);
+        $isInformada = (int) $order->estadoradiologo === 1;
+
+        $examenes = DB::table('examinations')
+            ->join('examination_order', 'examination_order.examination_id', '=', 'examinations.id')
+            ->join('kinds', 'kinds.id', '=', 'examinations.kind_id')
+            ->where('examination_order.order_id', $order->id)
+            ->select(['examinations.id as examination_id', 'kinds.id as kind_id', 'kinds.descipcion as descripcion', 'examinations.piezas'])
+            ->get()
+            ->map(function ($e) use ($isInformada) {
+                $ans = DB::table('answers')->where('examination_id', $e->examination_id)->first();
+                $respuesta = ($ans && $isInformada) ? (array) $ans : null;
+                if ($respuesta && $e->kind_id == self::PANORAMICA_KIND_ID && !empty($ans->content)) {
+                    $c = json_decode($ans->content, true) ?? [];
+                    $respuesta['informe_examen']    = $c['examen']    ?? '';
+                    $respuesta['informe_libre']     = $c['informe']   ?? '';
+                    $respuesta['informe_impresion'] = $c['impresion'] ?? '';
+                }
+                return [
+                    'descripcion' => $e->descripcion,
+                    'kind_id'     => $e->kind_id,
+                    'piezas'      => $e->piezas,
+                    'respuesta'   => $respuesta,
+                ];
+            });
+
+        $paciente  = DB::table('patients')->where('id', $order->patient_id)->first();
+        $clinica   = DB::table('clinics as c')->join('users as u', 'u.id', '=', 'c.user_id')
+                       ->where('c.id', $order->clinic_id)->value('u.name');
+        $radiologos = DB::table('order_staff_exam as ose')
+            ->join('staffs as s', 's.id', '=', 'ose.staff_id')
+            ->join('users as u', 'u.id', '=', 's.user_id')
+            ->where('ose.order_id', $order->id)
+            ->select('s.id', 'u.name', 's.firma')
+            ->get()
+            ->unique('id')
+            ->values()
+            ->map(function ($rad) {
+                $rad->firma_b64 = null;
+                if (!empty($rad->firma)) {
+                    try {
+                        $content = Storage::disk('public')->get($rad->firma);
+                        $ext     = strtolower(pathinfo($rad->firma, PATHINFO_EXTENSION));
+                        $mime    = match($ext) {
+                            'png'         => 'image/png',
+                            'gif'         => 'image/gif',
+                            'jpg','jpeg'  => 'image/jpeg',
+                            default       => 'image/jpeg',
+                        };
+                        $rad->firma_b64 = 'data:' . $mime . ';base64,' . base64_encode($content);
+                    } catch (\Throwable) {}
+                }
+                return $rad;
+            });
+
+        $pdf = \Barryvdh\DomPDF\Facade\Pdf::loadView('pdf.orden', [
+            'order'      => $order,
+            'paciente'   => $paciente,
+            'clinica'    => $clinica,
+            'radiologos' => $radiologos,
+            'examenes'   => $examenes,
+        ]);
+
+        return $pdf->stream("orden-{$order->id}.pdf");
+    }
+
     private function clinicsForUser($user): Collection
     {
         if (!$user) {

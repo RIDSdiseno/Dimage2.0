@@ -848,9 +848,14 @@ class OrderController extends Controller
         $order = DB::table('orders')->where('id', $id)->first('id');
         if (! $order) return response()->json(['error' => 'Orden no encontrada.'], 404);
 
-        return response()->json([
-            'url' => route('ordenes.pdf', $id),
-        ]);
+        // URL firmada temporal (4 h) — DentalSoft no tiene sesión web
+        $url = \Illuminate\Support\Facades\URL::temporarySignedRoute(
+            'ordenes.pdf.signed',
+            now()->addHours(4),
+            ['id' => $id]
+        );
+
+        return response()->json(['url' => $url]);
     }
 
     // GET /api/v3/order/zip/{id}
