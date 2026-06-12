@@ -95,17 +95,10 @@ $row = $this->query($request->_holding_id)
             ->first();
 
         if ($existing) {
-            // id_externo: explícito primero, luego extraer del username (patrón DS: "{ds_id}odo{rut}")
-            $idExternoParaExistente = $idExternoExplicito;
-            if (!$idExternoParaExistente && $request->filled('username')) {
-                if (preg_match('/^(\d+)odo\d+$/', $request->input('username'), $m)) {
-                    $idExternoParaExistente = $m[1];
-                }
-            }
-            if ($idExternoParaExistente) {
+            if ($idExternoExplicito) {
                 $currentIdExterno = DB::table('staffs')->where('id', $existing->staff_id)->value('id_externo');
                 if (!$currentIdExterno) {
-                    DB::table('staffs')->where('id', $existing->staff_id)->update(['id_externo' => $idExternoParaExistente]);
+                    DB::table('staffs')->where('id', $existing->staff_id)->update(['id_externo' => $idExternoExplicito]);
                 }
             }
             if ($request->filled('clinic_id')) {
