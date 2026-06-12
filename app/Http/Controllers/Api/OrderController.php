@@ -176,6 +176,43 @@ class OrderController extends Controller
         $order->editable  = (int) $order->estadoradiologo === 4 ? 1 : 0;
         $order->visitable = (int) $order->estadoradiologo === 1 ? 1 : 0;
 
+        // Aliases que DentalSoft espera (igual que Dimage antiguo)
+        $order->estado_radiologo   = $order->estadoradiologo;
+        $order->estado_odontologo  = $order->estadoodontologo;
+        $order->fecha_creacion     = $order->created_at;
+        $order->fecha_envio        = $order->enviada;
+        $order->fecha_respuesta    = $order->respondida;
+        $order->observaciones_informe = $order->observaciones_2;
+
+        // Estado en texto
+        $er = (int) $order->estadoradiologo;
+        $eo = (int) $order->estadoodontologo;
+        $order->estado_texto = match(true) {
+            $er === 0 => 'No Informada',
+            $er === 1 => 'Informada',
+            $er === 2 && $eo === 3 => 'Corrección',
+            default   => 'Guardada',
+        };
+
+        // Radiólogos asignados (igual que Dimage antiguo)
+        $order->ruts_radiologos_asignados = DB::table('order_staff_exam as ose')
+            ->leftJoin('staffs as s', 's.id', '=', 'ose.staff_id')
+            ->where('ose.order_id', $order->id)
+            ->groupBy('ose.order_id')
+            ->value(DB::raw("GROUP_CONCAT(DISTINCT s.rut SEPARATOR ', ')"));
+
+        $order->ruts_radiologos_pendientes = DB::table('order_staff_exam as ose')
+            ->leftJoin('staffs as s', 's.id', '=', 'ose.staff_id')
+            ->where('ose.order_id', $order->id)
+            ->where('ose.respondida', 0)
+            ->groupBy('ose.order_id')
+            ->value(DB::raw("GROUP_CONCAT(DISTINCT s.rut SEPARATOR ', ')"));
+
+        $order->correcciones = DB::table('corrections')
+            ->where('order_id', $order->id)
+            ->orderBy('id')
+            ->get();
+
         \Log::info('BY_ID_PROFESIONAL', [
             'order_id'               => $order->id,
             'profesional_rut'        => $order->profesional_rut,
