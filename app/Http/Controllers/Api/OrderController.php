@@ -164,6 +164,13 @@ class OrderController extends Controller
             $order->profesional_rut = $stripRut($order->profesional_rut);
         }
 
+        // Solo enviar profesional_id_externo cuando tiene un ID real de Dentalsoft.
+        // Sin este campo, Dentalsoft no valida al profesional (comportamiento igual al Dimage antiguo).
+        // Con "0" o null, Dentalsoft intenta validar por RUT y falla para odontólogos no sincronizados.
+        if (empty($order->profesional_id_externo) || $order->profesional_id_externo === '0' || $order->profesional_id_externo === 0) {
+            unset($order->profesional_id_externo);
+        }
+
         // Campos calculados que DentalSoft usa para mostrar/ocultar el botón de editar
         $order->editable  = (int) $order->estadoradiologo !== 1 ? 1 : 0;
         $order->visitable = in_array((int) $order->estadoradiologo, [1, 4]) ? 1 : 0;

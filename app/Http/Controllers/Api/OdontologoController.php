@@ -74,8 +74,6 @@ $row = $this->query($request->_holding_id)
 
         $password = $request->input('password') ?? '123456';
 
-        // Solo id_externo provisto explícitamente — no extraer del username para staff existente
-        // porque DentalSoft falla si recibe un id_externo que no está en su propia BD.
         $idExternoExplicito = $request->input('id_externo')
             ?? $request->input('profesional_id')
             ?? $request->input('odontologo_id_externo')
@@ -97,11 +95,17 @@ $row = $this->query($request->_holding_id)
             ->first();
 
         if ($existing) {
-            // Solo actualizar id_externo si fue provisto EXPLÍCITAMENTE (no desde username)
-            if ($idExternoExplicito) {
+            // id_externo: explícito primero, luego extraer del username (patrón DS: "{ds_id}odo{rut}")
+            $idExternoParaExistente = $idExternoExplicito;
+            if (!$idExternoParaExistente && $request->filled('username')) {
+                if (preg_match('/^(\d+)odo\d+$/', $request->input('username'), $m)) {
+                    $idExternoParaExistente = $m[1];
+                }
+            }
+            if ($idExternoParaExistente) {
                 $currentIdExterno = DB::table('staffs')->where('id', $existing->staff_id)->value('id_externo');
                 if (!$currentIdExterno) {
-                    DB::table('staffs')->where('id', $existing->staff_id)->update(['id_externo' => $idExternoExplicito]);
+                    DB::table('staffs')->where('id', $existing->staff_id)->update(['id_externo' => $idExternoParaExistente]);
                 }
             }
             if ($request->filled('clinic_id')) {
