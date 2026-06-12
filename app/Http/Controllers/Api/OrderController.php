@@ -464,8 +464,24 @@ class OrderController extends Controller
         return response()->stream(
             function () use ($stream) { fpassthru($stream); },
             200,
-            ['Content-Type' => $mime, 'Cache-Control' => 'public, max-age=3600']
+            [
+                'Content-Type'                => $mime,
+                'Cache-Control'               => 'public, max-age=3600',
+                'Access-Control-Allow-Origin' => '*',
+                'Access-Control-Allow-Methods'=> 'GET, OPTIONS',
+                'Access-Control-Allow-Headers'=> 'Content-Type',
+            ]
         );
+    }
+
+    // OPTIONS preflight para serveFile (CORS)
+    public function serveFileOptions(): \Illuminate\Http\Response
+    {
+        return response('', 204, [
+            'Access-Control-Allow-Origin'  => '*',
+            'Access-Control-Allow-Methods' => 'GET, OPTIONS',
+            'Access-Control-Allow-Headers' => 'Content-Type',
+        ]);
     }
 
     // DELETE /api/v3/order/file/{fileId}
