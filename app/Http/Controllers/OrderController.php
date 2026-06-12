@@ -1738,7 +1738,7 @@ class OrderController extends Controller
             ->join('kinds as k', 'k.id', '=', 'e.kind_id')
             ->where('eo.order_id', $order->id)
             ->whereNotNull('f.ruta')
-            ->select('f.id', 'f.name', 'f.ruta', 'f.extension', 'k.descipcion as examen')
+            ->select('f.id', 'f.name', 'f.ruta', 'f.extension', 'f.nombre_dcm', 'k.descipcion as examen')
             ->get();
 
         if ($files->isEmpty()) {
@@ -1768,9 +1768,13 @@ class OrderController extends Controller
 
             $usedNames = [];
             foreach ($files as $f) {
+                // Para CBCT procesados: usar el ZIP original (nombre_dcm) en vez del
+                // primer slice DCM que queda en ruta. Así se incluye el CBCT completo.
+                $isCbct  = ($f->extension === 'dcm' && !empty($f->nombre_dcm));
+                $rutaS3  = $isCbct ? $f->nombre_dcm : $f->ruta;
+
                 try {
-                    // Stream from S3 to a temp file to avoid loading large files into memory
-                    $stream = \Illuminate\Support\Facades\Storage::disk('s3')->readStream($f->ruta);
+                    $stream = \Illuminate\Support\Facades\Storage::disk('s3')->readStream($rutaS3);
                     if (!is_resource($stream)) continue;
 
                     $entryTmp = tempnam(sys_get_temp_dir(), 'zip_e_');
@@ -1782,8 +1786,12 @@ class OrderController extends Controller
                     continue;
                 }
 
-                $ext      = $f->extension ?: pathinfo($f->ruta, PATHINFO_EXTENSION);
+                $ext      = $isCbct ? 'zip' : ($f->extension ?: pathinfo($f->ruta, PATHINFO_EXTENSION));
                 $baseName = $f->name ?: ('archivo_' . $f->id . ($ext ? ".{$ext}" : ''));
+                // Asegurar extensión .zip para CBCT
+                if ($isCbct && !preg_match('/\.zip$/i', $baseName)) {
+                    $baseName = pathinfo($baseName, PATHINFO_FILENAME) . '.zip';
+                }
                 $folder   = preg_replace('/[^a-zA-Z0-9_\- ]/', '', $f->examen);
 
                 $zipEntry = "{$folder}/{$baseName}";

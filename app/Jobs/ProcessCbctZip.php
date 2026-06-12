@@ -21,73 +21,90 @@ class ProcessCbctZip implements ShouldQueue
 
     public function handle(): void
     {
-        // Preserve original ZIP path before processing so download() can serve it
+        // Preserve original ZIP path so download() can serve the full CBCT ZIP
         DB::table('files')->where('id', $this->fileId)->update([
             'nombre_dcm' => $this->zipS3Path,
         ]);
 
-        // Download ZIP from S3 to a local temp file
         $tmpZip = tempnam(sys_get_temp_dir(), 'cbct_') . '.zip';
+        $tmpDir = sys_get_temp_dir() . '/cbct_' . uniqid();
 
         try {
+            // Download ZIP from S3 to local temp file
             $stream = Storage::disk('s3')->readStream($this->zipS3Path);
-            if (! is_resource($stream)) {
-                return;
-            }
+            if (! is_resource($stream)) return;
+
             $fp = fopen($tmpZip, 'wb');
             stream_copy_to_stream($stream, $fp);
             fclose($fp);
             if (is_resource($stream)) fclose($stream);
 
             $za = new \ZipArchive();
-            if ($za->open($tmpZip) !== true) {
-                return;
-            }
+            if ($za->open($tmpZip) !== true) return;
+
+            // Extract everything to local disk first (fast local operation,
+            // avoids loading each DCM into PHP memory string)
+            @mkdir($tmpDir, 0755, true);
+            $za->extractTo($tmpDir);
+            $za->close();
+            unset($za);
 
             $firstDcmS3  = null;
             $seriePrefix = null;
+            $tmpDirBase  = rtrim(str_replace('\\', '/', $tmpDir), '/');
 
-            for ($i = 0; $i < $za->numFiles; $i++) {
-                $entry = $za->getNameIndex($i);
-                if (! $entry || str_ends_with($entry, '/')) {
-                    continue;
-                }
+            $iter = new \RecursiveIteratorIterator(
+                new \RecursiveDirectoryIterator($tmpDir, \FilesystemIterator::SKIP_DOTS)
+            );
 
-                $entryExt = strtolower(pathinfo($entry, PATHINFO_EXTENSION));
-                if (! in_array($entryExt, ['dcm', 'dicom'], true)) {
-                    continue;
-                }
+            foreach ($iter as $file) {
+                if (! $file->isFile()) continue;
 
-                $content = $za->getFromIndex($i);
-                if ($content === false) {
-                    continue;
-                }
+                $entryExt = strtolower($file->getExtension());
+                if (! in_array($entryExt, ['dcm', 'dicom'], true)) continue;
 
-                $s3Path = "ordenes/{$this->orderId}/{$entry}";
-                Storage::disk('s3')->put($s3Path, $content);
+                $relPath = ltrim(
+                    substr(str_replace('\\', '/', $file->getPathname()), strlen($tmpDirBase)),
+                    '/'
+                );
+
+                $s3Path = "ordenes/{$this->orderId}/{$relPath}";
+
+                // Stream-upload from extracted temp file — no full-file memory allocation
+                $handle = fopen($file->getPathname(), 'rb');
+                Storage::disk('s3')->put($s3Path, $handle);
+                if (is_resource($handle)) fclose($handle);
 
                 if ($firstDcmS3 === null) {
                     $firstDcmS3  = $s3Path;
-                    $dir         = dirname($entry);
+                    $dir         = dirname($relPath);
                     $seriePrefix = "ordenes/{$this->orderId}/" . ($dir === '.' ? '' : rtrim($dir, '/') . '/');
                 }
             }
 
-            $za->close();
-
             if ($firstDcmS3) {
                 DB::table('files')->where('id', $this->fileId)->update([
-                    'ruta'      => $firstDcmS3,
-                    'ruta_dcm'  => $seriePrefix,
-                    'extension' => 'dcm',
-                    'updated_at'=> now(),
+                    'ruta'       => $firstDcmS3,
+                    'ruta_dcm'   => $seriePrefix,
+                    'extension'  => 'dcm',
+                    'updated_at' => now(),
                 ]);
-
-                // ZIP kept on S3 so users can download the original file
             }
+
         } finally {
             @unlink($tmpZip);
+            $this->rrmdir($tmpDir);
         }
+    }
+
+    private function rrmdir(string $dir): void
+    {
+        if (! is_dir($dir)) return;
+        foreach (array_diff((array) scandir($dir), ['.', '..']) as $item) {
+            $path = $dir . DIRECTORY_SEPARATOR . $item;
+            is_dir($path) ? $this->rrmdir($path) : @unlink($path);
+        }
+        @rmdir($dir);
     }
 
     public function failed(\Throwable $e): void
