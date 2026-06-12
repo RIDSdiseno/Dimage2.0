@@ -95,10 +95,17 @@ $row = $this->query($request->_holding_id)
             ->first();
 
         if ($existing) {
-            if ($idExternoExplicito) {
+            // Intentar obtener DS ID: primero del campo explícito, luego del username
+            $idExternoToUpdate = $idExternoExplicito;
+            if (!$idExternoToUpdate && $request->filled('username')) {
+                if (preg_match('/^(\d+)odo\d+$/', $request->input('username'), $m)) {
+                    $idExternoToUpdate = $m[1];
+                }
+            }
+            if ($idExternoToUpdate) {
                 $currentIdExterno = DB::table('staffs')->where('id', $existing->staff_id)->value('id_externo');
-                if (!$currentIdExterno) {
-                    DB::table('staffs')->where('id', $existing->staff_id)->update(['id_externo' => $idExternoExplicito]);
+                if (!$currentIdExterno || $currentIdExterno === '0' || (int)$currentIdExterno === 0) {
+                    DB::table('staffs')->where('id', $existing->staff_id)->update(['id_externo' => $idExternoToUpdate]);
                 }
             }
             if ($request->filled('clinic_id')) {
