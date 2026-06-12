@@ -430,11 +430,12 @@ class OrderController extends Controller
         return response()->json(['message' => 'Archivos subidos.', 'archivos' => $uploaded], 201);
     }
 
-    // GET /api/v3/file/{id}/{filename}  — sin auth.api, proxy que sirve el archivo desde S3
-    public function serveFile(Request $request, int $id, string $filename)
+    // GET /api/v3/file/{sig}/{id}/{filename}  — sin auth.api, proxy que sirve el archivo desde S3
+    // sig en el path para que la URL termine en .ext — DentalSoft detecta extensión con split('.')
+    public function serveFile(Request $request, string $sig, int $id, string $filename)
     {
         $expected = substr(hash_hmac('sha256', $id . '|' . $filename, config('app.key')), 0, 20);
-        if ($request->get('sig') !== $expected) {
+        if ($sig !== $expected) {
             return response('Forbidden', 403);
         }
 
@@ -880,7 +881,8 @@ class OrderController extends Controller
 
         $sig = substr(hash_hmac('sha256', $fileId . '|' . $basename, config('app.key')), 0, 20);
 
-        return url('/api/v3/file/' . $fileId . '/' . rawurlencode($basename)) . '?sig=' . $sig;
+        // sig va ANTES del id/filename para que la URL termine limpia en .ext (sin ?querystring)
+        return url('/api/v3/file/' . $sig . '/' . $fileId . '/' . rawurlencode($basename));
     }
 
     /**
