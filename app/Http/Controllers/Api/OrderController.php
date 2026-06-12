@@ -430,7 +430,7 @@ class OrderController extends Controller
         return response()->json(['message' => 'Archivos subidos.', 'archivos' => $uploaded], 201);
     }
 
-    // GET /api/v3/file/{id}/{filename}  — sin auth.api, proxy con redirect a presigned S3
+    // GET /api/v3/file/{id}/{filename}  — sin auth.api, proxy que sirve el archivo desde S3
     public function serveFile(Request $request, int $id, string $filename)
     {
         $expected = substr(hash_hmac('sha256', $id . '|' . $filename, config('app.key')), 0, 20);
@@ -438,18 +438,33 @@ class OrderController extends Controller
             return response('Forbidden', 403);
         }
 
-        $file = DB::table('files')->where('id', $id)->first(['ruta']);
+        $file = DB::table('files')->where('id', $id)->first(['ruta', 'extension', 'name']);
         if (! $file || ! $file->ruta || $file->ruta === '0') {
             return response('Not Found', 404);
         }
 
         try {
-            $url = Storage::disk('s3')->temporaryUrl($file->ruta, now()->addHours(1));
+            $stream = Storage::disk('s3')->readStream($file->ruta);
         } catch (\Throwable) {
             return response('Storage Error', 500);
         }
 
-        return redirect()->away($url, 302);
+        $ext = strtolower($file->extension ?: pathinfo($file->ruta, PATHINFO_EXTENSION));
+        $mime = match($ext) {
+            'jpg', 'jpeg' => 'image/jpeg',
+            'png'         => 'image/png',
+            'gif'         => 'image/gif',
+            'webp'        => 'image/webp',
+            'pdf'         => 'application/pdf',
+            'dcm'         => 'application/dicom',
+            default       => 'application/octet-stream',
+        };
+
+        return response()->stream(
+            function () use ($stream) { fpassthru($stream); },
+            200,
+            ['Content-Type' => $mime, 'Cache-Control' => 'public, max-age=3600']
+        );
     }
 
     // DELETE /api/v3/order/file/{fileId}
