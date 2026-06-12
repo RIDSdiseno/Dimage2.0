@@ -225,8 +225,8 @@ class OrderController extends Controller
                     'tipo_examen'    => $e->tipo_examen,
                     'descripcion'    => $e->descripcion,
                     'grupo'          => $e->grupo,
-                    'url_texto'      => $e->url_texto,
-                    // trazados en formato DentalSoft (array de nombres cortos)
+                    // url_texto en formato corto para DentalSoft (ej: "rickets,roth")
+                    'url_texto'      => implode(',', $this->urlTextoToTrazados($e->url_texto)) ?: null,
                     'trazados'       => $this->urlTextoToTrazados($e->url_texto),
                     'radiologo'      => $e->radiologo,
                     'rut_radiologo'  => $e->rut_radiologo,
