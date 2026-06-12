@@ -58,10 +58,8 @@ class FileController extends Controller
 
         // CBCT serie procesada
         if ($file->ruta_dcm && $file->ruta_dcm !== 'processing') {
-            // 1. nombre_dcm seteado (nuevo, post-fix) — verificar que el ZIP sigue en S3
-            $zipPath = ($file->nombre_dcm && Storage::disk('s3')->exists($file->nombre_dcm))
-                ? $file->nombre_dcm
-                : null;
+            // 1. nombre_dcm seteado por ProcessCbctZip — confiamos que existe en S3
+            $zipPath = $file->nombre_dcm ?: null;
 
             // 2. nombre_dcm nulo (viejo) — buscar cualquier ZIP en el directorio raíz de la orden
             if (!$zipPath) {
@@ -330,6 +328,7 @@ class FileController extends Controller
 
     /**
      * Extract DCM files from a ZIP already on S3 and update the DB record.
+     * Uses extractTo() + stream upload to avoid loading DCMs into PHP memory.
      */
     public function extractSerie(int $id): JsonResponse
     {
@@ -354,54 +353,66 @@ class FileController extends Controller
         set_time_limit(600);
         ignore_user_abort(true);
 
-        $tempPath = tempnam(sys_get_temp_dir(), 'cbct_');
+        // Preserve original ZIP path before ruta changes
+        DB::table('files')->where('id', $id)->update(['nombre_dcm' => $file->ruta]);
+
+        $tmpZip      = tempnam(sys_get_temp_dir(), 'cbct_') . '.zip';
+        $tmpDir      = sys_get_temp_dir() . '/cbct_' . uniqid();
+        $firstDcmS3  = null;
+        $seriePrefix = null;
+        $count       = 0;
+
         try {
             $stream = Storage::disk('s3')->readStream($file->ruta);
             if (!is_resource($stream)) {
                 return response()->json(['ok' => false, 'message' => 'No se pudo leer el archivo desde S3.'], 500);
             }
-            $tmp = fopen($tempPath, 'wb');
-            stream_copy_to_stream($stream, $tmp);
-            fclose($tmp);
+            $fp = fopen($tmpZip, 'wb');
+            stream_copy_to_stream($stream, $fp);
+            fclose($fp);
             if (is_resource($stream)) fclose($stream);
-        } catch (\Throwable $e) {
-            @unlink($tempPath);
-            return response()->json(['ok' => false, 'message' => 'Error descargando ZIP: ' . $e->getMessage()], 500);
-        }
 
-        $za = new \ZipArchive();
-        if ($za->open($tempPath) !== true) {
-            @unlink($tempPath);
-            return response()->json(['ok' => false, 'message' => 'No se pudo abrir el ZIP.'], 422);
-        }
-
-        $firstDcmS3  = null;
-        $seriePrefix = null;
-        $count       = 0;
-
-        for ($i = 0; $i < $za->numFiles; $i++) {
-            $entry    = $za->getNameIndex($i);
-            if (!$entry || str_ends_with($entry, '/')) continue;
-            $entryExt = strtolower(pathinfo($entry, PATHINFO_EXTENSION));
-            if (!in_array($entryExt, ['dcm', 'dicom'], true)) continue;
-
-            $content = $za->getFromIndex($i);
-            if ($content === false) continue;
-
-            $s3Path = "ordenes/{$orderId}/{$entry}";
-            Storage::disk('s3')->put($s3Path, $content);
-            $count++;
-
-            if ($firstDcmS3 === null) {
-                $firstDcmS3  = $s3Path;
-                $dir         = dirname($entry);
-                $seriePrefix = "ordenes/{$orderId}/" . ($dir === '.' ? '' : rtrim($dir, '/') . '/');
+            $za = new \ZipArchive();
+            if ($za->open($tmpZip) !== true) {
+                return response()->json(['ok' => false, 'message' => 'No se pudo abrir el ZIP.'], 422);
             }
 
-        }
+            @mkdir($tmpDir, 0755, true);
+            $za->extractTo($tmpDir);
+            $za->close();
+            unset($za);
 
-        $za->close();
-        @unlink($tempPath);
+            $tmpDirBase = rtrim(str_replace('\\', '/', $tmpDir), '/');
+            $iter = new \RecursiveIteratorIterator(
+                new \RecursiveDirectoryIterator($tmpDir, \FilesystemIterator::SKIP_DOTS)
+            );
+
+            foreach ($iter as $localFile) {
+                if (!$localFile->isFile()) continue;
+                $entryExt = strtolower($localFile->getExtension());
+                if (!in_array($entryExt, ['dcm', 'dicom'], true)) continue;
+
+                $relPath = ltrim(
+                    substr(str_replace('\\', '/', $localFile->getPathname()), strlen($tmpDirBase)),
+                    '/'
+                );
+                $s3Path = "ordenes/{$orderId}/{$relPath}";
+
+                $handle = fopen($localFile->getPathname(), 'rb');
+                Storage::disk('s3')->put($s3Path, $handle);
+                if (is_resource($handle)) fclose($handle);
+                $count++;
+
+                if ($firstDcmS3 === null) {
+                    $firstDcmS3  = $s3Path;
+                    $dir         = dirname($relPath);
+                    $seriePrefix = "ordenes/{$orderId}/" . ($dir === '.' ? '' : rtrim($dir, '/') . '/');
+                }
+            }
+        } finally {
+            @unlink($tmpZip);
+            $this->rrmdir($tmpDir);
+        }
 
         if ($firstDcmS3 === null) {
             return response()->json(['ok' => false, 'message' => 'El ZIP no contiene archivos DICOM (.dcm).'], 422);
@@ -419,10 +430,47 @@ class FileController extends Controller
         return response()->json(['ok' => true, 'count' => $count, 'message' => "{$count} archivos DICOM procesados."]);
     }
 
+    private function rrmdir(string $dir): void
+    {
+        if (!is_dir($dir)) return;
+        foreach (array_diff((array) scandir($dir), ['.', '..']) as $item) {
+            $path = $dir . DIRECTORY_SEPARATOR . $item;
+            is_dir($path) ? $this->rrmdir($path) : @unlink($path);
+        }
+        @rmdir($dir);
+    }
+
+    /**
+     * Return a presigned S3 PUT URL so the browser can upload the CBCT ZIP
+     * directly to S3 without going through PHP.
+     * Requires the S3 bucket to have CORS configured for PUT from the app origin.
+     */
+    public function cbctPresignedPut(\Illuminate\Http\Request $request): JsonResponse
+    {
+        $filename = $request->query('filename', 'cbct.zip');
+        $safeName = preg_replace('/[^a-zA-Z0-9._()-]/', '_', basename($filename));
+        $tempPath = 'cbct-temp/' . \Illuminate\Support\Str::uuid() . '/' . $safeName;
+
+        try {
+            [$url, $headers] = Storage::disk('s3')->temporaryUploadUrl(
+                $tempPath,
+                now()->addMinutes(30),
+                ['ContentType' => 'application/zip']
+            );
+            return response()->json([
+                'url'      => $url,
+                'headers'  => $headers,
+                's3_path'  => $tempPath,
+                'filename' => $filename,
+            ]);
+        } catch (\Throwable) {
+            return response()->json(['error' => 'presigned_not_supported'], 422);
+        }
+    }
+
     /**
      * Upload a CBCT ZIP to a temporary S3 path and return the path + metadata.
-     * Called eagerly from the frontend as soon as the user selects a ZIP file,
-     * so the upload runs in the background while they fill the order form.
+     * Fallback when presigned PUT is not supported or CORS is not configured.
      */
     public function uploadCbctTemp(\Illuminate\Http\Request $request): JsonResponse
     {

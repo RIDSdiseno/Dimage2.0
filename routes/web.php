@@ -65,6 +65,7 @@ Route::middleware(['auth'])->group(function () {
     Route::put('/perfil/password',  [ProfileController::class, 'password'])->name('perfil.password');
 
     // Files (S3 signed URLs) - todos los autenticados
+    Route::get('/archivos/cbct-presigned-put',   [FileController::class, 'cbctPresignedPut'])->name('archivos.cbct-presigned-put');
     Route::get('/archivos/{id}',                 [FileController::class, 'serve'])->name('archivos.serve');
     Route::get('/archivos/{id}/serie/info',      [FileController::class, 'serieInfo'])->name('archivos.serie');
     Route::get('/archivos/{id}/slice/{index}',   [FileController::class, 'serveSlice'])->name('archivos.slice');

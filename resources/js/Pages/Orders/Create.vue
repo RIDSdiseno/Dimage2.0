@@ -360,9 +360,47 @@ const cbctStillUploading = computed(() =>
     Object.values(cbctUploads).some(u => u.uploading)
 );
 
-function startEagerUpload(examId, file) {
+async function startEagerUpload(examId, file) {
     cbctUploads[examId] = { uploading: true, progress: 0, s3_path: null, filename: file.name, file_size: file.size, error: null };
 
+    // Intentar subida directa browser→S3 con presigned PUT (evita el proxy PHP)
+    try {
+        const res = await fetch(route('archivos.cbct-presigned-put') + '?filename=' + encodeURIComponent(file.name));
+        if (res.ok) {
+            const { url, headers, s3_path, filename } = await res.json();
+            if (url) {
+                await new Promise((resolve) => {
+                    const xhr = new XMLHttpRequest();
+                    xhr.open('PUT', url);
+                    xhr.setRequestHeader('Content-Type', 'application/zip');
+                    Object.entries(headers || {}).forEach(([k, v]) => xhr.setRequestHeader(k, v));
+                    xhr.upload.onprogress = (e) => {
+                        if (e.lengthComputable) cbctUploads[examId].progress = Math.round((e.loaded / e.total) * 100);
+                    };
+                    xhr.onload = () => {
+                        if (xhr.status >= 200 && xhr.status < 300) {
+                            cbctUploads[examId].s3_path   = s3_path;
+                            cbctUploads[examId].filename  = filename;
+                            cbctUploads[examId].uploading = false;
+                        } else {
+                            // S3 rechazó (CORS no configurado u otro error) — fallback a PHP
+                            startEagerUploadViaPHP(examId, file);
+                        }
+                        resolve();
+                    };
+                    xhr.onerror = () => { startEagerUploadViaPHP(examId, file); resolve(); };
+                    xhr.send(file);
+                });
+                return;
+            }
+        }
+    } catch {}
+
+    // Fallback: proxy PHP (browser→PHP→S3)
+    startEagerUploadViaPHP(examId, file);
+}
+
+function startEagerUploadViaPHP(examId, file) {
     const fd = new FormData();
     fd.append('file', file);
 
@@ -489,32 +527,65 @@ const submitAction = async (action) => {
         for (let i = 0; i < zipPendientes.length; i++) {
             const { examId, file } = zipPendientes[i];
             uploadLabel.value = `Subiendo archivo 3D/CBCT (${Math.round(file.size / 1024 / 1024)} MB)...`;
+            const trackProgress = (e) => {
+                if (e.lengthComputable) {
+                    const base = (i / zipPendientes.length) * 95;
+                    uploadProgress.value = Math.round(base + (e.loaded / e.total) * (95 / zipPendientes.length));
+                }
+            };
             try {
-                await new Promise((resolve, reject) => {
-                    const fd = new FormData();
-                    fd.append('file', file);
-                    const xhr = new XMLHttpRequest();
-                    xhr.open('POST', route('archivos.cbct-temp'));
-                    if (csrf) xhr.setRequestHeader('X-CSRF-TOKEN', csrf);
-                    xhr.setRequestHeader('Accept', 'application/json');
-                    xhr.upload.onprogress = (e) => {
-                        if (e.lengthComputable) {
-                            const base = (i / zipPendientes.length) * 95;
-                            uploadProgress.value = Math.round(base + (e.loaded / e.total) * (95 / zipPendientes.length));
+                // Intentar presigned PUT directo a S3 primero
+                let uploaded = false;
+                try {
+                    const presignRes = await fetch(route('archivos.cbct-presigned-put') + '?filename=' + encodeURIComponent(file.name));
+                    if (presignRes.ok) {
+                        const { url, headers, s3_path, filename } = await presignRes.json();
+                        if (url) {
+                            await new Promise((resolve, reject) => {
+                                const xhr = new XMLHttpRequest();
+                                xhr.open('PUT', url);
+                                xhr.setRequestHeader('Content-Type', 'application/zip');
+                                Object.entries(headers || {}).forEach(([k, v]) => xhr.setRequestHeader(k, v));
+                                xhr.upload.onprogress = trackProgress;
+                                xhr.onload = () => {
+                                    if (xhr.status >= 200 && xhr.status < 300) {
+                                        cbctUploads[examId] = { s3_path, filename, file_size: file.size };
+                                        uploaded = true;
+                                        resolve();
+                                    } else {
+                                        resolve(); // fallback a PHP
+                                    }
+                                };
+                                xhr.onerror = () => resolve();
+                                xhr.send(file);
+                            });
                         }
-                    };
-                    xhr.onload = () => {
-                        if (xhr.status === 200) {
-                            const resp = JSON.parse(xhr.responseText);
-                            cbctUploads[examId] = { s3_path: resp.s3_path, filename: resp.filename, file_size: resp.file_size };
-                            resolve();
-                        } else {
-                            reject(new Error(`Error ${xhr.status}`));
-                        }
-                    };
-                    xhr.onerror = () => reject(new Error('Error de red'));
-                    xhr.send(fd);
-                });
+                    }
+                } catch {}
+
+                if (!uploaded) {
+                    // Fallback: proxy PHP
+                    await new Promise((resolve, reject) => {
+                        const fd = new FormData();
+                        fd.append('file', file);
+                        const xhr = new XMLHttpRequest();
+                        xhr.open('POST', route('archivos.cbct-temp'));
+                        if (csrf) xhr.setRequestHeader('X-CSRF-TOKEN', csrf);
+                        xhr.setRequestHeader('Accept', 'application/json');
+                        xhr.upload.onprogress = trackProgress;
+                        xhr.onload = () => {
+                            if (xhr.status === 200) {
+                                const resp = JSON.parse(xhr.responseText);
+                                cbctUploads[examId] = { s3_path: resp.s3_path, filename: resp.filename, file_size: resp.file_size };
+                                resolve();
+                            } else {
+                                reject(new Error(`Error ${xhr.status}`));
+                            }
+                        };
+                        xhr.onerror = () => reject(new Error('Error de red'));
+                        xhr.send(fd);
+                    });
+                }
             } catch (err) {
                 fileError.value = `Error subiendo archivo 3D: ${err.message}`;
                 submitting.value = false;
@@ -524,7 +595,10 @@ const submitAction = async (action) => {
         }
     }
 
-    uploadLabel.value    = action === 'enviar' ? 'Enviando orden al radiólogo...' : 'Guardando orden...';
+    const hasCbct = Object.values(cbctUploads).some(u => u.s3_path);
+    uploadLabel.value    = hasCbct
+        ? (action === 'enviar' ? 'Procesando CBCT y enviando al radiólogo...' : 'Procesando CBCT y guardando orden...')
+        : (action === 'enviar' ? 'Enviando orden al radiólogo...' : 'Guardando orden...');
     uploadProgress.value = 99;
 
     const data = new FormData();

@@ -558,11 +558,13 @@ class OrderController extends Controller
             }
         }
 
-        // Dispatch CBCT extraction jobs after the transaction commits
-        foreach ($cbctJobs as [$fid, $zipPath]) {
-            ProcessCbctZip::dispatch($fid, $this->extractOrderIdFromPath($zipPath), $zipPath)
-                ->onConnection('database')
-                ->onQueue('default');
+        // Procesar ZIPs CBCT de forma síncrona para que el visor quede listo de inmediato
+        if (!empty($cbctJobs)) {
+            set_time_limit(600);
+            ignore_user_abort(true);
+            foreach ($cbctJobs as [$fid, $zipPath]) {
+                (new ProcessCbctZip($fid, $this->extractOrderIdFromPath($zipPath), $zipPath))->handle();
+            }
         }
 
         return redirect()
@@ -1633,11 +1635,13 @@ class OrderController extends Controller
             }
         });
 
-        // Dispatch CBCT extraction jobs from edit flow after transaction commits
-        foreach ($updateCbctJobs as [$fid, $zipPath]) {
-            ProcessCbctZip::dispatch($fid, $this->extractOrderIdFromPath($zipPath), $zipPath)
-                ->onConnection('database')
-                ->onQueue('default');
+        // Procesar ZIPs CBCT de forma síncrona (edición de orden)
+        if (!empty($updateCbctJobs)) {
+            set_time_limit(600);
+            ignore_user_abort(true);
+            foreach ($updateCbctJobs as [$fid, $zipPath]) {
+                (new ProcessCbctZip($fid, $this->extractOrderIdFromPath($zipPath), $zipPath))->handle();
+            }
         }
 
         if ($enviar && ! $yaEstabaEnviada) {
