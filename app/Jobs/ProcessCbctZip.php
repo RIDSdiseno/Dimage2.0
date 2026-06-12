@@ -95,7 +95,8 @@ class ProcessCbctZip implements ShouldQueue
 
     /**
      * Upload files to S3 in parallel batches using CommandPool.
-     * Processes up to $concurrency files simultaneously.
+     * Creates the S3Client directly from config to avoid Flysystem adapter
+     * version incompatibilities (getClient() not available in all versions).
      *
      * @param array $uploads  Array of [s3Key, localPath] pairs
      */
@@ -103,12 +104,21 @@ class ProcessCbctZip implements ShouldQueue
     {
         if (empty($uploads)) return;
 
-        /** @var \League\Flysystem\AwsS3V3\AwsS3V3Adapter $adapter */
-        $adapter  = Storage::disk('s3')->getAdapter();
-        $s3Client = $adapter->getClient();
+        $cfg = [
+            'version'                 => 'latest',
+            'region'                  => config('filesystems.disks.s3.region'),
+            'credentials'             => [
+                'key'    => config('filesystems.disks.s3.key'),
+                'secret' => config('filesystems.disks.s3.secret'),
+            ],
+            'use_path_style_endpoint' => config('filesystems.disks.s3.use_path_style_endpoint', false),
+        ];
+        $endpoint = config('filesystems.disks.s3.endpoint');
+        if ($endpoint) $cfg['endpoint'] = $endpoint;
+
+        $s3Client = new \Aws\S3\S3Client($cfg);
         $bucket   = config('filesystems.disks.s3.bucket');
 
-        // Process in chunks to limit open file handles at once
         foreach (array_chunk($uploads, $concurrency) as $batch) {
             $commands = [];
             $handles  = [];
