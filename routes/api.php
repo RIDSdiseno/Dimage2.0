@@ -7,6 +7,9 @@ use App\Http\Controllers\Api\PatientController;
 use App\Http\Controllers\Api\RadiologoController;
 use Illuminate\Support\Facades\Route;
 
+// Proxy de archivos — sin auth.api, DentalSoft proxy accede sin nuestros headers
+Route::get('/v3/file/{id}/{filename}', [OrderController::class, 'serveFile']);
+
 Route::prefix('v3')->middleware('auth.api')->group(function () {
 
     // ── Pacientes ──────────────────────────────────────────────────────────

@@ -210,8 +210,7 @@ class OrderController extends Controller
                         'file_size'      => $f->file_size,
                         'desde_informar' => (bool) $f->desde_informar,
                         'url'            => $this->apiFileUrl($f->ruta),
-                        // ruta como URL pública sin query params para que DentalSoft pueda detectar extensión
-                        'ruta'           => $this->apiPublicUrl($f->ruta),
+                        'ruta'           => $this->apiProxyUrl($f->id, $f->ruta, $f->name),
                         'download_url'   => $this->apiDownloadUrl($f->ruta, $f->name, $f->extension),
                         'ruta_dcm'       => $f->ruta_dcm ? $this->apiFileUrl($f->ruta_dcm) : null,
                     ]);
@@ -422,13 +421,35 @@ class OrderController extends Controller
                 'file_size'      => $file->getSize(),
                 'desde_informar' => false,
                 'url'            => $this->apiFileUrl($path),
-                'ruta'           => $this->apiPublicUrl($path),
+                'ruta'           => $this->apiProxyUrl($fileId, $path, $file->getClientOriginalName()),
                 'download_url'   => $this->apiDownloadUrl($path, $file->getClientOriginalName(), $ext),
                 'ruta_dcm'       => null,
             ];
         }
 
         return response()->json(['message' => 'Archivos subidos.', 'archivos' => $uploaded], 201);
+    }
+
+    // GET /api/v3/file/{id}/{filename}  — sin auth.api, proxy con redirect a presigned S3
+    public function serveFile(Request $request, int $id, string $filename)
+    {
+        $expected = substr(hash_hmac('sha256', $id . '|' . $filename, config('app.key')), 0, 20);
+        if ($request->get('sig') !== $expected) {
+            return response('Forbidden', 403);
+        }
+
+        $file = DB::table('files')->where('id', $id)->first(['ruta']);
+        if (! $file || ! $file->ruta || $file->ruta === '0') {
+            return response('Not Found', 404);
+        }
+
+        try {
+            $url = Storage::disk('s3')->temporaryUrl($file->ruta, now()->addHours(1));
+        } catch (\Throwable) {
+            return response('Storage Error', 500);
+        }
+
+        return redirect()->away($url, 302);
     }
 
     // DELETE /api/v3/order/file/{fileId}
@@ -830,17 +851,21 @@ class OrderController extends Controller
         }
     }
 
-    // URL pública sin query params — DentalSoft usa ruta para detectar extensión del archivo
-    private function apiPublicUrl(?string $ruta): ?string
+    // URL proxy con extensión limpia — DentalSoft la usa para thumbnail y visor.
+    // Redirige internamente al presigned S3 URL para evitar AccessDenied del bucket privado.
+    private function apiProxyUrl(int $fileId, ?string $ruta, ?string $name = null): ?string
     {
-        if (!$ruta || $ruta === '0') {
+        if (! $ruta || $ruta === '0') {
             return null;
         }
-        $base = rtrim(env('RUTA_IMG', ''), '/');
-        if ($base) {
-            return $base . '/' . ltrim($ruta, '/');
-        }
-        return $this->apiFileUrl($ruta);
+
+        $basename = ($name && pathinfo($name, PATHINFO_EXTENSION))
+            ? $name
+            : basename($ruta);
+
+        $sig = substr(hash_hmac('sha256', $fileId . '|' . $basename, config('app.key')), 0, 20);
+
+        return url('/api/v3/file/' . $fileId . '/' . rawurlencode($basename)) . '?sig=' . $sig;
     }
 
     /**
