@@ -189,6 +189,7 @@ class OrderController extends Controller
                 'e.id',
                 'e.kind_id as id_tipo_examen',
                 'e.url_texto',
+                'e.piezas',
                 'e.otrocheck',
                 'e.otrocheck1',
                 'e.otrocheck2',
@@ -232,6 +233,7 @@ class OrderController extends Controller
                     'tipo_examen'    => $e->tipo_examen,
                     'descripcion'    => $e->descripcion,
                     'grupo'          => $e->grupo,
+                    'dientes'        => $e->piezas ? array_map('trim', explode(',', $e->piezas)) : [],
                     'url_texto'      => implode(',', $this->urlTextoToTrazados($e->url_texto)) ?: null,
                     'trazados'       => $this->urlTextoToTrazados($e->url_texto),
                     // columnas individuales que DentalSoft usa para pre-poblar checkboxes
@@ -349,6 +351,7 @@ class OrderController extends Controller
                 'kind_id'    => $kindId,
                 'piezas'     => $piezas,
                 'url_texto'  => $urlTextoCreate,
+                'otroinput'  => $ex['otroinput'] ?? null,
                 ...$this->trazadosToOtrochecks($urlTextoCreate),
                 'created_at' => now(),
                 'updated_at' => now(),
@@ -550,18 +553,14 @@ class OrderController extends Controller
         if (!empty($staffIds)) {
             DB::table('order_staff_exam')->where('order_id', $id)->delete();
 
-            $examIds = DB::table('examination_order')
-                ->where('order_id', $id)
-                ->pluck('examination_id');
-
             foreach ($staffIds as $staffId) {
-                foreach ($examIds as $exId) {
-                    DB::table('order_staff_exam')->insert([
-                        'order_id'       => $id,
-                        'staff_id'       => $staffId,
-                        'examination_id' => $exId,
-                    ]);
-                }
+                DB::table('order_staff_exam')->insertOrIgnore([
+                    'order_id'   => $id,
+                    'staff_id'   => (int) $staffId,
+                    'group_exam' => 1,
+                    'kind_id'    => null,
+                    'respondida' => 0,
+                ]);
             }
         }
 
@@ -778,28 +777,37 @@ class OrderController extends Controller
                 'newExams_raw'    => $newExams->all(),
             ]);
 
-            // Actualizar url_texto de examinations existentes cuando cambien los trazados
+            // Actualizar examinations existentes cuando cambien trazados, piezas u otroinput
             foreach ($currentKindIds->intersect($newKindIds) as $kindId) {
                 $srcEx = $newExams->first(fn($e) => (int)($e['kind_id'] ?? $e['tipo'] ?? 0) === (int)$kindId);
                 if (!$srcEx) continue;
-                // Solo actualizar si el campo está explícitamente presente en la solicitud
-                if (!array_key_exists('url_texto', $srcEx) && !array_key_exists('trazados', $srcEx)) continue;
-                $urlTexto = $this->extractUrlTexto($srcEx);
+
+                $hasTrazados  = array_key_exists('url_texto', $srcEx) || array_key_exists('trazados', $srcEx);
+                $hasDientes   = array_key_exists('dientes', $srcEx);
+                $hasOtroinput = array_key_exists('otroinput', $srcEx);
+
+                if (!$hasTrazados && !$hasDientes && !$hasOtroinput) continue;
+
                 $row = $currentRows->first(fn($r) => $r->kind_id == $kindId);
-                \Log::info('UPDATE_URL_TEXTO', [
-                    'kindId'      => $kindId,
-                    'srcEx'       => $srcEx,
-                    'urlTexto'    => $urlTexto,
-                    'exam_id'     => $row?->examination_id,
-                ]);
-                if ($row) {
-                    DB::table('examinations')->where('id', $row->examination_id)
-                        ->update([
-                            'url_texto'  => $urlTexto,
-                            'updated_at' => now(),
-                            ...$this->trazadosToOtrochecks($urlTexto),
-                        ]);
+                if (!$row) continue;
+
+                $updateData = ['updated_at' => now()];
+
+                if ($hasTrazados) {
+                    $urlTexto = $this->extractUrlTexto($srcEx);
+                    $updateData['url_texto'] = $urlTexto;
+                    $updateData = array_merge($updateData, $this->trazadosToOtrochecks($urlTexto));
                 }
+                if ($hasDientes) {
+                    $updateData['piezas'] = is_array($srcEx['dientes']) && count($srcEx['dientes']) > 0
+                        ? implode(',', $srcEx['dientes'])
+                        : null;
+                }
+                if ($hasOtroinput) {
+                    $updateData['otroinput'] = $srcEx['otroinput'];
+                }
+
+                DB::table('examinations')->where('id', $row->examination_id)->update($updateData);
             }
 
             // Agregar kind_ids nuevos que no existen todavía
@@ -814,6 +822,7 @@ class OrderController extends Controller
                     'kind_id'    => $kindId,
                     'piezas'     => $piezas,
                     'url_texto'  => $urlTextoNew,
+                    'otroinput'  => $srcEx['otroinput'] ?? null,
                     ...$this->trazadosToOtrochecks($urlTextoNew),
                     'created_at' => now(),
                     'updated_at' => now(),
