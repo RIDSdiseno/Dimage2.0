@@ -480,24 +480,16 @@ class OrderController extends Controller
                     $finalPath = "ordenes/{$order->id}/" . basename($cbctTempPath);
                     Storage::disk('s3')->move($cbctTempPath, $finalPath);
 
-                    // Si el job de pre-procesamiento ya terminó, usar los DCMs extraídos
-                    $uuid = explode('/', $cbctTempPath)[1] ?? '';
-                    $preProcessed = $uuid ? Cache::get("cbct_preprocess_{$uuid}") : null;
-                    if ($preProcessed && $uuid) {
-                        Cache::forget("cbct_preprocess_{$uuid}");
-                        Cache::forget("cbct_preprocess_dispatched_{$uuid}");
-                    }
-
                     $fileRows[] = [
-                        'ruta'               => $preProcessed ? $preProcessed['first_dcm'] : $finalPath,
+                        'ruta'               => $finalPath,
                         'examination_id'     => $examinationId,
                         'created_at'         => now(),
                         'updated_at'         => now(),
                         'name'               => $request->input("cbct_s3_name_{$kindId}", basename($finalPath)),
                         'type_id'            => 0,
-                        'extension'          => $preProcessed ? 'dcm' : 'zip',
-                        'ruta_dcm'           => $preProcessed ? $preProcessed['prefix'] : 'processing',
-                        'nombre_dcm'         => $finalPath, // ZIP siempre como fuente de descarga
+                        'extension'          => 'zip',
+                        'ruta_dcm'           => 'processing',
+                        'nombre_dcm'         => $finalPath,
                         'file_size'          => (int) $request->input("cbct_s3_size_{$kindId}", 0),
                         'file_size_procesed' => 1,
                         'file_size_error'    => null,
@@ -567,10 +559,13 @@ class OrderController extends Controller
             }
         }
 
-        // ZIPs que no estaban pre-procesados al momento del submit → extraer en background
-        foreach ($cbctJobs as [$fid, $zipPath]) {
-            ProcessCbctZip::dispatch($fid, $this->extractOrderIdFromPath($zipPath), $zipPath)
-                ->onConnection('database')->onQueue('default');
+        // Procesar ZIPs CBCT de forma síncrona (con uploads paralelos a S3)
+        if (!empty($cbctJobs)) {
+            set_time_limit(600);
+            ignore_user_abort(true);
+            foreach ($cbctJobs as [$fid, $zipPath]) {
+                (new ProcessCbctZip($fid, $this->extractOrderIdFromPath($zipPath), $zipPath))->handle();
+            }
         }
 
         return redirect()
@@ -1641,10 +1636,13 @@ class OrderController extends Controller
             }
         });
 
-        // ZIPs que no estaban pre-procesados al momento del submit → extraer en background
-        foreach ($updateCbctJobs as [$fid, $zipPath]) {
-            ProcessCbctZip::dispatch($fid, $this->extractOrderIdFromPath($zipPath), $zipPath)
-                ->onConnection('database')->onQueue('default');
+        // Procesar ZIPs CBCT de forma síncrona (con uploads paralelos a S3)
+        if (!empty($updateCbctJobs)) {
+            set_time_limit(600);
+            ignore_user_abort(true);
+            foreach ($updateCbctJobs as [$fid, $zipPath]) {
+                (new ProcessCbctZip($fid, $this->extractOrderIdFromPath($zipPath), $zipPath))->handle();
+            }
         }
 
         if ($enviar && ! $yaEstabaEnviada) {

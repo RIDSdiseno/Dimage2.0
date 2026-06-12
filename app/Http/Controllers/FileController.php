@@ -6,7 +6,6 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Response;
 use Symfony\Component\HttpFoundation\StreamedResponse;
-use App\Jobs\ProcessCbctZipTemp;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
@@ -486,12 +485,6 @@ class FileController extends Controller
         Storage::disk('s3')->put($tempPath, $stream);
         if (is_resource($stream)) fclose($stream);
 
-        $uuid = explode('/', $tempPath)[1] ?? '';
-        if ($uuid) {
-            ProcessCbctZipTemp::dispatch($tempPath, $uuid)
-                ->onConnection('database')->onQueue('default');
-        }
-
         return response()->json([
             's3_path'   => $tempPath,
             'filename'  => $file->getClientOriginalName(),
@@ -499,25 +492,8 @@ class FileController extends Controller
         ]);
     }
 
-    /**
-     * Notify the server that a presigned PUT upload to cbct-temp/ completed,
-     * so it can dispatch the pre-processing job.
-     */
     public function startPreprocess(\Illuminate\Http\Request $request): JsonResponse
     {
-        $s3Path = $request->input('s3_path', '');
-        if (! preg_match('#^cbct-temp/([^/]+)/#', $s3Path, $m)) {
-            return response()->json(['ok' => false], 422);
-        }
-        $uuid = $m[1];
-
-        // Avoid duplicate jobs if already dispatched
-        if (! Cache::has("cbct_preprocess_dispatched_{$uuid}")) {
-            ProcessCbctZipTemp::dispatch($s3Path, $uuid)
-                ->onConnection('database')->onQueue('default');
-            Cache::put("cbct_preprocess_dispatched_{$uuid}", true, now()->addHours(4));
-        }
-
         return response()->json(['ok' => true]);
     }
 

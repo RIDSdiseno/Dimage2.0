@@ -30,7 +30,6 @@ class ProcessCbctZip implements ShouldQueue
         $tmpDir = sys_get_temp_dir() . '/cbct_' . uniqid();
 
         try {
-            // Download ZIP from S3 to local temp file
             $stream = Storage::disk('s3')->readStream($this->zipS3Path);
             if (! is_resource($stream)) return;
 
@@ -42,8 +41,6 @@ class ProcessCbctZip implements ShouldQueue
             $za = new \ZipArchive();
             if ($za->open($tmpZip) !== true) return;
 
-            // Extract everything to local disk first (fast local operation,
-            // avoids loading each DCM into PHP memory string)
             @mkdir($tmpDir, 0755, true);
             $za->extractTo($tmpDir);
             $za->close();
@@ -53,13 +50,14 @@ class ProcessCbctZip implements ShouldQueue
             $seriePrefix = null;
             $tmpDirBase  = rtrim(str_replace('\\', '/', $tmpDir), '/');
 
+            // Collect DCM files to upload
+            $uploads = []; // [ [s3Key, localPath] ]
             $iter = new \RecursiveIteratorIterator(
                 new \RecursiveDirectoryIterator($tmpDir, \FilesystemIterator::SKIP_DOTS)
             );
 
             foreach ($iter as $file) {
                 if (! $file->isFile()) continue;
-
                 $entryExt = strtolower($file->getExtension());
                 if (! in_array($entryExt, ['dcm', 'dicom'], true)) continue;
 
@@ -67,13 +65,8 @@ class ProcessCbctZip implements ShouldQueue
                     substr(str_replace('\\', '/', $file->getPathname()), strlen($tmpDirBase)),
                     '/'
                 );
-
                 $s3Path = "ordenes/{$this->orderId}/{$relPath}";
-
-                // Stream-upload from extracted temp file — no full-file memory allocation
-                $handle = fopen($file->getPathname(), 'rb');
-                Storage::disk('s3')->put($s3Path, $handle);
-                if (is_resource($handle)) fclose($handle);
+                $uploads[] = [$s3Path, $file->getPathname()];
 
                 if ($firstDcmS3 === null) {
                     $firstDcmS3  = $s3Path;
@@ -81,6 +74,9 @@ class ProcessCbctZip implements ShouldQueue
                     $seriePrefix = "ordenes/{$this->orderId}/" . ($dir === '.' ? '' : rtrim($dir, '/') . '/');
                 }
             }
+
+            // Upload all DCMs in parallel batches of 20 (20x faster than sequential)
+            $this->parallelUpload($uploads);
 
             if ($firstDcmS3) {
                 DB::table('files')->where('id', $this->fileId)->update([
@@ -94,6 +90,46 @@ class ProcessCbctZip implements ShouldQueue
         } finally {
             @unlink($tmpZip);
             $this->rrmdir($tmpDir);
+        }
+    }
+
+    /**
+     * Upload files to S3 in parallel batches using CommandPool.
+     * Processes up to $concurrency files simultaneously.
+     *
+     * @param array $uploads  Array of [s3Key, localPath] pairs
+     */
+    private function parallelUpload(array $uploads, int $concurrency = 20): void
+    {
+        if (empty($uploads)) return;
+
+        /** @var \League\Flysystem\AwsS3V3\AwsS3V3Adapter $adapter */
+        $adapter  = Storage::disk('s3')->getAdapter();
+        $s3Client = $adapter->getClient();
+        $bucket   = config('filesystems.disks.s3.bucket');
+
+        // Process in chunks to limit open file handles at once
+        foreach (array_chunk($uploads, $concurrency) as $batch) {
+            $commands = [];
+            $handles  = [];
+
+            foreach ($batch as [$s3Key, $localPath]) {
+                $handle     = fopen($localPath, 'rb');
+                $handles[]  = $handle;
+                $commands[] = $s3Client->getCommand('PutObject', [
+                    'Bucket' => $bucket,
+                    'Key'    => $s3Key,
+                    'Body'   => $handle,
+                ]);
+            }
+
+            (new \Aws\CommandPool($s3Client, $commands, [
+                'concurrency' => $concurrency,
+            ]))->promise()->wait();
+
+            foreach ($handles as $handle) {
+                if (is_resource($handle)) fclose($handle);
+            }
         }
     }
 

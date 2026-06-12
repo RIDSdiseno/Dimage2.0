@@ -602,10 +602,7 @@ const submitAction = async (action) => {
         }
     }
 
-    const hasCbct = Object.values(cbctUploads).some(u => u.s3_path);
-    uploadLabel.value    = hasCbct
-        ? (action === 'enviar' ? 'Procesando CBCT y enviando al radiólogo...' : 'Procesando CBCT y guardando orden...')
-        : (action === 'enviar' ? 'Enviando orden al radiólogo...' : 'Guardando orden...');
+    uploadLabel.value    = action === 'enviar' ? 'Enviando orden al radiólogo...' : 'Guardando orden...';
     uploadProgress.value = 99;
 
     const data = new FormData();
