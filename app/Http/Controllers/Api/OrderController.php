@@ -189,6 +189,13 @@ class OrderController extends Controller
                 'e.id',
                 'e.kind_id as id_tipo_examen',
                 'e.url_texto',
+                'e.otrocheck',
+                'e.otrocheck1',
+                'e.otrocheck2',
+                'e.otrocheck3',
+                'e.otrocheck4',
+                'e.otrocheck5',
+                'e.otroinput',
                 'k.descipcion as tipo_examen',
                 'k.descipcion as descripcion',
                 'k.group as grupo',
@@ -225,9 +232,16 @@ class OrderController extends Controller
                     'tipo_examen'    => $e->tipo_examen,
                     'descripcion'    => $e->descripcion,
                     'grupo'          => $e->grupo,
-                    // url_texto en formato corto para DentalSoft (ej: "rickets,roth")
                     'url_texto'      => implode(',', $this->urlTextoToTrazados($e->url_texto)) ?: null,
                     'trazados'       => $this->urlTextoToTrazados($e->url_texto),
+                    // columnas individuales que DentalSoft usa para pre-poblar checkboxes
+                    'otrocheck'      => (int) $e->otrocheck,
+                    'otrocheck1'     => (int) $e->otrocheck1,
+                    'otrocheck2'     => (int) $e->otrocheck2,
+                    'otrocheck3'     => (int) $e->otrocheck3,
+                    'otrocheck4'     => (int) $e->otrocheck4,
+                    'otrocheck5'     => (int) $e->otrocheck5,
+                    'otroinput'      => $e->otroinput,
                     'radiologo'      => $e->radiologo,
                     'rut_radiologo'  => $e->rut_radiologo,
                     'respondida'     => $e->respondida,
@@ -330,10 +344,12 @@ class OrderController extends Controller
                 $piezas = implode(',', $ex['dientes']);
             }
 
+            $urlTextoCreate = $this->extractUrlTexto($ex);
             $exId = DB::table('examinations')->insertGetId([
                 'kind_id'    => $kindId,
                 'piezas'     => $piezas,
-                'url_texto'  => $this->extractUrlTexto($ex),
+                'url_texto'  => $urlTextoCreate,
+                ...$this->trazadosToOtrochecks($urlTextoCreate),
                 'created_at' => now(),
                 'updated_at' => now(),
             ]);
@@ -778,7 +794,11 @@ class OrderController extends Controller
                 ]);
                 if ($row) {
                     DB::table('examinations')->where('id', $row->examination_id)
-                        ->update(['url_texto' => $urlTexto, 'updated_at' => now()]);
+                        ->update([
+                            'url_texto'  => $urlTexto,
+                            'updated_at' => now(),
+                            ...$this->trazadosToOtrochecks($urlTexto),
+                        ]);
                 }
             }
 
@@ -789,10 +809,12 @@ class OrderController extends Controller
                     ? implode(',', $srcEx['dientes'])
                     : null;
 
+                $urlTextoNew = $this->extractUrlTexto($srcEx);
                 $exId = DB::table('examinations')->insertGetId([
                     'kind_id'    => $kindId,
                     'piezas'     => $piezas,
-                    'url_texto'  => $this->extractUrlTexto($srcEx),
+                    'url_texto'  => $urlTextoNew,
+                    ...$this->trazadosToOtrochecks($urlTextoNew),
                     'created_at' => now(),
                     'updated_at' => now(),
                 ]);
@@ -869,6 +891,20 @@ class OrderController extends Controller
             $this->normalizeExt($ext, $name, $ruta),
             ['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp', 'tiff', 'tif']
         );
+    }
+
+    // Convierte url_texto a columnas otrocheck* que DentalSoft lee para pre-poblar checkboxes.
+    private function trazadosToOtrochecks(?string $urlTexto): array
+    {
+        $t = $this->urlTextoToTrazados($urlTexto);
+        return [
+            'otrocheck'  => in_array('rickets',  $t) ? 1 : 0,
+            'otrocheck1' => in_array('roth',     $t) ? 1 : 0,
+            'otrocheck2' => in_array('jaraback', $t) ? 1 : 0,
+            'otrocheck3' => in_array('steiner',  $t) ? 1 : 0,
+            'otrocheck4' => in_array('mcnamara', $t) ? 1 : 0,
+            'otrocheck5' => in_array('otros',    $t) ? 1 : 0,
+        ];
     }
 
     // El sistema antiguo guardaba MIME type en extension (image/jpeg, application/pdf).
