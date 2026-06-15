@@ -585,11 +585,13 @@ const submitAction = async (action) => {
                                 const resp = JSON.parse(xhr.responseText);
                                 cbctUploads[examId] = { s3_path: resp.s3_path, filename: resp.filename, file_size: resp.file_size };
                                 resolve();
+                            } else if (xhr.status === 413) {
+                                reject(new Error('El archivo es demasiado grande para el servidor. Contacte al administrador para aumentar el límite de subida.'));
                             } else {
-                                reject(new Error(`Error ${xhr.status}`));
+                                reject(new Error(`Error ${xhr.status} al subir el archivo`));
                             }
                         };
-                        xhr.onerror = () => reject(new Error('Error de red'));
+                        xhr.onerror = () => reject(new Error('Error de red al subir el archivo'));
                         xhr.send(fd);
                     });
                 }

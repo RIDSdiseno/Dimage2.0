@@ -25,7 +25,7 @@ class PatientController extends Controller
     public function create(Request $request)
     {
         $data = $request->validate([
-            'rut'           => ['required', 'string', 'unique:patients,rut'],
+            'rut'           => ['required', 'string'],
             'name'          => ['required', 'string', 'max:255'],
             'email'         => ['nullable', 'email', 'max:255'],
             'celphone'      => ['nullable', 'string', 'max:30'],
@@ -36,6 +36,21 @@ class PatientController extends Controller
             'tutorrelation' => ['nullable', 'string', 'max:100'],
             'id_externo'    => ['nullable', 'string', 'max:100'],
         ]);
+
+        $holdingId = $request->_holding_id;
+
+        // Si el paciente ya existe, actualizarlo y devolverlo — no fallar con 422
+        $existing = DB::table('patients')->where('rut', $data['rut'])->first();
+
+        if ($existing) {
+            DB::table('patients')->where('rut', $data['rut'])->update([
+                'name'       => $data['name'],
+                'updated_at' => now(),
+            ]);
+            $patient = DB::table('patients')->where('rut', $data['rut'])->first();
+            $this->syncClinicas($patient->id, $holdingId);
+            return response()->json($this->format($patient), 200);
+        }
 
         $id = DB::table('patients')->insertGetId([
             'rut'           => $data['rut'],
@@ -55,9 +70,38 @@ class PatientController extends Controller
             'updated_at'    => now(),
         ]);
 
+        // Vincular a todas las clínicas del holding (igual que el sistema legacy)
+        $this->syncClinicas($id, $holdingId);
+
         $patient = DB::table('patients')->where('id', $id)->first();
 
         return response()->json($this->format($patient), 201);
+    }
+
+    /**
+     * Vincula el paciente a todas las clínicas del holding en clinic_patient.
+     * Replica el comportamiento del sistema legacy (clinic()->sync()).
+     */
+    private function syncClinicas(int $patientId, int $holdingId): void
+    {
+        $clinicIds = DB::table('clinics')
+            ->where('holding_id', $holdingId)
+            ->pluck('id');
+
+        foreach ($clinicIds as $clinicId) {
+            $exists = DB::table('clinic_patient')
+                ->where('clinic_id', $clinicId)
+                ->where('patient_id', $patientId)
+                ->exists();
+
+            if (! $exists) {
+                DB::table('clinic_patient')->insert([
+                    'clinic_id'  => $clinicId,
+                    'patient_id' => $patientId,
+                    'created_at' => now(),
+                ]);
+            }
+        }
     }
 
     // PUT /api/v3/patient/{rut}

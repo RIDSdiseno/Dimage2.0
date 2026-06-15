@@ -168,14 +168,18 @@ class OrderController extends Controller
             $order->profesional_rut = $stripRut($order->profesional_rut);
         }
 
-        // Dentalsoft salta TODA validación cuando profesional_id_externo es 0 (entero).
-        // - Ausente (unset) → loop infinito en Dentalsoft.
-        // - null → salta validación por ID pero sigue validando por rut_odontologo → "profesional no existe".
-        // - RUT o DS-ID real → valida y falla para usuarios no registrados en Dentalsoft.
-        // - 0 (entero) → salta toda validación, igual que el servidor antiguo.
+        // Comportamiento de DentalSoft según el valor de profesional_id_externo:
+        // - 0 (entero)  → salta TODA validación (ID y RUT). Igual al servidor antiguo.
+        // - null/vacío  → salta validación por ID pero sigue validando por rut_odontologo.
+        // - valor real  → valida por ese ID externo.
+        //
+        // Solución: si el odontólogo no tiene id_externo válido, ponemos 0 Y limpiamos
+        // rut_odontologo/profesional_rut para que DentalSoft no tenga nada que validar.
         $idExterno = $order->profesional_id_externo;
         if (empty($idExterno) || $idExterno === '0' || $idExterno === 0) {
             $order->profesional_id_externo = 0;
+            $order->rut_odontologo         = null;
+            $order->profesional_rut        = null;
         }
 
         // Igual que el Dimage antiguo: editable solo cuando está en borrador (estado 4),
@@ -390,7 +394,7 @@ class OrderController extends Controller
             'patient_id'       => $data['patient_id'],
             'clinic_id'        => $data['clinic_id'],
             'odontologo_id'    => $data['odontologo_id'],
-            'radiologo_id'     => 142,
+            'radiologo_id'     => 0,
             'diagnostico'      => $data['diagnostico'],
             'observaciones'    => $data['observaciones'],
             'prioridad'        => $data['prioridad'],
@@ -399,6 +403,20 @@ class OrderController extends Controller
             'created_at'       => now(),
             'updated_at'       => now(),
         ]);
+
+        // Vincular paciente a la clínica en clinic_patient si aún no existe
+        $clinicLinked = DB::table('clinic_patient')
+            ->where('clinic_id', $data['clinic_id'])
+            ->where('patient_id', $data['patient_id'])
+            ->exists();
+
+        if (! $clinicLinked) {
+            DB::table('clinic_patient')->insert([
+                'clinic_id'  => $data['clinic_id'],
+                'patient_id' => $data['patient_id'],
+                'created_at' => now(),
+            ]);
+        }
 
         foreach ($data['examenes'] as $ex) {
             $kindId = $ex['kind_id'] ?? $ex['tipo'] ?? null;
