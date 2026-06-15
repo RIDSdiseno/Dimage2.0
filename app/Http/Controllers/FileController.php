@@ -345,8 +345,8 @@ class FileController extends Controller
             return response()->json(['ok' => false, 'message' => 'No es un archivo ZIP.'], 422);
         }
 
-        $parts   = explode('/', $file->ruta);
-        $orderId = isset($parts[1]) ? (int) $parts[1] : 0;
+        $eoRow   = DB::table('examination_order')->where('examination_id', $file->examination_id)->first(['order_id']);
+        $orderId = $eoRow ? (int) $eoRow->order_id : 0;
         if (!$orderId) {
             return response()->json(['ok' => false, 'message' => 'No se pudo determinar la orden.'], 422);
         }
