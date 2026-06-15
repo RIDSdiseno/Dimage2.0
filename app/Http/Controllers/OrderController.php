@@ -698,12 +698,22 @@ class OrderController extends Controller
         $esRadiologoAsignado = $user->hasRole('radiologo') && $radiologos->contains('id', $user->staff?->id);
         // Si ningún radiólogo está asignado y la orden está pendiente, cualquier radiólogo puede responder
         $sinAsignar = $radiologos->isEmpty() && (int) $order->estadoradiologo === 0;
+
+        // Radiólogo con asignación pendiente (respondida=0) en order_staff_exam — puede responder
+        // aunque estadoradiologo=1 (otro ya respondió en orden compartida)
+        $miPendiente = $user->hasRole('radiologo') && $user->staff && DB::table('order_staff_exam')
+            ->where('order_id', $order->id)
+            ->where('staff_id', $user->staff->id)
+            ->where('respondida', 0)
+            ->exists();
+
         $puedeResponder = $user->hasAnyRole(['radiologo', 'admin', 'secretaria'])
             && (
                 in_array((int) $order->estadoradiologo, [0, 4]) ||
+                $miPendiente ||
                 ($user->hasAnyRole(['admin', 'secretaria']) && in_array((int) $order->estadoradiologo, [1, 2]))
             )
-            && ($user->hasAnyRole(['admin', 'secretaria']) || $esRadiologoAsignado || ($user->hasRole('radiologo') && $sinAsignar));
+            && ($user->hasAnyRole(['admin', 'secretaria']) || $esRadiologoAsignado || $miPendiente || ($user->hasRole('radiologo') && $sinAsignar));
 
         return Inertia::render('Orders/Show', [
             'order' => [
@@ -1011,11 +1021,18 @@ class OrderController extends Controller
                         ->where('staff_id', $user->staff->id)
                         ->update(['respondida' => 1]);
                 }
-                // Solo marcar orden como completamente respondida si TODOS respondieron
-                $allDone = !DB::table('order_staff_exam')
+
+                // Solo marcar orden como completamente respondida si:
+                // a) Hay asignaciones en order_staff_exam Y todas están respondidas
+                // b) No hay asignaciones (orden sin radiólogo específico → un solo radiólogo)
+                $tieneAsignaciones = DB::table('order_staff_exam')
                     ->where('order_id', $order->id)
-                    ->where('respondida', 0)
                     ->exists();
+
+                $allDone = $tieneAsignaciones
+                    ? !DB::table('order_staff_exam')->where('order_id', $order->id)->where('respondida', 0)->exists()
+                    : true;
+
                 if ($allDone) {
                     $order->update([
                         'estadoradiologo'  => 1,
