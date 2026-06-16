@@ -611,7 +611,7 @@ class OrderController extends Controller
             'content'  => $request->getContent(),
         ]);
 
-        $order = DB::table('orders')->where('id', $id)->first(['id', 'estadoradiologo']);
+        $order = DB::table('orders')->where('id', $id)->first(['id', 'estadoradiologo', 'clinic_id', 'odontologo_id']);
         if (! $order) return response()->json(['error' => 'Orden no encontrada.'], 404);
 
         if ((int) $order->estadoradiologo === 1) {
@@ -620,12 +620,23 @@ class OrderController extends Controller
 
         $staffIds = $request->input('staff_ids', []);
 
-        // Validar staff_ids solo si se enviaron
-        if (!empty($staffIds)) {
-            $request->validate([
-                'staff_ids'   => ['array'],
-                'staff_ids.*' => ['exists:staffs,id'],
-            ]);
+        // Si DentalSoft no envía staff_ids, auto-asignar el radiólogo con menos órdenes
+        // pendientes vinculado a la clínica — igual al comportamiento legacy.
+        if (empty($staffIds)) {
+            $radiologo = DB::table('staffs as s')
+                ->join('clinic_staff as cs', 'cs.staff_id', '=', 's.id')
+                ->where('cs.clinic_id', $order->clinic_id)
+                ->where('s.type_staff', 3)
+                ->where('s.activo', 1)
+                ->select('s.id')
+                ->selectRaw('(SELECT COUNT(*) FROM order_staff_exam ose2
+                              WHERE ose2.staff_id = s.id AND ose2.respondida = 0) as pending_count')
+                ->orderBy('pending_count')
+                ->first();
+
+            if ($radiologo) {
+                $staffIds = [$radiologo->id];
+            }
         }
 
         DB::table('orders')->where('id', $id)->update([
@@ -648,50 +659,141 @@ class OrderController extends Controller
             }
         }
 
+        \Log::info('SEND_TO_RADIOLOGO_ASSIGNED', [
+            'order_id' => $id,
+            'staff_ids' => $staffIds,
+        ]);
+
         return response()->json(['message' => 'Orden enviada al radiólogo.']);
     }
 
     // POST /api/v3/order/{id}/answers
+    // Formato legacy: radiologo (RUT), examenes (keyed by kind_id), informar (0|1), observaciones_informe
     public function saveAnswers(Request $request, int $id)
     {
-        $order = DB::table('orders')->where('id', $id)->first(['id', 'estadoradiologo']);
+        $order = DB::table('orders')->where('id', $id)->first();
         if (! $order) return response()->json(['error' => 'Orden no encontrada.'], 404);
 
-        $data = $request->validate([
-            'respuestas'                  => ['required', 'array'],
-            'respuestas.*.examination_id' => ['required', 'integer'],
-            'respuestas.*.texto'          => ['nullable', 'string'],
-            'respuestas.*.solo_adjunto'   => ['nullable', 'boolean'],
-        ]);
-
-        foreach ($data['respuestas'] as $r) {
-            $exId = $r['examination_id'];
-            $existing = DB::table('answers')->where('examination_id', $exId)->first('id');
-
-            if ($existing) {
-                DB::table('answers')->where('id', $existing->id)->update([
-                    'campo_1'      => $r['texto'] ?? null,
-                    'solo_adjunto' => $r['solo_adjunto'] ?? false,
-                    'updated_at'   => now(),
-                ]);
-            } else {
-                DB::table('answers')->insert([
-                    'examination_id' => $exId,
-                    'campo_1'        => $r['texto'] ?? null,
-                    'solo_adjunto'   => $r['solo_adjunto'] ?? false,
-                    'created_at'     => now(),
-                    'updated_at'     => now(),
-                ]);
-            }
+        if ((int) $order->estadoradiologo !== 0) {
+            return response()->json(['error' => "Orden de id $id no se puede responder."], 422);
         }
 
-        DB::table('orders')->where('id', $id)->update([
-            'estadoradiologo' => 1,
-            'respondida'      => now(),
-            'updated_at'      => now(),
-        ]);
+        $rutRadiologo  = $request->input('radiologo');
+        $examenesData  = $request->input('examenes', []);
+        $informar      = (int) $request->input('informar', 0) === 1;
+        $obsInforme    = $request->input('observaciones_informe', '');
 
-        return response()->json(['message' => 'Respuestas guardadas.']);
+        if (! $rutRadiologo) {
+            return response()->json(['error' => 'El campo radiologo es requerido.'], 422);
+        }
+
+        $radiologo = DB::table('staffs as s')
+            ->join('clinic_staff as cs', 'cs.staff_id', '=', 's.id')
+            ->join('clinics as c', 'c.id', '=', 'cs.clinic_id')
+            ->where('s.type_staff', 3)
+            ->where('c.holding_id', $request->_holding_id)
+            ->where(function ($q) use ($rutRadiologo) {
+                $rutClean = strtoupper(preg_replace('/[^0-9K]/', '', $rutRadiologo));
+                $q->whereRaw("REPLACE(REPLACE(UPPER(s.rut), '.', ''), '-', '') = ?", [$rutClean]);
+            })
+            ->select('s.id as staff_id')
+            ->first();
+
+        if (! $radiologo) {
+            return response()->json(['error' => 'Radiólogo no encontrado.'], 404);
+        }
+
+        // Exámenes asignados a este radiólogo con respuesta pendiente
+        $examenes = DB::table('examinations as e')
+            ->join('examination_order as eo', 'eo.examination_id', '=', 'e.id')
+            ->join('kinds as k', 'k.id', '=', 'e.kind_id')
+            ->join('order_staff_exam as ose', function ($join) {
+                $join->on('ose.order_id', '=', 'eo.order_id')
+                     ->on('ose.group_exam', '=', 'k.group');
+            })
+            ->where('eo.order_id', $id)
+            ->where('ose.order_id', $id)
+            ->where('ose.staff_id', $radiologo->staff_id)
+            ->where('ose.respondida', 0)
+            ->select('e.id as examination_id', 'e.kind_id', 'e.piezas')
+            ->get();
+
+        if ($examenes->isEmpty()) {
+            return response()->json(['error' => 'No hay exámenes pendientes para este radiólogo.'], 422);
+        }
+
+        $campos = ['campo_1','campo_2','campo_3','campo_4','campo_5','campo_6','campo_7','campo_8'];
+        $dientes = array_merge(
+            [11,12,13,14,15,16,17,18,21,22,23,24,25,26,27,28,
+             31,32,33,34,35,36,37,38,41,42,43,44,45,46,47,48],
+            [51,52,53,54,55,61,62,63,64,65,71,72,73,74,75,81,82,83,84,85]
+        );
+
+        DB::beginTransaction();
+        try {
+            foreach ($examenes as $examen) {
+                $respuestaEnviada = $examenesData[$examen->kind_id] ?? [];
+
+                $saveData = ['updated_at' => now()];
+                foreach ($campos as $campo) {
+                    $saveData[$campo] = $respuestaEnviada[$campo] ?? null;
+                }
+                foreach ($dientes as $d) {
+                    $saveData["diente_{$d}"] = $respuestaEnviada["diente_{$d}"] ?? null;
+                }
+
+                $existing = DB::table('answers')->where('examination_id', $examen->examination_id)->first('id');
+                if ($existing) {
+                    DB::table('answers')->where('id', $existing->id)->update($saveData);
+                } else {
+                    DB::table('answers')->insert(array_merge($saveData, [
+                        'examination_id' => $examen->examination_id,
+                        'created_at'     => now(),
+                    ]));
+                }
+            }
+
+            if ($informar) {
+                DB::table('order_staff_exam')
+                    ->where('order_id', $id)
+                    ->where('staff_id', $radiologo->staff_id)
+                    ->update(['respondida' => 1]);
+
+                $respondidas = DB::table('order_staff_exam')->where('order_id', $id)->get();
+
+                $todoRespondido   = true;
+                $hayEnCorreccion  = false;
+                foreach ($respondidas as $row) {
+                    if ((int) $row->respondida !== 1) $todoRespondido  = false;
+                    if ((int) $row->respondida === 2)  $hayEnCorreccion = true;
+                }
+
+                $updateOrden = ['updated_at' => now()];
+                if ($todoRespondido) {
+                    $updateOrden['estadoradiologo']  = 1;
+                    $updateOrden['estadoodontologo'] = $hayEnCorreccion ? $order->estadoodontologo : 1;
+                    $updateOrden['respondida']       = now();
+                }
+                if ($obsInforme !== '') {
+                    $updateOrden['observaciones_2'] = $obsInforme;
+                }
+                DB::table('orders')->where('id', $id)->update($updateOrden);
+            } elseif ($obsInforme !== '') {
+                DB::table('orders')->where('id', $id)->update([
+                    'observaciones_2' => $obsInforme,
+                    'updated_at'      => now(),
+                ]);
+            }
+
+            DB::commit();
+        } catch (\Throwable $e) {
+            DB::rollBack();
+            \Log::error('SAVE_ANSWERS_ERROR', ['error' => $e->getMessage(), 'order_id' => $id]);
+            return response()->json(['error' => 'Error al guardar respuestas.'], 500);
+        }
+
+        $accion = $informar ? 'respondida' : 'guardada';
+        return response()->json(['message' => "Orden de id $id $accion exitosamente."]);
     }
 
     // GET /api/v3/order/by-radiologo/{rut}
@@ -931,6 +1033,12 @@ class OrderController extends Controller
                 }
             }
         }
+
+        // Al editar en corrección, resetear radiólogos en estado 2 (corrección) a 0 (pendiente)
+        DB::table('order_staff_exam')
+            ->where('order_id', $id)
+            ->where('respondida', 2)
+            ->update(['respondida' => 0]);
 
         return response()->json(['message' => 'Orden actualizada.']);
     }

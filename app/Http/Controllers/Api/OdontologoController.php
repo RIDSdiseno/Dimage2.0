@@ -103,10 +103,9 @@ $row = $this->query($request->_holding_id)
                 }
             }
             if ($idExternoToUpdate) {
-                $currentIdExterno = DB::table('staffs')->where('id', $existing->staff_id)->value('id_externo');
-                if (!$currentIdExterno || $currentIdExterno === '0' || (int)$currentIdExterno === 0) {
-                    DB::table('staffs')->where('id', $existing->staff_id)->update(['id_externo' => $idExternoToUpdate]);
-                }
+                // Siempre actualizar con el ID que DentalSoft envía — es la fuente de verdad.
+                // El valor anterior puede ser incorrecto (creado manualmente o desde otro ambiente).
+                DB::table('staffs')->where('id', $existing->staff_id)->update(['id_externo' => $idExternoToUpdate]);
             }
             if ($request->filled('clinic_id')) {
                 DB::table('clinic_staff')->insertOrIgnore([

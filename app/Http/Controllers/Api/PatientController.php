@@ -12,11 +12,20 @@ class PatientController extends Controller
     // GET /api/v3/patient/{rut}
     public function findByRut(Request $request, string $rut)
     {
-        $patient = DB::table('patients')->where('rut', $rut)->first();
+        $holdingId = $request->_holding_id;
 
-        if (! $patient) {
-            return response()->json(['error' => 'Paciente no encontrado.'], 404);
+        $enHolding = DB::table('patients as p')
+            ->leftJoin('clinic_patient as cp', 'p.id', '=', 'cp.patient_id')
+            ->leftJoin('clinics as c', 'cp.clinic_id', '=', 'c.id')
+            ->where('c.holding_id', $holdingId)
+            ->where('p.rut', $rut)
+            ->exists();
+
+        if (! $enHolding) {
+            return response()->json(['error' => "Paciente de rut $rut no existe"], 404);
         }
+
+        $patient = DB::table('patients')->where('rut', $rut)->first();
 
         return response()->json($this->format($patient));
     }
@@ -31,7 +40,7 @@ class PatientController extends Controller
             'celphone'      => ['nullable', 'string', 'max:30'],
             'housephone'    => ['nullable', 'string', 'max:30'],
             'address'       => ['nullable', 'string', 'max:255'],
-            'dateofbirth'   => ['nullable', 'date'],
+            'dateofbirth'   => ['nullable', 'string', 'max:20'],
             'tutorname'     => ['nullable', 'string', 'max:255'],
             'tutorrelation' => ['nullable', 'string', 'max:100'],
             'id_externo'    => ['nullable', 'string', 'max:100'],
@@ -107,10 +116,19 @@ class PatientController extends Controller
     // PUT /api/v3/patient/{rut}
     public function update(Request $request, string $rut)
     {
-        $patient = DB::table('patients')->where('rut', $rut)->first();
+        $holdingId = $request->_holding_id;
+
+        // Validar que el paciente pertenezca al holding del API key (igual que legacy)
+        $patient = DB::table('patients as p')
+            ->leftJoin('clinic_patient as cp', 'p.id', '=', 'cp.patient_id')
+            ->leftJoin('clinics as c', 'cp.clinic_id', '=', 'c.id')
+            ->where('c.holding_id', $holdingId)
+            ->where('p.rut', $rut)
+            ->select('p.*')
+            ->first();
 
         if (! $patient) {
-            return response()->json(['error' => 'Paciente no encontrado.'], 404);
+            return response()->json(['error' => "Paciente de rut $rut no existe"], 404);
         }
 
         $data = $request->validate([
@@ -119,7 +137,7 @@ class PatientController extends Controller
             'celphone'      => ['nullable', 'string', 'max:30'],
             'housephone'    => ['nullable', 'string', 'max:30'],
             'address'       => ['nullable', 'string', 'max:255'],
-            'dateofbirth'   => ['nullable', 'date'],
+            'dateofbirth'   => ['nullable', 'string', 'max:20'],
             'tutorname'     => ['nullable', 'string', 'max:255'],
             'tutorrelation' => ['nullable', 'string', 'max:100'],
             'id_externo'    => ['nullable', 'string', 'max:100'],
@@ -128,6 +146,9 @@ class PatientController extends Controller
         DB::table('patients')->where('rut', $rut)->update(array_merge($data, [
             'updated_at' => now(),
         ]));
+
+        // Sincronizar clínicas del holding al editar (igual que legacy)
+        $this->syncClinicas($patient->id, $holdingId);
 
         return response()->json($this->format(DB::table('patients')->where('rut', $rut)->first()));
     }

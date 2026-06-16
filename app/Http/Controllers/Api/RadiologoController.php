@@ -13,7 +13,14 @@ class RadiologoController extends Controller
     // GET /api/v3/radiologo/by-rut/{rut}
     public function findByRut(Request $request, string $rut)
     {
-        $row = $this->baseQuery()->where('s.rut', $rut)->first();
+        $holdingId = $request->_holding_id;
+
+        $row = $this->baseQuery()
+            ->join('clinic_staff as cs', 'cs.staff_id', '=', 's.id')
+            ->join('clinics as c', 'c.id', '=', 'cs.clinic_id')
+            ->where('c.holding_id', $holdingId)
+            ->where('s.rut', $rut)
+            ->first();
 
         if (! $row) {
             return response()->json(['error' => 'Radiólogo no encontrado.'], 404);
@@ -41,11 +48,15 @@ class RadiologoController extends Controller
     // POST /api/v3/radiologo
     public function create(Request $request)
     {
+        $holdingId = $request->_holding_id;
+
         $data = $request->validate([
             'rut'      => ['required', 'string', 'unique:staffs,rut'],
             'name'     => ['required', 'string', 'max:255'],
             'email'    => ['required', 'email', 'unique:users,mail'],
             'password' => ['required', 'string', 'min:6'],
+            'address'  => ['nullable', 'string', 'max:255'],
+            'grupos_examenes' => ['nullable', 'array'],
         ]);
 
         $userId = DB::table('users')->insertGetId([
@@ -60,11 +71,21 @@ class RadiologoController extends Controller
         $staffId = DB::table('staffs')->insertGetId([
             'user_id'    => $userId,
             'rut'        => $data['rut'],
+            'address'    => $data['address'] ?? '',
             'type_staff' => 3,
             'activo'     => 1,
             'created_at' => now(),
             'updated_at' => now(),
         ]);
+
+        // Asignar a todas las clínicas del holding (igual que legacy)
+        $clinicIds = DB::table('clinics')->where('holding_id', $holdingId)->pluck('id');
+        foreach ($clinicIds as $clinicId) {
+            DB::table('clinic_staff')->insertOrIgnore([
+                'clinic_id' => $clinicId,
+                'staff_id'  => $staffId,
+            ]);
+        }
 
         return response()->json(['message' => 'Radiólogo creado.', 'staff_id' => $staffId], 201);
     }
@@ -72,21 +93,46 @@ class RadiologoController extends Controller
     // PUT /api/v3/radiologo/{rut}
     public function update(Request $request, string $rut)
     {
-        $staff = DB::table('staffs')->where('rut', $rut)->first(['id', 'user_id']);
-        if (! $staff) return response()->json(['error' => 'No encontrado.'], 404);
+        $holdingId = $request->_holding_id;
+
+        $staff = DB::table('staffs as s')
+            ->join('clinic_staff as cs', 'cs.staff_id', '=', 's.id')
+            ->join('clinics as c', 'c.id', '=', 'cs.clinic_id')
+            ->where('s.rut', $rut)
+            ->where('s.type_staff', 3)
+            ->where('c.holding_id', $holdingId)
+            ->select('s.id', 's.user_id')
+            ->first();
+
+        if (! $staff) return response()->json(['error' => 'Radiólogo no encontrado en la red.'], 404);
 
         $data = $request->validate([
-            'name'  => ['sometimes', 'string', 'max:255'],
-            'email' => ['sometimes', 'email', 'max:255'],
+            'name'     => ['sometimes', 'string', 'max:255'],
+            'email'    => ['sometimes', 'email', 'max:255'],
+            'password' => ['sometimes', 'string', 'min:6'],
+            'address'  => ['nullable', 'string', 'max:255'],
         ]);
 
         $userUpdate = [];
-        if (isset($data['name']))  $userUpdate['name'] = $data['name'];
-        if (isset($data['email'])) $userUpdate['mail'] = $data['email'];
+        if (isset($data['name']))     $userUpdate['name'] = $data['name'];
+        if (isset($data['email']))    $userUpdate['mail'] = $data['email'];
+        if (isset($data['password'])) $userUpdate['password'] = Hash::make($data['password']);
+        $userUpdate['status'] = 1;
 
-        if (!empty($userUpdate)) {
-            $userUpdate['updated_at'] = now();
-            DB::table('users')->where('id', $staff->user_id)->update($userUpdate);
+        $userUpdate['updated_at'] = now();
+        DB::table('users')->where('id', $staff->user_id)->update($userUpdate);
+
+        if (isset($data['address'])) {
+            DB::table('staffs')->where('id', $staff->id)->update(['address' => $data['address'], 'updated_at' => now()]);
+        }
+
+        // Re-sincronizar clínicas del holding (igual que legacy)
+        $clinicIds = DB::table('clinics')->where('holding_id', $holdingId)->pluck('id');
+        foreach ($clinicIds as $clinicId) {
+            DB::table('clinic_staff')->insertOrIgnore([
+                'clinic_id' => $clinicId,
+                'staff_id'  => $staff->id,
+            ]);
         }
 
         return response()->json(['message' => 'Radiólogo actualizado.']);
@@ -140,8 +186,22 @@ class RadiologoController extends Controller
     // DELETE /api/v3/radiologo/{rut}
     public function destroy(Request $request, string $rut)
     {
-        $affected = DB::table('staffs')->where('rut', $rut)->update(['activo' => 0, 'updated_at' => now()]);
-        if (! $affected) return response()->json(['error' => 'No encontrado.'], 404);
+        $holdingId = $request->_holding_id;
+
+        $staff = DB::table('staffs as s')
+            ->join('clinic_staff as cs', 'cs.staff_id', '=', 's.id')
+            ->join('clinics as c', 'c.id', '=', 'cs.clinic_id')
+            ->where('s.rut', $rut)
+            ->where('s.type_staff', 3)
+            ->where('c.holding_id', $holdingId)
+            ->select('s.id', 's.user_id')
+            ->first();
+
+        if (! $staff) return response()->json(['error' => 'Radiólogo no encontrado en la red.'], 404);
+
+        // Legacy marcaba el user como inactivo (status=0). Mantenemos ese comportamiento.
+        DB::table('users')->where('id', $staff->user_id)->update(['status' => 0, 'updated_at' => now()]);
+        DB::table('staffs')->where('id', $staff->id)->update(['activo' => 0, 'updated_at' => now()]);
 
         return response()->json(['message' => 'Radiólogo desactivado.']);
     }
