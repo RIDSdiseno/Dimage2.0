@@ -626,22 +626,55 @@ class OrderController extends Controller
 
         $staffIds = $request->input('staff_ids', []);
 
-        // Si DentalSoft no envía staff_ids, auto-asignar el radiólogo con menos órdenes
-        // pendientes vinculado a la clínica — igual al comportamiento legacy.
+        // Si DentalSoft no envía staff_ids, auto-asignar respetando especialistas en kind_staff.
         if (empty($staffIds)) {
-            $radiologo = DB::table('staffs as s')
-                ->join('clinic_staff as cs', 'cs.staff_id', '=', 's.id')
-                ->where('cs.clinic_id', $order->clinic_id)
-                ->where('s.type_staff', 3)
+            // kind_ids de los exámenes de esta orden
+            $kindIds = DB::table('examination_order as eo')
+                ->join('examinations as e', 'e.id', '=', 'eo.examination_id')
+                ->where('eo.order_id', $id)
+                ->pluck('e.kind_id')
+                ->unique()
+                ->values();
+
+            // Buscar especialistas configurados en kind_staff para estos exámenes
+            $especialistas = DB::table('kind_staff as ks')
+                ->join('staffs as s', 's.id', '=', 'ks.staff_id')
+                ->whereIn('ks.kind_id', $kindIds)
                 ->where('s.activo', 1)
-                ->select('s.id')
+                ->select('s.id', 'ks.kind_id')
                 ->selectRaw('(SELECT COUNT(*) FROM order_staff_exam ose2
                               WHERE ose2.staff_id = s.id AND ose2.respondida = 0) as pending_count')
                 ->orderBy('pending_count')
-                ->first();
+                ->get();
 
-            if ($radiologo) {
-                $staffIds = [$radiologo->id];
+            if ($especialistas->isNotEmpty()) {
+                // Un especialista por kind_id, el de menor carga
+                $assigned = collect();
+                foreach ($kindIds as $kindId) {
+                    $esp = $especialistas->where('kind_id', $kindId)->sortBy('pending_count')->first();
+                    if ($esp && !$assigned->contains($esp->id)) {
+                        $assigned->push($esp->id);
+                    }
+                }
+                $staffIds = $assigned->all();
+            }
+
+            // Sin especialistas: asignar por carga al radiólogo de la clínica
+            if (empty($staffIds)) {
+                $radiologo = DB::table('staffs as s')
+                    ->join('clinic_staff as cs', 'cs.staff_id', '=', 's.id')
+                    ->where('cs.clinic_id', $order->clinic_id)
+                    ->where('s.type_staff', 3)
+                    ->where('s.activo', 1)
+                    ->select('s.id')
+                    ->selectRaw('(SELECT COUNT(*) FROM order_staff_exam ose2
+                                  WHERE ose2.staff_id = s.id AND ose2.respondida = 0) as pending_count')
+                    ->orderBy('pending_count')
+                    ->first();
+
+                if ($radiologo) {
+                    $staffIds = [$radiologo->id];
+                }
             }
         }
 
