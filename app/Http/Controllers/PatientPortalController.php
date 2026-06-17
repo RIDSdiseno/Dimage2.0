@@ -124,14 +124,19 @@ class PatientPortalController extends Controller
                 if (!$isInformada) {
                     $archivosQ->where('desde_informar', '!=', 1);
                 }
-                $archivos = $archivosQ->get(['id', 'name', 'ruta', 'extension', 'file_size'])
-                    ->map(fn ($f) => [
-                        'id'           => $f->id,
-                        'name'         => $f->name,
-                        'extension'    => strtolower((string) $f->extension),
-                        'url'          => $this->signedUrl($f->ruta),
-                        'download_url' => $this->downloadUrl($f->ruta, $f->name),
-                    ]);
+                $archivos = $archivosQ->get(['id', 'name', 'ruta', 'extension', 'file_size', 'nombre_dcm'])
+                    ->map(function ($f) {
+                        // Para series CBCT/3D, nombre_dcm contiene la ruta real del ZIP en S3.
+                        // Usamos esa ruta para que el paciente descargue el ZIP y no un DCM individual.
+                        $rutaDescarga = $f->nombre_dcm ?: $f->ruta;
+                        return [
+                            'id'           => $f->id,
+                            'name'         => $f->name,
+                            'extension'    => strtolower((string) $f->extension),
+                            'url'          => $this->signedUrl($rutaDescarga),
+                            'download_url' => $this->downloadUrl($rutaDescarga, $f->name),
+                        ];
+                    });
 
                 $respuesta = null;
                 if ($isInformada) {
