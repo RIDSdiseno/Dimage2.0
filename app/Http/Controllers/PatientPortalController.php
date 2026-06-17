@@ -116,10 +116,15 @@ class PatientPortalController extends Controller
             ])
             ->get()
             ->map(function ($e) use ($isInformada) {
-                $archivos = DB::table('files')
-                    ->where('examination_id', $e->examination_id)
-                    ->where('desde_informar', '!=', 1)
-                    ->get(['id', 'name', 'ruta', 'extension', 'file_size'])
+                $archivosQ = DB::table('files')
+                    ->where('examination_id', $e->examination_id);
+                // Si la orden ya fue informada, el paciente ve todos los archivos
+                // (incluidos trazados y cortes 3D subidos durante el informar).
+                // Antes de ser informada, solo ve los archivos originales.
+                if (!$isInformada) {
+                    $archivosQ->where('desde_informar', '!=', 1);
+                }
+                $archivos = $archivosQ->get(['id', 'name', 'ruta', 'extension', 'file_size'])
                     ->map(fn ($f) => [
                         'id'           => $f->id,
                         'name'         => $f->name,
