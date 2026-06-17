@@ -1046,7 +1046,7 @@ class OrderController extends Controller
             ->where('respondida', 2)
             ->update(['respondida' => 0]);
 
-        return response()->json(['message' => 'Orden actualizada.']);
+        return response()->json(['message' => 'Orden actualizada.', 'orden' => ['id' => $id]]);
     }
 
     // GET /api/v3/order/pdf/{id}
