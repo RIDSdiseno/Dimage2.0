@@ -905,7 +905,7 @@ class OrderController extends Controller
             $data['diagnostico'] = $request->input('diagnostico') ?? $request->input('diagnostico_clinico');
         }
         if ($request->has('observaciones')) {
-            $data['observaciones'] = $request->input('observaciones');
+            $data['observaciones'] = $request->input('observaciones') ?? '';
         }
         if ($request->has('prioridad')) {
             $data['prioridad'] = $request->input('prioridad');
