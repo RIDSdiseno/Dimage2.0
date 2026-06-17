@@ -1530,9 +1530,9 @@ class OrderController extends Controller
                             'kind_ids'     => !empty($a['kind_ids']) ? array_map('intval', (array) $a['kind_ids']) : null,
                         ];
                     }
-                } elseif ($this->canSelectRadiologo($user) && $request->filled('radiologo_id')) {
-                    $updateAssignments = [['radiologo_id' => (int) $request->input('radiologo_id'), 'kind_ids' => null]];
                 } else {
+                    // Auto-asignar primero: respeta especialistas en kind_staff.
+                    // radiologo_id manual se ignora al enviar para no bypassear al especialista.
                     $updateAssignments = $this->autoAsignarRadiologoPorExamen((int) $order->clinic_id, $kindIds);
                 }
                 $radiologoIdUpdate = !empty($updateAssignments) ? $updateAssignments[0]['radiologo_id'] : null;
@@ -1541,7 +1541,7 @@ class OrderController extends Controller
 
         $updateCbctJobs = [];
         DB::transaction(function () use ($request, $order, $enviar, $yaEstabaEnviada, $radiologoIdUpdate, $updateAssignments, $user, &$updateCbctJobs): void {
-            $order->update([
+            $orderUpdateData = [
                 'diagnostico'      => $request->boolean('sin_diagnostico') ? 'Sin diagnóstico' : ($request->input('diagnostico') ?? $order->diagnostico),
                 'observaciones'    => $request->input('observaciones') ?? '',
                 'prioridad'        => $request->input('prioridad'),
@@ -1549,7 +1549,11 @@ class OrderController extends Controller
                 'estadoradiologo'  => $enviar ? 0 : ($yaEstabaEnviada ? $order->estadoradiologo : 4),
                 'estadoodontologo' => $enviar ? 0 : ($yaEstabaEnviada ? $order->estadoodontologo : 1),
                 'enviada'          => $enviar && !$order->enviada ? now() : $order->enviada,
-            ]);
+            ];
+            if ($radiologoIdUpdate) {
+                $orderUpdateData['radiologo_id'] = $radiologoIdUpdate;
+            }
+            $order->update($orderUpdateData);
 
             // Actualizar url_texto de exámenes existentes (ej: análisis cefalométrico)
             foreach ((array) $request->input('url_texto_existente', []) as $examinationId => $urlTexto) {
@@ -2208,14 +2212,15 @@ class OrderController extends Controller
             if (!empty($result)) return $result;
         }
 
-        // Legacy single radiologo_id
-        if ($request->filled('radiologo_id') && $this->canSelectRadiologo($user)) {
-            return [['radiologo_id' => (int) $request->radiologo_id, 'kind_ids' => null]];
-        }
-
-        // Auto-asignar por examen al enviar
+        // Al enviar: auto-asignar primero (respeta especialistas en kind_staff).
+        // El radiologo_id manual solo sirve para borradores (no enviar).
         if ($enviar) {
             return $this->autoAsignarRadiologoPorExamen($clinicId, $kindIds);
+        }
+
+        // Legacy single radiologo_id (solo para guardar borrador)
+        if ($request->filled('radiologo_id') && $this->canSelectRadiologo($user)) {
+            return [['radiologo_id' => (int) $request->radiologo_id, 'kind_ids' => null]];
         }
 
         return [];
