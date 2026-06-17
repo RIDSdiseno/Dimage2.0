@@ -372,6 +372,7 @@ class OrderController extends Controller
 
         $odontologo = DB::table('staffs')
             ->where('type_staff', 6)
+            ->where('activo', 1)
             ->whereRaw("REPLACE(REPLACE(UPPER(rut), '.', ''), '-', '') = ?", [$rutOdontologo])
             ->orderByRaw('CASE WHEN id_externo IS NULL THEN 1 ELSE 0 END')
             ->orderBy('id')
