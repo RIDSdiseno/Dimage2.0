@@ -636,9 +636,13 @@ class OrderController extends Controller
                 ->unique()
                 ->values();
 
-            // Buscar especialistas configurados en kind_staff para estos exámenes
+            // Buscar especialistas en kind_staff que además estén asignados a esta clínica
             $especialistas = DB::table('kind_staff as ks')
                 ->join('staffs as s', 's.id', '=', 'ks.staff_id')
+                ->join('clinic_staff as cs', function ($join) use ($order) {
+                    $join->on('cs.staff_id', '=', 's.id')
+                         ->where('cs.clinic_id', $order->clinic_id);
+                })
                 ->whereIn('ks.kind_id', $kindIds)
                 ->where('s.activo', 1)
                 ->select('s.id', 'ks.kind_id')
