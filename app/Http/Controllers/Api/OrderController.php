@@ -157,8 +157,12 @@ class OrderController extends Controller
 
         if (! $order) return response()->json(['error' => 'Orden no encontrada.'], 404);
 
-        // Devolver RUT sin guión ni puntos — DentalSoft almacena y compara en formato limpio
-        $stripRut = fn($rut) => strtoupper(preg_replace('/[^0-9K]/', '', (string) $rut));
+        // Dentalsoft almacena RUT sin puntos, sin guión y SIN dígito verificador.
+        // Ej: "794350-4" → "794350", "7.838.054-3" → "7838054"
+        $stripRut = function ($rut) {
+            $clean = strtoupper(preg_replace('/[^0-9K]/', '', (string) $rut));
+            return strlen($clean) > 1 ? substr($clean, 0, -1) : $clean;
+        };
 
         if (!empty($order->rut_odontologo)) {
             $order->rut_odontologo = $stripRut($order->rut_odontologo);
@@ -169,17 +173,14 @@ class OrderController extends Controller
         }
 
         // Comportamiento de DentalSoft según el valor de profesional_id_externo:
-        // - 0 (entero)  → salta TODA validación (ID y RUT). Igual al servidor antiguo.
-        // - null/vacío  → salta validación por ID pero sigue validando por rut_odontologo.
-        // - valor real  → valida por ese ID externo.
+        // - null/vacío  → salta validación por ID, valida por rut_odontologo (sin DV).
+        // - valor real  → valida por ese ID externo (RUT no se usa).
         //
-        // Solución: si el odontólogo no tiene id_externo válido, ponemos 0 Y limpiamos
-        // rut_odontologo/profesional_rut para que DentalSoft no tenga nada que validar.
+        // Si no hay id_externo válido, enviamos null para que Dentalsoft valide por RUT.
         $idExterno = $order->profesional_id_externo;
         if (empty($idExterno) || $idExterno === '0' || $idExterno === 0) {
-            $order->profesional_id_externo = 0;
-            $order->rut_odontologo         = null;
-            $order->profesional_rut        = null;
+            $order->profesional_id_externo = null;
+            // rut_odontologo se mantiene (sin DV) para que Dentalsoft valide por RUT
         }
 
         // Igual que el Dimage antiguo: editable solo cuando está en borrador (estado 4),
