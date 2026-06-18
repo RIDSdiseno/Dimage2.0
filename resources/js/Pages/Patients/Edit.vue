@@ -28,7 +28,8 @@
 
                         <div>
                             <label class="block text-sm font-medium mb-1">{{ terms.id_label }}</label>
-                            <InputText :value="patient.rut" class="w-full" disabled />
+                            <InputText v-model="form.rut" class="w-full" :class="{'p-invalid': form.errors.rut}" />
+                            <small class="text-red-500">{{ form.errors.rut }}</small>
                         </div>
 
                         <div>
@@ -154,6 +155,7 @@ watch(selectedClinics, (val) => {
 
 const form = useForm({
     name:        props.patient.name,
+    rut:         props.patient.rut,
     email:       props.patient.email,
     clinics:     props.selectedClinics ?? [],
     derivado_de: props.patient.derivado_de ?? '',

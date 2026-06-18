@@ -134,6 +134,7 @@ class PatientController extends Controller
             'email'       => ['required', 'email'],
             'dateofbirth' => ['required', 'date'],
             'clinics'     => ['required', 'array', 'min:1'],
+            'rut'         => ['required', 'string', \Illuminate\Validation\Rule::unique('patients', 'rut')->ignore($patient->id)],
         ]);
 
         DB::transaction(function () use ($request, $patient) {
@@ -142,6 +143,7 @@ class PatientController extends Controller
                 'email'       => trim($request->email),
                 'dateofbirth' => $request->dateofbirth,
                 'derivado_de' => $request->derivado_de ?? $patient->derivado_de,
+                'rut'         => trim($request->rut),
             ]);
 
             $patient->clinics()->sync($request->clinics);
