@@ -117,6 +117,7 @@ class OrderController extends Controller
 
         $operatorClinicIds  = $currentStaffId ? $this->clinicIdsForStaff((int) $currentStaffId) : collect();
         $isOdontologo       = $user->hasRole('odontologo') || (int) ($user->type_id ?? 0) === 6;
+        $isRadiologo        = $user->hasRole('radiologo')  || (int) ($user->type_id ?? 0) === 5;
 
         $query = Order::query()
             ->select([
@@ -181,6 +182,16 @@ class OrderController extends Controller
             $query->where('orders.estadoradiologo', (int) $estado);
         }
 
+        // Radiólogo: agregar su estado personal por orden desde order_staff_exam
+        if ($isRadiologo && $currentStaffId) {
+            $sid = (int) $currentStaffId;
+            $query->addSelect(DB::raw(
+                "(SELECT ose.respondida FROM order_staff_exam ose
+                  WHERE ose.order_id = orders.id AND ose.staff_id = {$sid}
+                  ORDER BY ose.id LIMIT 1) as mi_respondida"
+            ));
+        }
+
         $this->applyRoleFilter($query, $user);
 
         if ($soloMis && $user) {
@@ -191,7 +202,17 @@ class OrderController extends Controller
             ->orderByDesc('orders.created_at')
             ->paginate($perPage, ['*'], 'page', $page);
 
-        $items = collect($orders->items())->map(function ($o) use ($currentStaffId, $operatorClinicIds, $isOdontologo) {
+        $estadosRadiologoPersonal = [
+            0 => self::ESTADOS[0],  // No Informada — aún no respondió su parte
+            1 => ['label' => 'Informada',     'color' => 'success'],
+            2 => ['label' => 'En corrección', 'color' => 'danger'],
+        ];
+
+        $items = collect($orders->items())->map(function ($o) use ($currentStaffId, $operatorClinicIds, $isOdontologo, $isRadiologo, $estadosRadiologoPersonal) {
+            $estado = ($isRadiologo && property_exists($o, 'mi_respondida') && !is_null($o->mi_respondida))
+                ? ($estadosRadiologoPersonal[(int) $o->mi_respondida] ?? self::ESTADOS[(int) $o->estadoradiologo])
+                : (self::ESTADOS[(int) $o->estadoradiologo] ?? ['label' => 'Desconocido', 'color' => 'secondary']);
+
             return [
                 'id'         => $o->id,
                 'paciente'   => $o->paciente,
@@ -203,7 +224,7 @@ class OrderController extends Controller
                 'created_at' => $o->created_at  ? Carbon::parse($o->created_at)->format('d/m/Y')  : '-',
                 'enviada'    => $o->enviada      ? Carbon::parse($o->enviada)->format('d/m/Y')      : '-',
                 'respondida' => $o->respondida   ? Carbon::parse($o->respondida)->format('d/m/Y')  : '-',
-                'estado'     => self::ESTADOS[(int) $o->estadoradiologo] ?? ['label' => 'Desconocido', 'color' => 'secondary'],
+                'estado'     => $estado,
                 'prioridad'  => $o->prioridad,
                 'creado_por' => $o->creado_por ?: '-',
                 'es_mia'     => $currentStaffId && (
