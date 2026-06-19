@@ -421,12 +421,7 @@ const formatRut = (value) => {
     if (clean.length < 2) return clean;
     const dv   = clean.slice(-1);
     const body = clean.slice(0, -1);
-    let formatted = '';
-    for (let i = body.length - 1, n = 0; i >= 0; i--, n++) {
-        if (n > 0 && n % 3 === 0) formatted = '.' + formatted;
-        formatted = body[i] + formatted;
-    }
-    return formatted + '-' + dv;
+    return body + '-' + dv;
 };
 
 const validarRut = (rut) => {

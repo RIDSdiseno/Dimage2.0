@@ -715,6 +715,21 @@ class OrderController extends Controller
             )
             && ($user->hasAnyRole(['admin', 'secretaria']) || $esRadiologoAsignado || $miPendiente || ($user->hasRole('radiologo') && $sinAsignar));
 
+        // Radiólogo asignado solo ve sus exámenes, no los de los demás radiólogos
+        if ($esRadiologoAsignado && $user->staff) {
+            $oseRows = DB::table('order_staff_exam')
+                ->where('order_id', $order->id)
+                ->where('staff_id', $user->staff->id)
+                ->get(['kind_id']);
+            $hasNullAssignment = $oseRows->contains('kind_id', null);
+            if (!$hasNullAssignment) {
+                $assignedKindIds = $oseRows->pluck('kind_id')->filter()->toArray();
+                if (!empty($assignedKindIds)) {
+                    $examenes = $examenes->filter(fn($e) => in_array($e['kind_id'], $assignedKindIds))->values();
+                }
+            }
+        }
+
         return Inertia::render('Orders/Show', [
             'order' => [
                 'id'              => $order->id,
