@@ -1541,8 +1541,9 @@ class OrderController extends Controller
             'action'    => ['required', 'in:guardar,enviar'],
         ]);
 
-        $enviar          = $request->input('action') === 'enviar';
-        $yaEstabaEnviada = ! is_null($order->enviada); // capturar ANTES del update
+        $enviar            = $request->input('action') === 'enviar';
+        $yaEstabaEnviada   = ! is_null($order->enviada); // capturar ANTES del update
+        $estabaEnCorreccion = (int) $order->estadoradiologo === 2;
 
         // Determinar asignaciones de radiólogo al enviar desde update()
         $radiologoIdUpdate   = null; // legacy single-rad fallback
@@ -1584,7 +1585,7 @@ class OrderController extends Controller
                 'sin_diagnostico'  => $request->boolean('sin_diagnostico') ? 1 : 0,
                 'estadoradiologo'  => $enviar ? 0 : ($yaEstabaEnviada ? $order->estadoradiologo : 4),
                 'estadoodontologo' => $enviar ? 0 : ($yaEstabaEnviada ? $order->estadoodontologo : 1),
-                'enviada'          => $enviar && !$order->enviada ? now() : $order->enviada,
+                'enviada'          => $enviar && (!$order->enviada || $estabaEnCorreccion) ? now() : $order->enviada,
             ];
             if ($radiologoIdUpdate) {
                 $orderUpdateData['radiologo_id'] = $radiologoIdUpdate;

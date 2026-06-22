@@ -1088,6 +1088,7 @@ class OrderController extends Controller
                 'estadoradiologo'  => 0,
                 'estadoodontologo' => 0,
                 'respondida'       => null,
+                'enviada'          => now(),
                 'updated_at'       => now(),
             ]);
         }
