@@ -1577,7 +1577,7 @@ class OrderController extends Controller
         }
 
         $updateCbctJobs = [];
-        DB::transaction(function () use ($request, $order, $enviar, $yaEstabaEnviada, $radiologoIdUpdate, $updateAssignments, $user, &$updateCbctJobs): void {
+        DB::transaction(function () use ($request, $order, $enviar, $yaEstabaEnviada, $estabaEnCorreccion, $radiologoIdUpdate, $updateAssignments, $user, &$updateCbctJobs): void {
             $orderUpdateData = [
                 'diagnostico'      => $request->boolean('sin_diagnostico') ? 'Sin diagnóstico' : ($request->input('diagnostico') ?? $order->diagnostico),
                 'observaciones'    => $request->input('observaciones') ?? '',
