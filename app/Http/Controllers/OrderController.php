@@ -210,7 +210,11 @@ class OrderController extends Controller
 
         $items = collect($orders->items())->map(function ($o) use ($currentStaffId, $operatorClinicIds, $isOdontologo, $isRadiologo, $estadosRadiologoPersonal) {
             $estado = ($isRadiologo && property_exists($o, 'mi_respondida') && !is_null($o->mi_respondida))
-                ? ($estadosRadiologoPersonal[(int) $o->mi_respondida] ?? self::ESTADOS[(int) $o->estadoradiologo])
+                ? (
+                    (int) $o->estadoradiologo === 2
+                        ? ['label' => 'En corrección', 'color' => 'danger']
+                        : ($estadosRadiologoPersonal[(int) $o->mi_respondida] ?? self::ESTADOS[(int) $o->estadoradiologo])
+                )
                 : (self::ESTADOS[(int) $o->estadoradiologo] ?? ['label' => 'Desconocido', 'color' => 'secondary']);
 
             return [
@@ -732,7 +736,8 @@ class OrderController extends Controller
             && (
                 in_array((int) $order->estadoradiologo, [0, 4]) ||
                 $miPendiente ||
-                ($user->hasAnyRole(['admin', 'secretaria']) && in_array((int) $order->estadoradiologo, [1, 2]))
+                ($user->hasAnyRole(['admin', 'secretaria']) && in_array((int) $order->estadoradiologo, [1, 2])) ||
+                ($esRadiologoAsignado && (int) $order->estadoradiologo === 2)
             )
             && ($user->hasAnyRole(['admin', 'secretaria']) || $esRadiologoAsignado || $miPendiente || ($user->hasRole('radiologo') && $sinAsignar));
 
@@ -1591,6 +1596,11 @@ class OrderController extends Controller
                 $orderUpdateData['radiologo_id'] = $radiologoIdUpdate;
             }
             $order->update($orderUpdateData);
+
+            // Al re-enviar desde corrección, resetear asignaciones del radiólogo a pendiente
+            if ($enviar && $estabaEnCorreccion) {
+                DB::table('order_staff_exam')->where('order_id', $order->id)->update(['respondida' => 0]);
+            }
 
             // Actualizar url_texto de exámenes existentes (ej: análisis cefalométrico)
             foreach ((array) $request->input('url_texto_existente', []) as $examinationId => $urlTexto) {
