@@ -95,7 +95,7 @@ class OrderController extends Controller
                 'uo.email as mail_odontologo'
             )
             ->selectRaw("case when o.estadoradiologo = 0 then 'No Informada' when o.estadoradiologo = 1 then 'Informada' when o.estadoradiologo = 2 and o.estadoodontologo = 3 then 'Corrección' else 'Guardada' end as estado_texto")
-            ->selectRaw("case when o.estadoradiologo = 4 then 1 else 0 end as editable")
+            ->selectRaw("case when o.estadoradiologo in (4, 2) then 1 else 0 end as editable")
             ->selectRaw("case when o.estadoradiologo = 1 then 1 else 0 end as visitable")
             ->selectRaw("(SELECT GROUP_CONCAT(DISTINCT k.descipcion SEPARATOR ', ') FROM kinds as k LEFT JOIN examinations AS ex ON ex.kind_id = k.id LEFT JOIN examination_order AS eo ON eo.examination_id = ex.id WHERE eo.order_id = o.id) as examenes_orden")
             ->selectRaw("(SELECT GROUP_CONCAT(DISTINCT us.name SEPARATOR ', ') FROM order_staff_exam as ose LEFT JOIN staffs as s ON s.id = ose.staff_id LEFT JOIN users as us ON us.id = s.user_id WHERE ose.order_id = o.id) as radiologos_asignados")
@@ -187,9 +187,8 @@ class OrderController extends Controller
             // rut_odontologo se mantiene (sin DV) para que Dentalsoft valide por RUT
         }
 
-        // Igual que el Dimage antiguo: editable solo cuando está en borrador (estado 4),
-        // visitable solo cuando el radiólogo ya respondió (estado 1).
-        $order->editable  = (int) $order->estadoradiologo === 4 ? 1 : 0;
+        // editable en borrador (4) o corrección (2); visitable cuando respondida (1).
+        $order->editable  = in_array((int) $order->estadoradiologo, [4, 2]) ? 1 : 0;
         $order->visitable = (int) $order->estadoradiologo === 1 ? 1 : 0;
 
         // Aliases que DentalSoft espera (igual que Dimage antiguo)
@@ -717,7 +716,7 @@ class OrderController extends Controller
         $order = DB::table('orders')->where('id', $id)->first();
         if (! $order) return response()->json(['error' => 'Orden no encontrada.'], 404);
 
-        if ((int) $order->estadoradiologo !== 0) {
+        if (!in_array((int) $order->estadoradiologo, [0, 2])) {
             return response()->json(['error' => "Orden de id $id no se puede responder."], 422);
         }
 
@@ -1077,11 +1076,21 @@ class OrderController extends Controller
             }
         }
 
-        // Al editar en corrección, resetear radiólogos en estado 2 (corrección) a 0 (pendiente)
-        DB::table('order_staff_exam')
-            ->where('order_id', $id)
-            ->where('respondida', 2)
-            ->update(['respondida' => 0]);
+        // Si la orden estaba en corrección (estado 2), resetear al enviarla de vuelta al radiólogo:
+        // - order_staff_exam: todas las asignaciones vuelven a respondida=0 (pendiente)
+        // - orders: estadoradiologo=0 para que el radiólogo sepa que debe volver a responder
+        if ((int) $order->estadoradiologo === 2) {
+            DB::table('order_staff_exam')
+                ->where('order_id', $id)
+                ->update(['respondida' => 0]);
+
+            DB::table('orders')->where('id', $id)->update([
+                'estadoradiologo'  => 0,
+                'estadoodontologo' => 0,
+                'respondida'       => null,
+                'updated_at'       => now(),
+            ]);
+        }
 
         return response()->json(['message' => 'Orden actualizada.', 'orden' => ['id' => $id]]);
     }
