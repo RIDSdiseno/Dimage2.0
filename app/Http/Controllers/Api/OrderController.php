@@ -838,6 +838,83 @@ class OrderController extends Controller
         return response()->json(['message' => "Orden de id $id $accion exitosamente."]);
     }
 
+    // PATCH /api/v3/order/{id}/radiologo — solo admin, solo si no está informada
+    public function changeRadiologo(Request $request, int $id)
+    {
+        if (! $request->_is_admin) {
+            return response()->json(['error' => 'Solo administradores pueden cambiar el radiólogo.'], 403);
+        }
+
+        $holdingId = $request->_holding_id;
+
+        $order = DB::table('orders as o')
+            ->join('clinics as c', 'c.id', '=', 'o.clinic_id')
+            ->where('o.id', $id)
+            ->where('c.holding_id', $holdingId)
+            ->select('o.id', 'o.estadoradiologo', 'o.clinic_id')
+            ->first();
+
+        if (! $order) {
+            return response()->json(['error' => "Orden $id no existe para esta red."], 404);
+        }
+
+        if ((int) $order->estadoradiologo === 1) {
+            return response()->json(['error' => 'La orden ya fue respondida, no se puede cambiar el radiólogo.'], 422);
+        }
+
+        $rutInput = $request->input('radiologo_rut');
+        if (! $rutInput) {
+            return response()->json(['error' => 'El campo radiologo_rut es requerido.'], 422);
+        }
+
+        $rutClean = strtoupper(preg_replace('/[^0-9K]/', '', $rutInput));
+
+        $radiologo = DB::table('staffs as s')
+            ->join('clinic_staff as cs', function ($j) use ($order) {
+                $j->on('cs.staff_id', '=', 's.id')->where('cs.clinic_id', $order->clinic_id);
+            })
+            ->where('s.activo', 1)
+            ->whereRaw("REPLACE(REPLACE(UPPER(s.rut), '.', ''), '-', '') = ?", [$rutClean])
+            ->select('s.id')
+            ->first();
+
+        if (! $radiologo) {
+            // Buscar en todo el holding si no está en la clínica
+            $radiologo = DB::table('staffs as s')
+                ->join('clinic_staff as cs', 'cs.staff_id', '=', 's.id')
+                ->join('clinics as cl', 'cl.id', '=', 'cs.clinic_id')
+                ->where('cl.holding_id', $holdingId)
+                ->where('s.activo', 1)
+                ->whereRaw("REPLACE(REPLACE(UPPER(s.rut), '.', ''), '-', '') = ?", [$rutClean])
+                ->select('s.id')
+                ->first();
+        }
+
+        if (! $radiologo) {
+            return response()->json(['error' => "Radiólogo con RUT $rutInput no encontrado en este holding."], 404);
+        }
+
+        DB::table('order_staff_exam')
+            ->where('order_id', $id)
+            ->where('respondida', 0)
+            ->delete();
+
+        DB::table('order_staff_exam')->insertOrIgnore([
+            'order_id'    => $id,
+            'staff_id'    => $radiologo->id,
+            'group_exam'  => 1,
+            'kind_id'     => null,
+            'respondida'  => 0,
+        ]);
+
+        DB::table('orders')->where('id', $id)->update([
+            'radiologo_id' => $radiologo->id,
+            'updated_at'   => now(),
+        ]);
+
+        return response()->json(['message' => 'Radiólogo actualizado correctamente.', 'staff_id' => $radiologo->id]);
+    }
+
     // GET /api/v3/order/by-radiologo/{rut}
     public function listByRadiologo(Request $request, string $rut)
     {
