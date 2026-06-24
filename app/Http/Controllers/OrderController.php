@@ -1129,9 +1129,24 @@ class OrderController extends Controller
                 ];
             });
 
-        $paciente  = DB::table('patients')->where('id', $order->patient_id)->first();
-        $clinica   = DB::table('clinics as c')->join('users as u', 'u.id', '=', 'c.user_id')
-                       ->where('c.id', $order->clinic_id)->value('u.name');
+        $paciente    = DB::table('patients')->where('id', $order->patient_id)->first();
+        $clinicaRow  = DB::table('clinics as c')->join('users as u', 'u.id', '=', 'c.user_id')
+                         ->where('c.id', $order->clinic_id)->select('u.name', 'c.logo')->first();
+        $clinica     = $clinicaRow->name ?? '';
+        $clinicaLogoB64 = null;
+        if (!empty($clinicaRow->logo)) {
+            try {
+                $content = Storage::disk('public')->get($clinicaRow->logo);
+                $ext     = strtolower(pathinfo($clinicaRow->logo, PATHINFO_EXTENSION));
+                $mime    = match($ext) {
+                    'png'        => 'image/png',
+                    'gif'        => 'image/gif',
+                    'jpg','jpeg' => 'image/jpeg',
+                    default      => 'image/jpeg',
+                };
+                $clinicaLogoB64 = 'data:' . $mime . ';base64,' . base64_encode($content);
+            } catch (\Throwable) {}
+        }
         $radiologos = DB::table('order_staff_exam as ose')
             ->join('staffs as s', 's.id', '=', 'ose.staff_id')
             ->join('users as u', 'u.id', '=', 's.user_id')
@@ -1161,11 +1176,12 @@ class OrderController extends Controller
             });
 
         return \Barryvdh\DomPDF\Facade\Pdf::loadView('pdf.orden', [
-            'order'      => $order,
-            'paciente'   => $paciente,
-            'clinica'    => $clinica,
-            'radiologos' => $radiologos,
-            'examenes'   => $examenes,
+            'order'          => $order,
+            'paciente'       => $paciente,
+            'clinica'        => $clinica,
+            'clinicaLogoB64' => $clinicaLogoB64,
+            'radiologos'     => $radiologos,
+            'examenes'       => $examenes,
         ]);
     }
 
@@ -1198,9 +1214,24 @@ class OrderController extends Controller
                 ];
             });
 
-        $paciente  = DB::table('patients')->where('id', $order->patient_id)->first();
-        $clinica   = DB::table('clinics as c')->join('users as u', 'u.id', '=', 'c.user_id')
-                       ->where('c.id', $order->clinic_id)->value('u.name');
+        $paciente    = DB::table('patients')->where('id', $order->patient_id)->first();
+        $clinicaRow  = DB::table('clinics as c')->join('users as u', 'u.id', '=', 'c.user_id')
+                         ->where('c.id', $order->clinic_id)->select('u.name', 'c.logo')->first();
+        $clinica     = $clinicaRow->name ?? '';
+        $clinicaLogoB64 = null;
+        if (!empty($clinicaRow->logo)) {
+            try {
+                $content = Storage::disk('public')->get($clinicaRow->logo);
+                $ext     = strtolower(pathinfo($clinicaRow->logo, PATHINFO_EXTENSION));
+                $mime    = match($ext) {
+                    'png'        => 'image/png',
+                    'gif'        => 'image/gif',
+                    'jpg','jpeg' => 'image/jpeg',
+                    default      => 'image/jpeg',
+                };
+                $clinicaLogoB64 = 'data:' . $mime . ';base64,' . base64_encode($content);
+            } catch (\Throwable) {}
+        }
         $radiologos = DB::table('order_staff_exam as ose')
             ->join('staffs as s', 's.id', '=', 'ose.staff_id')
             ->join('users as u', 'u.id', '=', 's.user_id')
@@ -1228,11 +1259,12 @@ class OrderController extends Controller
             });
 
         $pdf = \Barryvdh\DomPDF\Facade\Pdf::loadView('pdf.orden', [
-            'order'      => $order,
-            'paciente'   => $paciente,
-            'clinica'    => $clinica,
-            'radiologos' => $radiologos,
-            'examenes'   => $examenes,
+            'order'          => $order,
+            'paciente'       => $paciente,
+            'clinica'        => $clinica,
+            'clinicaLogoB64' => $clinicaLogoB64,
+            'radiologos'     => $radiologos,
+            'examenes'       => $examenes,
         ]);
 
         return $pdf->stream("orden-{$order->id}.pdf");
