@@ -426,9 +426,15 @@ class AdminController extends Controller
             'name'     => ['required', 'min:2'],
             'username' => ['required', 'unique:users,username'],
             'pais'     => ['required', 'in:CL,UY'],
+            'logo'     => ['nullable', 'image', 'max:2048'],
         ]);
 
-        DB::transaction(function () use ($request) {
+        $logoPath = null;
+        if ($request->hasFile('logo')) {
+            $logoPath = $request->file('logo')->store('holding-logos', 'public');
+        }
+
+        DB::transaction(function () use ($request, $logoPath) {
             $userId = DB::table('users')->insertGetId([
                 'name'       => trim($request->name),
                 'username'   => trim($request->username),
@@ -448,6 +454,7 @@ class AdminController extends Controller
                 'emailresponsable'    => trim($request->emailresponsable ?? ''),
                 'telefonoresponsable' => trim($request->telefonoresponsable ?? ''),
                 'pais'                => $request->pais,
+                'logo'                => $logoPath,
                 'created_at'          => now(),
                 'updated_at'          => now(),
             ]);
@@ -472,7 +479,8 @@ class AdminController extends Controller
                 'holdings.emailresponsable',
                 'holdings.telefonoresponsable',
                 'holdings.representantelegal',
-                'holdings.pais'
+                'holdings.pais',
+                'holdings.logo'
             )
             ->where('holdings.id', $id)
             ->first();
@@ -492,6 +500,7 @@ class AdminController extends Controller
                 'telefonoresponsable' => $h->telefonoresponsable,
                 'representantelegal'  => $h->representantelegal,
                 'pais'                => $h->pais ?? 'CL',
+                'logo_url'            => $h->logo ? \Illuminate\Support\Facades\Storage::disk('public')->url($h->logo) : null,
             ],
         ]);
     }
@@ -508,9 +517,18 @@ class AdminController extends Controller
         $request->validate([
             'name' => ['required', 'min:2'],
             'pais' => ['required', 'in:CL,UY'],
+            'logo' => ['nullable', 'image', 'max:2048'],
         ]);
 
-        DB::transaction(function () use ($request, $h) {
+        $logoPath = $h->logo;
+        if ($request->hasFile('logo')) {
+            if ($h->logo) {
+                \Illuminate\Support\Facades\Storage::disk('public')->delete($h->logo);
+            }
+            $logoPath = $request->file('logo')->store('holding-logos', 'public');
+        }
+
+        DB::transaction(function () use ($request, $h, $logoPath) {
             $userData = [
                 'name'       => trim($request->name),
                 'mail'       => trim($request->emailresponsable ?? ''),
@@ -528,6 +546,7 @@ class AdminController extends Controller
                 'emailresponsable'    => trim($request->emailresponsable ?? ''),
                 'telefonoresponsable' => trim($request->telefonoresponsable ?? ''),
                 'pais'                => $request->pais,
+                'logo'                => $logoPath,
                 'updated_at'          => now(),
             ]);
         });

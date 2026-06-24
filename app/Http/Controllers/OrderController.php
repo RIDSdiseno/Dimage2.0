@@ -1130,14 +1130,19 @@ class OrderController extends Controller
             });
 
         $paciente    = DB::table('patients')->where('id', $order->patient_id)->first();
-        $clinicaRow  = DB::table('clinics as c')->join('users as u', 'u.id', '=', 'c.user_id')
-                         ->where('c.id', $order->clinic_id)->select('u.name', 'c.logo')->first();
+        $clinicaRow  = DB::table('clinics as c')
+                         ->join('users as u', 'u.id', '=', 'c.user_id')
+                         ->join('holdings as h', 'h.id', '=', 'c.holding_id')
+                         ->where('c.id', $order->clinic_id)
+                         ->select('u.name', 'c.logo as clinic_logo', 'h.logo as holding_logo')
+                         ->first();
         $clinica     = $clinicaRow->name ?? '';
+        $logoPath    = $clinicaRow->clinic_logo ?? $clinicaRow->holding_logo ?? null;
         $clinicaLogoB64 = null;
-        if (!empty($clinicaRow->logo)) {
+        if ($logoPath) {
             try {
-                $content = Storage::disk('public')->get($clinicaRow->logo);
-                $ext     = strtolower(pathinfo($clinicaRow->logo, PATHINFO_EXTENSION));
+                $content = Storage::disk('public')->get($logoPath);
+                $ext     = strtolower(pathinfo($logoPath, PATHINFO_EXTENSION));
                 $mime    = match($ext) {
                     'png'        => 'image/png',
                     'gif'        => 'image/gif',
@@ -1215,14 +1220,19 @@ class OrderController extends Controller
             });
 
         $paciente    = DB::table('patients')->where('id', $order->patient_id)->first();
-        $clinicaRow  = DB::table('clinics as c')->join('users as u', 'u.id', '=', 'c.user_id')
-                         ->where('c.id', $order->clinic_id)->select('u.name', 'c.logo')->first();
+        $clinicaRow  = DB::table('clinics as c')
+                         ->join('users as u', 'u.id', '=', 'c.user_id')
+                         ->join('holdings as h', 'h.id', '=', 'c.holding_id')
+                         ->where('c.id', $order->clinic_id)
+                         ->select('u.name', 'c.logo as clinic_logo', 'h.logo as holding_logo')
+                         ->first();
         $clinica     = $clinicaRow->name ?? '';
+        $logoPath    = $clinicaRow->clinic_logo ?? $clinicaRow->holding_logo ?? null;
         $clinicaLogoB64 = null;
-        if (!empty($clinicaRow->logo)) {
+        if ($logoPath) {
             try {
-                $content = Storage::disk('public')->get($clinicaRow->logo);
-                $ext     = strtolower(pathinfo($clinicaRow->logo, PATHINFO_EXTENSION));
+                $content = Storage::disk('public')->get($logoPath);
+                $ext     = strtolower(pathinfo($logoPath, PATHINFO_EXTENSION));
                 $mime    = match($ext) {
                     'png'        => 'image/png',
                     'gif'        => 'image/gif',
