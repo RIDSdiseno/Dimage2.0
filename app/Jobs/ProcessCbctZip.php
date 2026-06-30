@@ -59,7 +59,8 @@ class ProcessCbctZip implements ShouldQueue
             foreach ($iter as $file) {
                 if (! $file->isFile()) continue;
                 $entryExt = strtolower($file->getExtension());
-                if (! in_array($entryExt, ['dcm', 'dicom'], true)) continue;
+                // Accept .dcm, .dicom, and extensionless files (DICOM standard allows no extension)
+                if ($entryExt !== '' && ! in_array($entryExt, ['dcm', 'dicom'], true)) continue;
 
                 $relPath = ltrim(
                     substr(str_replace('\\', '/', $file->getPathname()), strlen($tmpDirBase)),
@@ -83,6 +84,12 @@ class ProcessCbctZip implements ShouldQueue
                     'ruta'       => $firstDcmS3,
                     'ruta_dcm'   => $seriePrefix,
                     'extension'  => 'dcm',
+                    'updated_at' => now(),
+                ]);
+            } else {
+                // ZIP has no DCM files — clear processing state, serve as download only
+                DB::table('files')->where('id', $this->fileId)->update([
+                    'ruta_dcm'   => null,
                     'updated_at' => now(),
                 ]);
             }
