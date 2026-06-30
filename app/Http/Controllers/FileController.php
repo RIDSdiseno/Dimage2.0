@@ -453,18 +453,31 @@ class FileController extends Controller
         $tempPath = 'cbct-temp/' . \Illuminate\Support\Str::uuid() . '/' . $safeName;
 
         try {
-            [$url, $headers] = Storage::disk('s3')->temporaryUploadUrl(
-                $tempPath,
-                now()->addMinutes(30),
-                ['ContentType' => 'application/zip']
-            );
+            $s3 = new \Aws\S3\S3Client([
+                'version'     => 'latest',
+                'region'      => config('filesystems.disks.s3.region', 'us-east-1'),
+                'credentials' => [
+                    'key'    => config('filesystems.disks.s3.key'),
+                    'secret' => config('filesystems.disks.s3.secret'),
+                ],
+            ]);
+
+            $cmd       = $s3->getCommand('PutObject', [
+                'Bucket'      => config('filesystems.disks.s3.bucket'),
+                'Key'         => $tempPath,
+                'ContentType' => 'application/zip',
+            ]);
+            $presigned = $s3->createPresignedRequest($cmd, '+30 minutes');
+            $url       = (string) $presigned->getUri();
+
             return response()->json([
                 'url'      => $url,
-                'headers'  => $headers,
+                'headers'  => [],
                 's3_path'  => $tempPath,
                 'filename' => $filename,
             ]);
-        } catch (\Throwable) {
+        } catch (\Throwable $e) {
+            \Log::warning('CBCT_PRESIGNED_FAIL', ['error' => $e->getMessage()]);
             return response()->json(['error' => 'presigned_not_supported'], 422);
         }
     }
@@ -476,8 +489,21 @@ class FileController extends Controller
     public function uploadCbctTemp(\Illuminate\Http\Request $request): JsonResponse
     {
         $file = $request->file('file');
-        abort_if(!$file, 422, 'No file provided');
-        abort_if(strtolower($file->getClientOriginalExtension()) !== 'zip', 422, 'Solo archivos ZIP');
+
+        if (!$file) {
+            $phpErr = $_FILES['file']['error'] ?? 'key_missing';
+            \Log::warning('CBCT_UPLOAD_NO_FILE', [
+                'php_upload_error'    => $phpErr,
+                'content_length'      => $request->header('Content-Length'),
+                'upload_max_filesize' => ini_get('upload_max_filesize'),
+                'post_max_size'       => ini_get('post_max_size'),
+            ]);
+            abort(422, "No file provided (php_err={$phpErr})");
+        }
+
+        if (strtolower($file->getClientOriginalExtension()) !== 'zip') {
+            abort(422, 'Solo archivos ZIP (ext=' . $file->getClientOriginalExtension() . ')');
+        }
 
         $safeName = preg_replace('/[^a-zA-Z0-9._()-]/', '_', $file->getClientOriginalName());
         $tempPath = 'cbct-temp/' . Str::uuid() . '/' . $safeName;
