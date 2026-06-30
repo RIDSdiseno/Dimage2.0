@@ -584,22 +584,10 @@ class OrderController extends Controller
             }
         }
 
-        // Procesar ZIPs CBCT de forma síncrona (visor disponible al abrir la orden)
-        if (!empty($cbctJobs)) {
-            set_time_limit(600);
-            ignore_user_abort(true);
-            foreach ($cbctJobs as [$fid, $zipPath]) {
-                try {
-                    (new ProcessCbctZip($fid, $this->extractOrderIdFromPath($zipPath), $zipPath))->handle();
-                } catch (\Throwable $e) {
-                    \Log::error("CBCT sync processing failed for file {$fid}: " . $e->getMessage());
-                    DB::table('files')->where('id', $fid)->update([
-                        'ruta_dcm'   => null,
-                        'extension'  => 'zip_error',
-                        'updated_at' => now(),
-                    ]);
-                }
-            }
+        // Procesar ZIPs CBCT en segundo plano (1+ GB no puede bloquear el request)
+        foreach ($cbctJobs as [$fid, $zipPath]) {
+            ProcessCbctZip::dispatch($fid, $this->extractOrderIdFromPath($zipPath), $zipPath)
+                ->onConnection('database')->onQueue('default');
         }
 
         return redirect()
@@ -1762,22 +1750,10 @@ class OrderController extends Controller
             }
         });
 
-        // Procesar ZIPs CBCT de forma síncrona (visor disponible al abrir la orden)
-        if (!empty($updateCbctJobs)) {
-            set_time_limit(600);
-            ignore_user_abort(true);
-            foreach ($updateCbctJobs as [$fid, $zipPath]) {
-                try {
-                    (new ProcessCbctZip($fid, $this->extractOrderIdFromPath($zipPath), $zipPath))->handle();
-                } catch (\Throwable $e) {
-                    \Log::error("CBCT sync processing failed for file {$fid}: " . $e->getMessage());
-                    DB::table('files')->where('id', $fid)->update([
-                        'ruta_dcm'   => null,
-                        'extension'  => 'zip_error',
-                        'updated_at' => now(),
-                    ]);
-                }
-            }
+        // Procesar ZIPs CBCT en segundo plano (1+ GB no puede bloquear el request)
+        foreach ($updateCbctJobs as [$fid, $zipPath]) {
+            ProcessCbctZip::dispatch($fid, $this->extractOrderIdFromPath($zipPath), $zipPath)
+                ->onConnection('database')->onQueue('default');
         }
 
         if ($enviar && ! $yaEstabaEnviada) {
