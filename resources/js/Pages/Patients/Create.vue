@@ -31,7 +31,7 @@
                             <small v-if="form.errors.rut" class="text-red-500">{{ form.errors.rut }}</small>
                             <small v-else-if="rutError" class="text-red-500">{{ rutError }}</small>
 
-                            <div v-if="region === 'CL'" class="flex items-center gap-2 mt-2">
+                            <div class="flex items-center gap-2 mt-2">
                                 <Checkbox v-model="isPassport" :binary="true" inputId="esPassport" />
                                 <label for="esPassport" class="text-sm cursor-pointer">Es pasaporte extranjero.</label>
                             </div>
