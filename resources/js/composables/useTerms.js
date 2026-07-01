@@ -93,7 +93,7 @@ const EXAM_NAME_MAP_UY = {
 const translateExamName = (name, region) => {
     if (region !== 'UY' || !name) return name;
     if (EXAM_NAME_MAP_UY[name] !== undefined) return EXAM_NAME_MAP_UY[name];
-    if (name.includes('Cone Beam')) return name.replace('Cone Beam', 'Tomografía');
+    if (/cone beam/i.test(name)) return name.replace(/cone beam/i, 'Tomografía');
     return name;
 };
 
