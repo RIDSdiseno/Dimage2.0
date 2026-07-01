@@ -19,19 +19,19 @@
                         </div>
 
                         <div class="md:col-span-2">
-                            <label class="block text-sm font-medium mb-1">Rut *</label>
+                            <label class="block text-sm font-medium mb-1">{{ terms.id_label }} *</label>
                             <InputText
                                 :value="form.rut"
                                 class="w-full"
-                                placeholder="Rut"
+                                :placeholder="terms.id_placeholder"
                                 :class="{'p-invalid': form.errors.rut || rutError}"
-                                @input="handleRutInput"
+                                @input="handleIdInput"
                                 @blur="touchRut"
                             />
                             <small v-if="form.errors.rut" class="text-red-500">{{ form.errors.rut }}</small>
                             <small v-else-if="rutError" class="text-red-500">{{ rutError }}</small>
 
-                            <div class="flex items-center gap-2 mt-2">
+                            <div v-if="region === 'CL'" class="flex items-center gap-2 mt-2">
                                 <Checkbox v-model="isPassport" :binary="true" inputId="esPassport" />
                                 <label for="esPassport" class="text-sm cursor-pointer">Es pasaporte extranjero.</label>
                             </div>
@@ -104,6 +104,7 @@ import DatePicker from 'primevue/datepicker';
 import AutoComplete from 'primevue/autocomplete';
 import Button from 'primevue/button';
 import Checkbox from 'primevue/checkbox';
+import { useTerms } from '@/composables/useTerms';
 
 const props = defineProps({
     clinics: Array,
@@ -111,6 +112,8 @@ const props = defineProps({
 
 const page = usePage();
 const puedeDerivacion = computed(() => !!page.props.auth?.user?.puede_derivacion_clinica);
+
+const { region, terms } = useTerms();
 
 const dateValue  = ref(null);
 const isPassport = ref(false);
@@ -157,42 +160,30 @@ watch(isPassport, () => {
     rutTouched.value = false;
 });
 
-function handleRutInput(event) {
+watch(region, () => {
+    form.rut         = '';
+    rutTouched.value = false;
+    isPassport.value = false;
+});
+
+function handleIdInput(event) {
     if (isPassport.value) {
         form.rut = event.target.value;
         return;
     }
-    let clean = event.target.value.replace(/[.\s-]/g, '').replace(/[^0-9kK]/g, '').toUpperCase();
-    clean = clean.slice(0, 9);
-    form.rut = clean.length > 1 ? clean.slice(0, -1) + '-' + clean.slice(-1) : clean;
-}
-
-function validateChileanRut(rut) {
-    if (!rut) return 'El RUT es requerido.';
-    const clean = rut.replace(/[\.\s]/g, '').toUpperCase();
-    if (!/^\d{7,8}-[\dK]$/.test(clean)) return 'Formato inválido. Ej: 12345678-9';
-    const [body, dv] = clean.split('-');
-    let sum = 0, mult = 2;
-    for (let i = body.length - 1; i >= 0; i--) {
-        sum += parseInt(body[i]) * mult;
-        mult = mult === 7 ? 2 : mult + 1;
-    }
-    const rem      = sum % 11;
-    const expected = rem === 0 ? '0' : rem === 1 ? 'K' : String(11 - rem);
-    if (dv !== expected) return 'El RUT ingresado no es válido.';
-    return null;
+    form.rut = terms.value.formatId(event.target.value);
 }
 
 const rutError = computed(() => {
     if (isPassport.value || !rutTouched.value) return null;
-    return validateChileanRut(form.rut);
+    return terms.value.validateId(form.rut);
 });
 
 function touchRut() { rutTouched.value = true; }
 
 const submit = () => {
     rutTouched.value = true;
-    if (!isPassport.value && validateChileanRut(form.rut)) return;
+    if (!isPassport.value && terms.value.validateId(form.rut)) return;
 
     let dateofbirth = null;
     if (dateValue.value instanceof Date) {
