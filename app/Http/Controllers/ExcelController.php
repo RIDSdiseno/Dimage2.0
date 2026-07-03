@@ -95,6 +95,15 @@ class ExcelController extends Controller
             ->get()
             ->groupBy('order_id');
 
+        // Exam IDs que tienen informe real completado en la tabla answers
+        $answeredExamIds = DB::table('answers')
+            ->whereIn('examination_id',
+                $examinationsData->flatten()->pluck('exam_id')->unique()->values()
+            )
+            ->pluck('examination_id')
+            ->flip()
+            ->all();
+
         // Rx file count per examination (Cant. de Rx = files uploaded by clinic, not informe)
         $fileCountsPerExam = DB::table('files as f')
             ->whereIn('f.examination_id', function ($q) use ($orderIds) {
@@ -153,6 +162,8 @@ class ExcelController extends Controller
                     $piezaCount = count(array_filter(array_map('trim', explode(',', $piezasStr))));
                 }
 
+                $hasAnswer = isset($answeredExamIds[$exam->exam_id]);
+
                 if ($isCefalo && !empty($urlTexto)) {
                     foreach (explode(',', $urlTexto) as $analysis) {
                         $analysis = trim($analysis);
@@ -160,7 +171,7 @@ class ExcelController extends Controller
                             $expandedRows[] = [
                                 'row'          => $r,
                                 'tipo'         => $desc . ' - ' . $analysis,
-                                'cantInformes' => 1,
+                                'cantInformes' => $hasAnswer ? 1 : 0,
                                 'cantRx'       => $fileCount,
                                 'cantPiezas'   => null,
                             ];
@@ -170,10 +181,8 @@ class ExcelController extends Controller
                     $expandedRows[] = [
                         'row'          => $r,
                         'tipo'         => $desc,
-                        // Retroalveolar Unitaria: cantInformes = pieza count; all others = 1
-                        'cantInformes' => $isRetroUnitaria ? max($piezaCount, 1) : 1,
+                        'cantInformes' => $hasAnswer ? ($isRetroUnitaria ? max($piezaCount, 1) : 1) : 0,
                         'cantRx'       => $fileCount,
-                        // Piezas column: only for Retroalveolar Unitaria
                         'cantPiezas'   => $isRetroUnitaria ? $piezaCount : null,
                     ];
                 }
@@ -531,6 +540,13 @@ class ExcelController extends Controller
             ->groupBy('f.examination_id')
             ->pluck('cnt', 'examination_id');
 
+        // Exam IDs que tienen informe real completado (para detalle)
+        $detailAnsweredIds = DB::table('answers')
+            ->whereIn('examination_id', $detailExamIds->values())
+            ->pluck('examination_id')
+            ->flip()
+            ->all();
+
         // Expand cefalométrico by analysis types in detail rows
         $detailRows = [];
         foreach ($detailRaw as $r) {
@@ -538,6 +554,7 @@ class ExcelController extends Controller
             $isCefalo        = str_contains($descLower, 'cefalom');
             $isRetroUnitaria = str_contains($descLower, 'retroalveolar') && str_contains($descLower, 'unitaria');
             $fileCount       = (int) ($detailFileCounts[$r->exam_id] ?? 0);
+            $hasAnswer       = isset($detailAnsweredIds[$r->exam_id]);
             $piezaCount      = 0;
             if ($isRetroUnitaria && !empty($r->piezas)) {
                 $piezaCount = count(array_filter(array_map('trim', explode(',', $r->piezas))));
@@ -549,7 +566,7 @@ class ExcelController extends Controller
                     if ($analysis) {
                         $detailRows[] = array_merge((array) $r, [
                             'tipo_display' => $r->tipo . ' - ' . $analysis,
-                            'cantInformes' => 1,
+                            'cantInformes' => $hasAnswer ? 1 : 0,
                             'cantRx'       => $fileCount,
                             'cantPiezas'   => null,
                         ]);
@@ -558,7 +575,7 @@ class ExcelController extends Controller
             } else {
                 $detailRows[] = array_merge((array) $r, [
                     'tipo_display' => $r->tipo,
-                    'cantInformes' => $isRetroUnitaria ? max($piezaCount, 1) : 1,
+                    'cantInformes' => $hasAnswer ? ($isRetroUnitaria ? max($piezaCount, 1) : 1) : 0,
                     'cantRx'       => $fileCount,
                     'cantPiezas'   => $isRetroUnitaria ? $piezaCount : null,
                 ]);
