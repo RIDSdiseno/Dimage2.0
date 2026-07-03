@@ -284,7 +284,19 @@
                                         </div>
                                     </template>
 
-                                    <!-- Estándar: campo_1/2/3 (no aplica para Panorámica que tiene su propia sección) -->
+                                    <!-- Bite Wing: campo_1 como Observaciones generales (campo_2-7 van en su propia sección) -->
+                                    <template v-else-if="isBiteWingBilateral(examen) || isBiteWingUnilateralDerecha(examen) || isBiteWingUnilateralIzquierda(examen)">
+                                        <div v-if="examen.respuesta.campo_1" class="border border-gray-100 rounded-xl overflow-hidden mb-3">
+                                            <div class="bg-gray-700 px-4 py-2"><h3 class="text-white font-semibold text-sm">Observaciones generales</h3></div>
+                                            <div class="divide-y divide-gray-50">
+                                                <div class="flex flex-col sm:flex-row sm:gap-x-4 px-3 py-2">
+                                                    <p class="text-sm text-gray-700 whitespace-pre-wrap break-words min-w-0">{{ examen.respuesta.campo_1 }}</p>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </template>
+
+                                    <!-- Estándar: campo_1/2/3 (no aplica para Panorámica ni Bite Wing que tienen su propia sección) -->
                                     <template v-else-if="examen.kind_id != 15">
                                         <div v-if="examen.respuesta.campo_1 || examen.respuesta.campo_2 || examen.respuesta.campo_3"
                                              class="border border-gray-100 rounded-xl overflow-hidden mb-3">
@@ -404,6 +416,164 @@
                                                 </div>
                                             </div>
                                         </div>
+                                    </template>
+
+                                    <!-- Bite Wing Bilateral: Lado Derecho / Lado Izquierdo -->
+                                    <template v-else-if="isBiteWingBilateral(examen)">
+                                        <!-- LADO DERECHO -->
+                                        <template v-if="examen.respuesta.campo_2 || examen.respuesta.campo_3 || examen.respuesta.campo_4 ||
+                                            getDientesConContenido(examen.respuesta).some(d => [...BW_DERECHO_PERM, ...BW_DERECHO_TEMP].includes(d.n))">
+                                            <div class="border border-blue-100 rounded-xl overflow-hidden mb-3 mt-2">
+                                                <div class="bg-blue-700 px-4 py-2"><h3 class="text-white font-semibold text-sm">Lado Derecho</h3></div>
+                                                <div class="divide-y divide-gray-50">
+                                                    <div v-if="examen.respuesta.campo_2" class="flex flex-col sm:flex-row sm:gap-x-4 px-3 py-2">
+                                                        <p class="text-sm font-semibold text-gray-600 sm:w-44 sm:shrink-0">Nivel Óseo Marginal:</p>
+                                                        <p class="text-sm text-gray-700 whitespace-pre-wrap break-words min-w-0">{{ examen.respuesta.campo_2 }}</p>
+                                                    </div>
+                                                    <div v-if="examen.respuesta.campo_3" class="flex flex-col sm:flex-row sm:gap-x-4 px-3 py-2">
+                                                        <p class="text-sm font-semibold text-gray-600 sm:w-44 sm:shrink-0">Cálculo dentario marginal:</p>
+                                                        <p class="text-sm text-gray-700 whitespace-pre-wrap break-words min-w-0">{{ examen.respuesta.campo_3 }}</p>
+                                                    </div>
+                                                    <div v-if="examen.respuesta.campo_4" class="flex flex-col sm:flex-row sm:gap-x-4 px-3 py-2">
+                                                        <p class="text-sm font-semibold text-gray-600 sm:w-44 sm:shrink-0">Observaciones:</p>
+                                                        <p class="text-sm text-gray-700 whitespace-pre-wrap break-words min-w-0">{{ examen.respuesta.campo_4 }}</p>
+                                                    </div>
+                                                    <template v-if="getDientesConContenido(examen.respuesta).some(d => BW_DERECHO_PERM.includes(d.n))">
+                                                        <div class="px-3 pt-2 pb-1 bg-gray-50"><p class="text-xs italic text-gray-400 font-medium">Permanentes</p></div>
+                                                        <div v-for="d in getDientesConContenido(examen.respuesta).filter(d => BW_DERECHO_PERM.includes(d.n))" :key="d.n"
+                                                            class="flex flex-col sm:flex-row sm:gap-x-4 px-3 py-2">
+                                                            <p class="text-sm font-semibold text-gray-600 sm:w-44 sm:shrink-0">Diente {{ toDot(d.n) }}:</p>
+                                                            <p class="text-sm text-gray-700 whitespace-pre-wrap break-words min-w-0">{{ d.val }}</p>
+                                                        </div>
+                                                    </template>
+                                                    <template v-if="getDientesConContenido(examen.respuesta).some(d => BW_DERECHO_TEMP.includes(d.n))">
+                                                        <div class="px-3 pt-2 pb-1 bg-gray-50"><p class="text-xs italic text-gray-400 font-medium">Temporales</p></div>
+                                                        <div v-for="d in getDientesConContenido(examen.respuesta).filter(d => BW_DERECHO_TEMP.includes(d.n))" :key="d.n"
+                                                            class="flex flex-col sm:flex-row sm:gap-x-4 px-3 py-2">
+                                                            <p class="text-sm font-semibold text-gray-600 sm:w-44 sm:shrink-0">Diente {{ toDot(d.n) }}:</p>
+                                                            <p class="text-sm text-gray-700 whitespace-pre-wrap break-words min-w-0">{{ d.val }}</p>
+                                                        </div>
+                                                    </template>
+                                                </div>
+                                            </div>
+                                        </template>
+                                        <!-- LADO IZQUIERDO -->
+                                        <template v-if="examen.respuesta.campo_5 || examen.respuesta.campo_6 || examen.respuesta.campo_7 ||
+                                            getDientesConContenido(examen.respuesta).some(d => [...BW_IZQUIERDO_PERM, ...BW_IZQUIERDO_TEMP].includes(d.n))">
+                                            <div class="border border-blue-100 rounded-xl overflow-hidden mb-3">
+                                                <div class="bg-blue-700 px-4 py-2"><h3 class="text-white font-semibold text-sm">Lado Izquierdo</h3></div>
+                                                <div class="divide-y divide-gray-50">
+                                                    <div v-if="examen.respuesta.campo_5" class="flex flex-col sm:flex-row sm:gap-x-4 px-3 py-2">
+                                                        <p class="text-sm font-semibold text-gray-600 sm:w-44 sm:shrink-0">Nivel Óseo Marginal:</p>
+                                                        <p class="text-sm text-gray-700 whitespace-pre-wrap break-words min-w-0">{{ examen.respuesta.campo_5 }}</p>
+                                                    </div>
+                                                    <div v-if="examen.respuesta.campo_6" class="flex flex-col sm:flex-row sm:gap-x-4 px-3 py-2">
+                                                        <p class="text-sm font-semibold text-gray-600 sm:w-44 sm:shrink-0">Cálculo dentario marginal:</p>
+                                                        <p class="text-sm text-gray-700 whitespace-pre-wrap break-words min-w-0">{{ examen.respuesta.campo_6 }}</p>
+                                                    </div>
+                                                    <div v-if="examen.respuesta.campo_7" class="flex flex-col sm:flex-row sm:gap-x-4 px-3 py-2">
+                                                        <p class="text-sm font-semibold text-gray-600 sm:w-44 sm:shrink-0">Observaciones:</p>
+                                                        <p class="text-sm text-gray-700 whitespace-pre-wrap break-words min-w-0">{{ examen.respuesta.campo_7 }}</p>
+                                                    </div>
+                                                    <template v-if="getDientesConContenido(examen.respuesta).some(d => BW_IZQUIERDO_PERM.includes(d.n))">
+                                                        <div class="px-3 pt-2 pb-1 bg-gray-50"><p class="text-xs italic text-gray-400 font-medium">Permanentes</p></div>
+                                                        <div v-for="d in getDientesConContenido(examen.respuesta).filter(d => BW_IZQUIERDO_PERM.includes(d.n))" :key="d.n"
+                                                            class="flex flex-col sm:flex-row sm:gap-x-4 px-3 py-2">
+                                                            <p class="text-sm font-semibold text-gray-600 sm:w-44 sm:shrink-0">Diente {{ toDot(d.n) }}:</p>
+                                                            <p class="text-sm text-gray-700 whitespace-pre-wrap break-words min-w-0">{{ d.val }}</p>
+                                                        </div>
+                                                    </template>
+                                                    <template v-if="getDientesConContenido(examen.respuesta).some(d => BW_IZQUIERDO_TEMP.includes(d.n))">
+                                                        <div class="px-3 pt-2 pb-1 bg-gray-50"><p class="text-xs italic text-gray-400 font-medium">Temporales</p></div>
+                                                        <div v-for="d in getDientesConContenido(examen.respuesta).filter(d => BW_IZQUIERDO_TEMP.includes(d.n))" :key="d.n"
+                                                            class="flex flex-col sm:flex-row sm:gap-x-4 px-3 py-2">
+                                                            <p class="text-sm font-semibold text-gray-600 sm:w-44 sm:shrink-0">Diente {{ toDot(d.n) }}:</p>
+                                                            <p class="text-sm text-gray-700 whitespace-pre-wrap break-words min-w-0">{{ d.val }}</p>
+                                                        </div>
+                                                    </template>
+                                                </div>
+                                            </div>
+                                        </template>
+                                    </template>
+
+                                    <!-- Bite Wing Unilateral Derecha: solo Lado Derecho -->
+                                    <template v-else-if="isBiteWingUnilateralDerecha(examen)">
+                                        <template v-if="examen.respuesta.campo_2 || examen.respuesta.campo_3 || examen.respuesta.campo_4 ||
+                                            getDientesConContenido(examen.respuesta).some(d => [...BW_DERECHO_PERM, ...BW_DERECHO_TEMP].includes(d.n))">
+                                            <div class="border border-blue-100 rounded-xl overflow-hidden mb-3 mt-2">
+                                                <div class="bg-blue-700 px-4 py-2"><h3 class="text-white font-semibold text-sm">Lado Derecho</h3></div>
+                                                <div class="divide-y divide-gray-50">
+                                                    <div v-if="examen.respuesta.campo_2" class="flex flex-col sm:flex-row sm:gap-x-4 px-3 py-2">
+                                                        <p class="text-sm font-semibold text-gray-600 sm:w-44 sm:shrink-0">Nivel Óseo Marginal:</p>
+                                                        <p class="text-sm text-gray-700 whitespace-pre-wrap break-words min-w-0">{{ examen.respuesta.campo_2 }}</p>
+                                                    </div>
+                                                    <div v-if="examen.respuesta.campo_3" class="flex flex-col sm:flex-row sm:gap-x-4 px-3 py-2">
+                                                        <p class="text-sm font-semibold text-gray-600 sm:w-44 sm:shrink-0">Cálculo dentario marginal:</p>
+                                                        <p class="text-sm text-gray-700 whitespace-pre-wrap break-words min-w-0">{{ examen.respuesta.campo_3 }}</p>
+                                                    </div>
+                                                    <div v-if="examen.respuesta.campo_4" class="flex flex-col sm:flex-row sm:gap-x-4 px-3 py-2">
+                                                        <p class="text-sm font-semibold text-gray-600 sm:w-44 sm:shrink-0">Observaciones:</p>
+                                                        <p class="text-sm text-gray-700 whitespace-pre-wrap break-words min-w-0">{{ examen.respuesta.campo_4 }}</p>
+                                                    </div>
+                                                    <template v-if="getDientesConContenido(examen.respuesta).some(d => BW_DERECHO_PERM.includes(d.n))">
+                                                        <div class="px-3 pt-2 pb-1 bg-gray-50"><p class="text-xs italic text-gray-400 font-medium">Permanentes</p></div>
+                                                        <div v-for="d in getDientesConContenido(examen.respuesta).filter(d => BW_DERECHO_PERM.includes(d.n))" :key="d.n"
+                                                            class="flex flex-col sm:flex-row sm:gap-x-4 px-3 py-2">
+                                                            <p class="text-sm font-semibold text-gray-600 sm:w-44 sm:shrink-0">Diente {{ toDot(d.n) }}:</p>
+                                                            <p class="text-sm text-gray-700 whitespace-pre-wrap break-words min-w-0">{{ d.val }}</p>
+                                                        </div>
+                                                    </template>
+                                                    <template v-if="getDientesConContenido(examen.respuesta).some(d => BW_DERECHO_TEMP.includes(d.n))">
+                                                        <div class="px-3 pt-2 pb-1 bg-gray-50"><p class="text-xs italic text-gray-400 font-medium">Temporales</p></div>
+                                                        <div v-for="d in getDientesConContenido(examen.respuesta).filter(d => BW_DERECHO_TEMP.includes(d.n))" :key="d.n"
+                                                            class="flex flex-col sm:flex-row sm:gap-x-4 px-3 py-2">
+                                                            <p class="text-sm font-semibold text-gray-600 sm:w-44 sm:shrink-0">Diente {{ toDot(d.n) }}:</p>
+                                                            <p class="text-sm text-gray-700 whitespace-pre-wrap break-words min-w-0">{{ d.val }}</p>
+                                                        </div>
+                                                    </template>
+                                                </div>
+                                            </div>
+                                        </template>
+                                    </template>
+
+                                    <!-- Bite Wing Unilateral Izquierda: solo Lado Izquierdo -->
+                                    <template v-else-if="isBiteWingUnilateralIzquierda(examen)">
+                                        <template v-if="examen.respuesta.campo_2 || examen.respuesta.campo_3 || examen.respuesta.campo_4 ||
+                                            getDientesConContenido(examen.respuesta).some(d => [...BW_IZQUIERDO_PERM, ...BW_IZQUIERDO_TEMP].includes(d.n))">
+                                            <div class="border border-blue-100 rounded-xl overflow-hidden mb-3 mt-2">
+                                                <div class="bg-blue-700 px-4 py-2"><h3 class="text-white font-semibold text-sm">Lado Izquierdo</h3></div>
+                                                <div class="divide-y divide-gray-50">
+                                                    <div v-if="examen.respuesta.campo_2" class="flex flex-col sm:flex-row sm:gap-x-4 px-3 py-2">
+                                                        <p class="text-sm font-semibold text-gray-600 sm:w-44 sm:shrink-0">Nivel Óseo Marginal:</p>
+                                                        <p class="text-sm text-gray-700 whitespace-pre-wrap break-words min-w-0">{{ examen.respuesta.campo_2 }}</p>
+                                                    </div>
+                                                    <div v-if="examen.respuesta.campo_3" class="flex flex-col sm:flex-row sm:gap-x-4 px-3 py-2">
+                                                        <p class="text-sm font-semibold text-gray-600 sm:w-44 sm:shrink-0">Cálculo dentario marginal:</p>
+                                                        <p class="text-sm text-gray-700 whitespace-pre-wrap break-words min-w-0">{{ examen.respuesta.campo_3 }}</p>
+                                                    </div>
+                                                    <div v-if="examen.respuesta.campo_4" class="flex flex-col sm:flex-row sm:gap-x-4 px-3 py-2">
+                                                        <p class="text-sm font-semibold text-gray-600 sm:w-44 sm:shrink-0">Observaciones:</p>
+                                                        <p class="text-sm text-gray-700 whitespace-pre-wrap break-words min-w-0">{{ examen.respuesta.campo_4 }}</p>
+                                                    </div>
+                                                    <template v-if="getDientesConContenido(examen.respuesta).some(d => BW_IZQUIERDO_PERM.includes(d.n))">
+                                                        <div class="px-3 pt-2 pb-1 bg-gray-50"><p class="text-xs italic text-gray-400 font-medium">Permanentes</p></div>
+                                                        <div v-for="d in getDientesConContenido(examen.respuesta).filter(d => BW_IZQUIERDO_PERM.includes(d.n))" :key="d.n"
+                                                            class="flex flex-col sm:flex-row sm:gap-x-4 px-3 py-2">
+                                                            <p class="text-sm font-semibold text-gray-600 sm:w-44 sm:shrink-0">Diente {{ toDot(d.n) }}:</p>
+                                                            <p class="text-sm text-gray-700 whitespace-pre-wrap break-words min-w-0">{{ d.val }}</p>
+                                                        </div>
+                                                    </template>
+                                                    <template v-if="getDientesConContenido(examen.respuesta).some(d => BW_IZQUIERDO_TEMP.includes(d.n))">
+                                                        <div class="px-3 pt-2 pb-1 bg-gray-50"><p class="text-xs italic text-gray-400 font-medium">Temporales</p></div>
+                                                        <div v-for="d in getDientesConContenido(examen.respuesta).filter(d => BW_IZQUIERDO_TEMP.includes(d.n))" :key="d.n"
+                                                            class="flex flex-col sm:flex-row sm:gap-x-4 px-3 py-2">
+                                                            <p class="text-sm font-semibold text-gray-600 sm:w-44 sm:shrink-0">Diente {{ toDot(d.n) }}:</p>
+                                                            <p class="text-sm text-gray-700 whitespace-pre-wrap break-words min-w-0">{{ d.val }}</p>
+                                                        </div>
+                                                    </template>
+                                                </div>
+                                            </div>
+                                        </template>
                                     </template>
 
                                     <!-- Retro/BW: secciones Maxilar/Mandíbula con mapeo original campo_2-7 -->
@@ -610,6 +780,15 @@ function getDientesConContenido(respuesta) {
         .filter(n => respuesta[`diente_${n}`])
         .map(n => ({ n, val: respuesta[`diente_${n}`] }));
 }
+
+function isBiteWingBilateral(ex)           { return /bite wing bilateral/i.test(ex?.descripcion ?? ''); }
+function isBiteWingUnilateralDerecha(ex)   { return /bite wing unilateral derecha/i.test(ex?.descripcion ?? ''); }
+function isBiteWingUnilateralIzquierda(ex) { return /bite wing unilateral izquierda/i.test(ex?.descripcion ?? ''); }
+
+const BW_DERECHO_PERM   = [13,14,15,16,17,18,43,44,45,46,47,48];
+const BW_DERECHO_TEMP   = [53,54,55,83,84,85];
+const BW_IZQUIERDO_PERM = [23,24,25,26,27,28,33,34,35,36,37,38];
+const BW_IZQUIERDO_TEMP = [63,64,65,73,74,75];
 
 function eliminarOrden() {
     if (!confirm(`¿Confirma ELIMINAR la orden #${props.order.id}? Esta acción no se puede deshacer.`)) return;
