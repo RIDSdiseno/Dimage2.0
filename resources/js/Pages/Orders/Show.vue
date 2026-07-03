@@ -284,8 +284,8 @@
                                         </div>
                                     </template>
 
-                                    <!-- Bite Wing: campo_1 como Observaciones generales (campo_2-7 van en su propia sección) -->
-                                    <template v-else-if="isBiteWingBilateral(examen) || isBiteWingUnilateralDerecha(examen) || isBiteWingUnilateralIzquierda(examen)">
+                                    <!-- Retro/BW: campo_1 como Observaciones generales (campo_2-7 van en su propia sección) -->
+                                    <template v-else-if="isRetro(examen) || isBiteWingBilateral(examen) || isBiteWingUnilateralDerecha(examen) || isBiteWingUnilateralIzquierda(examen)">
                                         <div v-if="examen.respuesta.campo_1" class="border border-gray-100 rounded-xl overflow-hidden mb-3">
                                             <div class="bg-gray-700 px-4 py-2"><h3 class="text-white font-semibold text-sm">Observaciones generales</h3></div>
                                             <div class="divide-y divide-gray-50">
@@ -781,6 +781,7 @@ function getDientesConContenido(respuesta) {
         .map(n => ({ n, val: respuesta[`diente_${n}`] }));
 }
 
+function isRetro(ex)                       { return /retroalveolar/i.test(ex?.descripcion ?? ''); }
 function isBiteWingBilateral(ex)           { return /bite wing bilateral/i.test(ex?.descripcion ?? ''); }
 function isBiteWingUnilateralDerecha(ex)   { return /bite wing unilateral derecha/i.test(ex?.descripcion ?? ''); }
 function isBiteWingUnilateralIzquierda(ex) { return /bite wing unilateral izquierda/i.test(ex?.descripcion ?? ''); }
