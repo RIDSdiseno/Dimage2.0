@@ -163,7 +163,7 @@ class ExcelController extends Controller
                 }
 
                 $hasAnswer = isset($answeredExamIds[$exam->exam_id]);
-                $isFinal   = in_array((int) $r->estadoradiologo, [1, 2]);
+                $isFinal   = (int) $r->estadoradiologo === 1;
 
                 if ($isCefalo && !empty($urlTexto)) {
                     foreach (explode(',', $urlTexto) as $analysis) {
@@ -556,7 +556,7 @@ class ExcelController extends Controller
             $isRetroUnitaria = str_contains($descLower, 'retroalveolar') && str_contains($descLower, 'unitaria');
             $fileCount       = (int) ($detailFileCounts[$r->exam_id] ?? 0);
             $hasAnswer       = isset($detailAnsweredIds[$r->exam_id]);
-            $isFinal         = in_array((int) $r->estadoradiologo, [1, 2]);
+            $isFinal         = (int) $r->estadoradiologo === 1;
             $piezaCount      = 0;
             if ($isRetroUnitaria && !empty($r->piezas)) {
                 $piezaCount = count(array_filter(array_map('trim', explode(',', $r->piezas))));
