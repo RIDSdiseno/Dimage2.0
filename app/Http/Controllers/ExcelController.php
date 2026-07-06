@@ -77,7 +77,8 @@ class ExcelController extends Controller
                 'orders.estadoradiologo',
                 'orders.created_at',
                 'orders.enviada',
-                'orders.respondida'
+                'orders.respondida',
+                'ose.kind_id'
             )
             ->distinct()
             ->orderByDesc('orders.created_at')
@@ -91,7 +92,7 @@ class ExcelController extends Controller
             ->join('examinations as e', 'e.id', '=', 'eo.examination_id')
             ->join('kinds as k', 'k.id', '=', 'e.kind_id')
             ->whereIn('eo.order_id', $orderIds)
-            ->select('eo.order_id', 'e.id as exam_id', 'k.descipcion', 'e.piezas', 'e.url_texto')
+            ->select('eo.order_id', 'e.id as exam_id', 'k.id as kind_id', 'k.descipcion', 'e.piezas', 'e.url_texto')
             ->get()
             ->groupBy('order_id');
 
@@ -142,6 +143,9 @@ class ExcelController extends Controller
         $expandedRows = [];
         foreach ($rows as $r) {
             $exams = $examinationsData[$r->id] ?? collect();
+            if ($r->kind_id !== null) {
+                $exams = $exams->where('kind_id', $r->kind_id);
+            }
 
             if ($exams->isEmpty()) {
                 $expandedRows[] = ['row' => $r, 'tipo' => '', 'cantInformes' => 0, 'cantRx' => 0, 'cantPiezas' => null];
@@ -506,7 +510,10 @@ class ExcelController extends Controller
             ->join('users as uc', 'uc.id', '=', 'c.user_id')
             ->leftJoin('staffs as od', 'od.id', '=', 'orders.odontologo_id')
             ->leftJoin('users as uod', 'uod.id', '=', 'od.user_id')
-            ->leftJoin('order_staff_exam as ose', 'ose.order_id', '=', 'orders.id')
+            ->leftJoin('order_staff_exam as ose', function ($join) {
+                $join->on('ose.order_id', '=', 'orders.id')
+                     ->on('ose.kind_id', '=', 'k.id');
+            })
             ->leftJoin('staffs as rad', 'rad.id', '=', 'ose.staff_id')
             ->leftJoin('users as urad', 'urad.id', '=', 'rad.user_id')
             ->whereIn('eo.order_id', $filteredOrderIds)
