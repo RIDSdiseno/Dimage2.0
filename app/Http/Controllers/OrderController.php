@@ -564,7 +564,7 @@ class OrderController extends Controller
                 }
             }
 
-            if ($enviar && !empty($assignments)) {
+            if (!empty($assignments)) {
                 $this->insertRadiologoAssignments($order->id, $assignments);
             }
 
@@ -2277,13 +2277,14 @@ class OrderController extends Controller
             if (!empty($result)) return $result;
         }
 
-        // Al enviar: auto-asignar primero (respeta especialistas en kind_staff).
-        // El radiologo_id manual solo sirve para borradores (no enviar).
-        if ($enviar) {
-            return $this->autoAsignarRadiologoPorExamen($clinicId, $kindIds);
+        // Auto-asignar siempre por kind_staff, tanto al guardar como al enviar,
+        // para que el radiólogo quede asignado desde la creación de la orden.
+        $autoAssignments = $this->autoAsignarRadiologoPorExamen($clinicId, $kindIds);
+        if (!empty($autoAssignments)) {
+            return $autoAssignments;
         }
 
-        // Legacy single radiologo_id (solo para guardar borrador)
+        // Fallback: radiologo_id manual (solo para borradores si no hay auto-asignación)
         if ($request->filled('radiologo_id') && $this->canSelectRadiologo($user)) {
             return [['radiologo_id' => (int) $request->radiologo_id, 'kind_ids' => null]];
         }
