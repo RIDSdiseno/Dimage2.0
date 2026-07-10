@@ -157,14 +157,17 @@ class OrderController extends Controller
 
         if (! $order) return response()->json(['error' => 'Orden no encontrada.'], 404);
 
-        // Dentalsoft muestra el RUT con guión: "794350-4".
-        // Enviamos sin puntos pero manteniendo el guión antes del dígito verificador.
+        // El sistema antiguo nunca enviaba id_externo del staff (era campo oculto en el modelo).
+        // DentalSoft siempre valida por RUT. Si se envía profesional_id_externo con un valor,
+        // DentalSoft intenta validar por ID y falla cuando ese ID no existe en su sistema.
+        // Solución: siempre null, igual que el sistema antiguo.
+        $order->profesional_id_externo = null;
+
+        // DentalSoft almacena RUT sin dígito verificador (ej: "794350", no "7943504").
+        // Quitamos el último carácter (DV) para que el lookup funcione.
         $stripRut = function ($rut) {
-            $clean = strtoupper(str_replace('.', '', trim((string) $rut)));
-            if (strpos($clean, '-') === false && strlen($clean) > 1) {
-                $clean = substr($clean, 0, -1) . '-' . substr($clean, -1);
-            }
-            return $clean;
+            $clean = strtoupper(preg_replace('/[^0-9K]/', '', (string) $rut));
+            return \strlen($clean) > 1 ? substr($clean, 0, -1) : $clean;
         };
 
         if (!empty($order->rut_odontologo)) {
@@ -172,17 +175,6 @@ class OrderController extends Controller
         }
         if (!empty($order->profesional_rut)) {
             $order->profesional_rut = $stripRut($order->profesional_rut);
-        }
-
-        // Comportamiento de DentalSoft según el valor de profesional_id_externo:
-        // - null/vacío  → salta validación por ID, valida por rut_odontologo (sin DV).
-        // - valor real  → valida por ese ID externo (RUT no se usa).
-        //
-        // Si no hay id_externo válido, enviamos null para que Dentalsoft valide por RUT.
-        $idExterno = $order->profesional_id_externo;
-        if (empty($idExterno) || $idExterno === '0' || $idExterno === 0) {
-            $order->profesional_id_externo = null;
-            // rut_odontologo se mantiene (sin DV) para que Dentalsoft valide por RUT
         }
 
         // editable en borrador (4) o corrección (2); visitable cuando respondida (1).
