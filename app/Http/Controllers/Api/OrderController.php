@@ -163,11 +163,10 @@ class OrderController extends Controller
         // Solución: siempre null, igual que el sistema antiguo.
         $order->profesional_id_externo = null;
 
-        // DentalSoft almacena RUT sin dígito verificador (ej: "794350", no "7943504").
-        // Quitamos el último carácter (DV) para que el lookup funcione.
+        // Limpiar RUT: sin puntos ni guiones, con dígito verificador incluido.
+        // Ej: "7.838.054-3" → "78380543", "8205841" → "8205841"
         $stripRut = function ($rut) {
-            $clean = strtoupper(preg_replace('/[^0-9K]/', '', (string) $rut));
-            return \strlen($clean) > 1 ? substr($clean, 0, -1) : $clean;
+            return strtoupper(preg_replace('/[^0-9K]/', '', (string) $rut));
         };
 
         if (!empty($order->rut_odontologo)) {
