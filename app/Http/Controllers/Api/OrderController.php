@@ -620,60 +620,74 @@ class OrderController extends Controller
 
         $staffIds = $request->input('staff_ids', []);
 
-        // Si DentalSoft no envía staff_ids, auto-asignar respetando especialistas en kind_staff.
+        // Si DentalSoft envía staff_ids explícitos → usar esos (override intencional).
+        // Si no los envía → respetar la asignación hecha al crear la orden.
+        // Solo auto-asignar si no hay staff_ids ni asignación previa.
         if (empty($staffIds)) {
-            // kind_ids de los exámenes de esta orden
-            $kindIds = DB::table('examination_order as eo')
-                ->join('examinations as e', 'e.id', '=', 'eo.examination_id')
-                ->where('eo.order_id', $id)
-                ->pluck('e.kind_id')
-                ->unique()
-                ->values();
+            $yaAsignados = DB::table('order_staff_exam')
+                ->where('order_id', $id)
+                ->pluck('staff_id')
+                ->all();
 
-            // Buscar especialistas en kind_staff que además estén asignados a esta clínica
-            $especialistas = DB::table('kind_staff as ks')
-                ->join('staffs as s', 's.id', '=', 'ks.staff_id')
-                ->join('clinic_staff as cs', function ($join) use ($order) {
-                    $join->on('cs.staff_id', '=', 's.id')
-                         ->where('cs.clinic_id', $order->clinic_id);
-                })
-                ->whereIn('ks.kind_id', $kindIds)
-                ->where('s.activo', 1)
-                ->select('s.id', 'ks.kind_id')
-                ->selectRaw('(SELECT COUNT(*) FROM order_staff_exam ose2
-                              WHERE ose2.staff_id = s.id AND ose2.respondida = 0) as pending_count')
-                ->orderBy('pending_count')
-                ->get();
+            if (!empty($yaAsignados)) {
+                // Mantener asignación de la creación: no tocar order_staff_exam
+                $staffIds = $yaAsignados;
+                $mantenerAsignacion = true;
+            } else {
+                $mantenerAsignacion = false;
 
-            if ($especialistas->isNotEmpty()) {
-                // Un especialista por kind_id, el de menor carga
-                $assigned = collect();
-                foreach ($kindIds as $kindId) {
-                    $esp = $especialistas->where('kind_id', $kindId)->sortBy('pending_count')->first();
-                    if ($esp && !$assigned->contains($esp->id)) {
-                        $assigned->push($esp->id);
-                    }
-                }
-                $staffIds = $assigned->all();
-            }
+                // Sin asignación previa: auto-asignar por kind_staff
+                $kindIds = DB::table('examination_order as eo')
+                    ->join('examinations as e', 'e.id', '=', 'eo.examination_id')
+                    ->where('eo.order_id', $id)
+                    ->pluck('e.kind_id')
+                    ->unique()
+                    ->values();
 
-            // Sin especialistas: asignar por carga al radiólogo de la clínica
-            if (empty($staffIds)) {
-                $radiologo = DB::table('staffs as s')
-                    ->join('clinic_staff as cs', 'cs.staff_id', '=', 's.id')
-                    ->where('cs.clinic_id', $order->clinic_id)
-                    ->where('s.type_staff', 3)
+                $especialistas = DB::table('kind_staff as ks')
+                    ->join('staffs as s', 's.id', '=', 'ks.staff_id')
+                    ->join('clinic_staff as cs', function ($join) use ($order) {
+                        $join->on('cs.staff_id', '=', 's.id')
+                             ->where('cs.clinic_id', $order->clinic_id);
+                    })
+                    ->whereIn('ks.kind_id', $kindIds)
                     ->where('s.activo', 1)
-                    ->select('s.id')
+                    ->select('s.id', 'ks.kind_id')
                     ->selectRaw('(SELECT COUNT(*) FROM order_staff_exam ose2
                                   WHERE ose2.staff_id = s.id AND ose2.respondida = 0) as pending_count')
                     ->orderBy('pending_count')
-                    ->first();
+                    ->get();
 
-                if ($radiologo) {
-                    $staffIds = [$radiologo->id];
+                if ($especialistas->isNotEmpty()) {
+                    $assigned = collect();
+                    foreach ($kindIds as $kindId) {
+                        $esp = $especialistas->where('kind_id', $kindId)->sortBy('pending_count')->first();
+                        if ($esp && !$assigned->contains($esp->id)) {
+                            $assigned->push($esp->id);
+                        }
+                    }
+                    $staffIds = $assigned->all();
+                }
+
+                if (empty($staffIds)) {
+                    $radiologo = DB::table('staffs as s')
+                        ->join('clinic_staff as cs', 'cs.staff_id', '=', 's.id')
+                        ->where('cs.clinic_id', $order->clinic_id)
+                        ->where('s.type_staff', 3)
+                        ->where('s.activo', 1)
+                        ->select('s.id')
+                        ->selectRaw('(SELECT COUNT(*) FROM order_staff_exam ose2
+                                      WHERE ose2.staff_id = s.id AND ose2.respondida = 0) as pending_count')
+                        ->orderBy('pending_count')
+                        ->first();
+
+                    if ($radiologo) {
+                        $staffIds = [$radiologo->id];
+                    }
                 }
             }
+        } else {
+            $mantenerAsignacion = false;
         }
 
         DB::table('orders')->where('id', $id)->update([
@@ -683,7 +697,7 @@ class OrderController extends Controller
             'updated_at'       => now(),
         ]);
 
-        if (!empty($staffIds)) {
+        if (!empty($staffIds) && empty($mantenerAsignacion)) {
             DB::table('order_staff_exam')->where('order_id', $id)->delete();
 
             foreach ($staffIds as $staffId) {
