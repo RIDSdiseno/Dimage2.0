@@ -157,11 +157,14 @@ class OrderController extends Controller
 
         if (! $order) return response()->json(['error' => 'Orden no encontrada.'], 404);
 
-        // DentalSoft almacena RUT sin dígito verificador (ej: "794350", no "7943504").
-        // Quitamos DV del RUT antes de enviarlo para que el lookup de DentalSoft funcione.
+        // Dentalsoft muestra el RUT con guión: "794350-4".
+        // Enviamos sin puntos pero manteniendo el guión antes del dígito verificador.
         $stripRut = function ($rut) {
-            $clean = strtoupper(preg_replace('/[^0-9K]/', '', (string) $rut));
-            return \strlen($clean) > 1 ? substr($clean, 0, -1) : $clean;
+            $clean = strtoupper(str_replace('.', '', trim((string) $rut)));
+            if (strpos($clean, '-') === false && strlen($clean) > 1) {
+                $clean = substr($clean, 0, -1) . '-' . substr($clean, -1);
+            }
+            return $clean;
         };
 
         if (!empty($order->rut_odontologo)) {
