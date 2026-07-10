@@ -157,11 +157,19 @@ class OrderController extends Controller
 
         if (! $order) return response()->json(['error' => 'Orden no encontrada.'], 404);
 
-        // DentalSoft valida el RUT del profesional quitando el último carácter (DV).
-        // El sistema antiguo devolvía el RUT crudo sin guión (ej: "21545648").
-        // Si agregamos guión ("2154564-8"), DentalSoft quita el "8" pero deja "2154564-" → no matchea.
-        // Solución: devolver el RUT tal como está en la BD, sin insertar guión.
-        // (No se aplica ningún stripRut.)
+        // DentalSoft almacena RUT sin dígito verificador (ej: "794350", no "7943504").
+        // Quitamos DV del RUT antes de enviarlo para que el lookup de DentalSoft funcione.
+        $stripRut = function ($rut) {
+            $clean = strtoupper(preg_replace('/[^0-9K]/', '', (string) $rut));
+            return \strlen($clean) > 1 ? substr($clean, 0, -1) : $clean;
+        };
+
+        if (!empty($order->rut_odontologo)) {
+            $order->rut_odontologo = $stripRut($order->rut_odontologo);
+        }
+        if (!empty($order->profesional_rut)) {
+            $order->profesional_rut = $stripRut($order->profesional_rut);
+        }
 
         // Comportamiento de DentalSoft según el valor de profesional_id_externo:
         // - null/vacío  → salta validación por ID, valida por rut_odontologo (sin DV).
