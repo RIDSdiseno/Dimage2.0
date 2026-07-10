@@ -405,6 +405,7 @@ class OrderController extends Controller
             'prioridad'        => $data['prioridad'],
             'estadoradiologo'  => 4,
             'estadoodontologo' => 4,
+            'trx_number'       => $request->input('trx_number', '') ?? '',
             'created_at'       => now(),
             'updated_at'       => now(),
         ]);
@@ -454,6 +455,9 @@ class OrderController extends Controller
             ]);
         }
 
+        // Asignar radiólogo al crear (igual que sistema antiguo)
+        $this->assignRadiologos($orderId, $data['clinic_id']);
+
         \Log::info('CREATE_ORDER_RESPONSE', [
             'order_id' => $orderId
         ]);
@@ -464,9 +468,11 @@ class OrderController extends Controller
             'orden' => [
                 'id' => $orderId
             ],
-            'id' => $orderId,
-            'order_id' => $orderId,
-            'message' => 'Orden creada.'
+            'id'        => $orderId,
+            'order_id'  => $orderId,
+            'referencia' => $orderId,
+            'mensaje'   => 'Orden generada exitosamente',
+            'message'   => 'Orden creada.'
         ], 201);
     }
 
@@ -682,9 +688,10 @@ class OrderController extends Controller
         }
 
         DB::table('orders')->where('id', $id)->update([
-            'estadoradiologo' => 0,
-            'enviada'         => now(),
-            'updated_at'      => now(),
+            'estadoradiologo'  => 0,
+            'estadoodontologo' => 0,
+            'enviada'          => now(),
+            'updated_at'       => now(),
         ]);
 
         if (!empty($staffIds)) {
@@ -706,7 +713,11 @@ class OrderController extends Controller
             'staff_ids' => $staffIds,
         ]);
 
-        return response()->json(['message' => 'Orden enviada al radiólogo.']);
+        return response()->json([
+            'message'    => 'Orden enviada al radiólogo.',
+            'mensaje'    => 'Orden enviada exitosamente a radiólogo',
+            'referencia' => $id,
+        ]);
     }
 
     // POST /api/v3/order/{id}/answers
@@ -892,6 +903,36 @@ class OrderController extends Controller
 
         if (! $radiologo) {
             return response()->json(['error' => "Radiólogo con RUT $rutInput no encontrado en este holding."], 404);
+        }
+
+        // Validar que el radiólogo tiene permiso para los tipos de examen de la orden
+        $kindIds = DB::table('examination_order as eo')
+            ->join('examinations as e', 'e.id', '=', 'eo.examination_id')
+            ->where('eo.order_id', $id)
+            ->pluck('e.kind_id')
+            ->unique()
+            ->values();
+
+        if ($kindIds->isNotEmpty()) {
+            $kindsCubiertos = DB::table('kind_staff')
+                ->where('staff_id', $radiologo->id)
+                ->whereIn('kind_id', $kindIds)
+                ->pluck('kind_id')
+                ->unique()
+                ->values();
+
+            $kindsFaltantes = $kindIds->diff($kindsCubiertos);
+
+            if ($kindsFaltantes->isNotEmpty()) {
+                $nombres = DB::table('kinds')
+                    ->whereIn('id', $kindsFaltantes)
+                    ->pluck('descipcion')
+                    ->implode(', ');
+
+                return response()->json([
+                    'error' => "El radiólogo no tiene permiso para los siguientes tipos de examen: $nombres.",
+                ], 422);
+            }
         }
 
         DB::table('order_staff_exam')
@@ -1170,7 +1211,12 @@ class OrderController extends Controller
             ]);
         }
 
-        return response()->json(['message' => 'Orden actualizada.', 'orden' => ['id' => $id]]);
+        return response()->json([
+            'message'    => 'Orden actualizada.',
+            'mensaje'    => 'Orden editada exitosamente',
+            'referencia' => $id,
+            'orden'      => ['id' => $id],
+        ]);
     }
 
     // GET /api/v3/order/pdf/{id}
@@ -1373,5 +1419,72 @@ class OrderController extends Controller
             return is_string($t) && $t !== '' ? $t : null;
         }
         return null;
+    }
+
+    private function assignRadiologos(int $orderId, $clinicId): void
+    {
+        $kindIds = DB::table('examination_order as eo')
+            ->join('examinations as e', 'e.id', '=', 'eo.examination_id')
+            ->where('eo.order_id', $orderId)
+            ->pluck('e.kind_id')
+            ->unique()
+            ->values();
+
+        $staffIds = [];
+
+        if ($kindIds->isNotEmpty()) {
+            $especialistas = DB::table('kind_staff as ks')
+                ->join('staffs as s', 's.id', '=', 'ks.staff_id')
+                ->join('clinic_staff as cs', function ($join) use ($clinicId) {
+                    $join->on('cs.staff_id', '=', 's.id')
+                         ->where('cs.clinic_id', $clinicId);
+                })
+                ->whereIn('ks.kind_id', $kindIds)
+                ->where('s.activo', 1)
+                ->select('s.id', 'ks.kind_id')
+                ->selectRaw('(SELECT COUNT(*) FROM order_staff_exam ose2 WHERE ose2.staff_id = s.id AND ose2.respondida = 0) as pending_count')
+                ->orderBy('pending_count')
+                ->get();
+
+            if ($especialistas->isNotEmpty()) {
+                $assigned = collect();
+                foreach ($kindIds as $kindId) {
+                    $esp = $especialistas->where('kind_id', $kindId)->sortBy('pending_count')->first();
+                    if ($esp && !$assigned->contains($esp->id)) {
+                        $assigned->push($esp->id);
+                    }
+                }
+                $staffIds = $assigned->all();
+            }
+        }
+
+        if (empty($staffIds)) {
+            $radiologo = DB::table('staffs as s')
+                ->join('clinic_staff as cs', 'cs.staff_id', '=', 's.id')
+                ->where('cs.clinic_id', $clinicId)
+                ->where('s.type_staff', 3)
+                ->where('s.activo', 1)
+                ->select('s.id')
+                ->selectRaw('(SELECT COUNT(*) FROM order_staff_exam ose2 WHERE ose2.staff_id = s.id AND ose2.respondida = 0) as pending_count')
+                ->orderBy('pending_count')
+                ->first();
+
+            if ($radiologo) {
+                $staffIds = [$radiologo->id];
+            }
+        }
+
+        if (!empty($staffIds)) {
+            DB::table('order_staff_exam')->where('order_id', $orderId)->delete();
+            foreach ($staffIds as $staffId) {
+                DB::table('order_staff_exam')->insertOrIgnore([
+                    'order_id'   => $orderId,
+                    'staff_id'   => (int) $staffId,
+                    'group_exam' => 1,
+                    'kind_id'    => null,
+                    'respondida' => 0,
+                ]);
+            }
+        }
     }
 }
