@@ -22,9 +22,12 @@ class ProcessCbctZip implements ShouldQueue
     public function handle(): void
     {
         // Preserve original ZIP path so download() can serve the full CBCT ZIP
-        DB::table('files')->where('id', $this->fileId)->update([
-            'nombre_dcm' => $this->zipS3Path,
-        ]);
+        // Only update nombre_dcm if zipS3Path is actually a ZIP (guards against re-dispatch with stale ruta)
+        if (strtolower(pathinfo($this->zipS3Path, PATHINFO_EXTENSION)) === 'zip') {
+            DB::table('files')->where('id', $this->fileId)->update([
+                'nombre_dcm' => $this->zipS3Path,
+            ]);
+        }
 
         $tmpZip = tempnam(sys_get_temp_dir(), 'cbct_') . '.zip';
         $tmpDir = sys_get_temp_dir() . '/cbct_' . uniqid();
