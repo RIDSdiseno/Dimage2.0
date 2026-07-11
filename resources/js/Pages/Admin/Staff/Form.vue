@@ -120,15 +120,15 @@
                     </h2>
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
 
-                        <!-- RUT con formato y validación -->
+                        <!-- RUT / C.I. con formato y validación -->
                         <div>
-                            <label class="block text-sm font-medium mb-1">RUT</label>
+                            <label class="block text-sm font-medium mb-1">{{ terms.id_label }}</label>
                             <InputText
                                 :value="rutDisplay"
                                 @input="onRutInput"
                                 @blur="onRutBlur"
                                 class="w-full"
-                                placeholder="12.345.678-9"
+                                :placeholder="terms.id_placeholder"
                                 :class="{ 'p-invalid': rutError }"
                             />
                             <small v-if="rutError" class="text-red-500">{{ rutError }}</small>
@@ -313,6 +313,7 @@ import MultiSelect from 'primevue/multiselect';
 import Select from 'primevue/select';
 import Checkbox from 'primevue/checkbox';
 import Message from 'primevue/message';
+import { useTerms } from '@/composables/useTerms';
 
 const props = defineProps({
     staff:        Object,
@@ -325,8 +326,9 @@ const props = defineProps({
 const esRadiologo  = computed(() => props.tipo?.type_staff === 3);
 const esTecnico    = computed(() => props.tipo?.type_staff === 11);
 const esOdontologo = computed(() => props.tipo?.type_staff === 6);
-// Operador = técnico u odontólogo (ambos tienen los mismos permisos configurables)
 const esOperador   = computed(() => esTecnico.value || esOdontologo.value);
+
+const { region, terms } = useTerms();
 
 // ── Códigos de país ───────────────────────────────────────────────────────────
 // iso: código ISO 3166-1 alpha-2 en minúsculas (usado por flag-icons: class="fi fi-{iso}")
@@ -414,50 +416,25 @@ const initialPhone    = parsePhone(props.staff?.telephone ?? '');
 const selectedCountry = ref(initialPhone.country);
 const phoneRaw        = ref(initialPhone.number);
 
-// ── RUT ───────────────────────────────────────────────────────────────────────
-const formatRut = (value) => {
-    if (!value) return '';
-    const clean = value.replace(/[^0-9kK]/g, '').toUpperCase();
-    if (clean.length < 2) return clean;
-    const dv   = clean.slice(-1);
-    const body = clean.slice(0, -1);
-    let formatted = '';
-    for (let i = body.length - 1, n = 0; i >= 0; i--, n++) {
-        if (n > 0 && n % 3 === 0) formatted = '.' + formatted;
-        formatted = body[i] + formatted;
-    }
-    return formatted + '-' + dv;
-};
-
-const validarRut = (rut) => {
-    if (!rut) return true;
-    const clean = rut.replace(/[.\-]/g, '').toUpperCase();
-    if (clean.length < 2) return false;
-    const body = clean.slice(0, -1);
-    const dv   = clean.slice(-1);
-    if (!/^\d+$/.test(body)) return false;
-    let sum = 0, factor = 2;
-    for (let i = body.length - 1; i >= 0; i--) {
-        sum += parseInt(body[i]) * factor;
-        factor = factor === 7 ? 2 : factor + 1;
-    }
-    const rem      = sum % 11;
-    const expected = rem === 0 ? '0' : rem === 1 ? 'K' : String(11 - rem);
-    return expected === dv;
-};
-
-const rutDisplay = ref(props.staff?.rut ? formatRut(props.staff.rut) : '');
+// ── RUT / C.I. ────────────────────────────────────────────────────────────────
+const rutDisplay = ref(props.staff?.rut ? terms.value.formatId(props.staff.rut.replace(/[.\-]/g, '')) : '');
 const rutError   = ref('');
 
+// Limpiar el campo si cambia la región para evitar formatos inválidos
+watch(region, () => {
+    rutDisplay.value = '';
+    rutError.value   = '';
+});
+
 const onRutInput = (event) => {
-    rutDisplay.value = formatRut(event.target.value);
+    rutDisplay.value = terms.value.formatId(event.target.value);
     rutError.value   = '';
 };
 
 const onRutBlur = () => {
-    if (rutDisplay.value && !validarRut(rutDisplay.value)) {
-        rutError.value = 'RUT inválido';
-    }
+    if (!rutDisplay.value) return;
+    const err = terms.value.validateId(rutDisplay.value, false);
+    rutError.value = err ?? '';
 };
 
 // ── Firma ─────────────────────────────────────────────────────────────────────
@@ -570,9 +547,9 @@ watch([selectedCountry, phoneRaw], ([country, number]) => {
 });
 
 const submit = () => {
-    if (rutDisplay.value && !validarRut(rutDisplay.value)) {
-        rutError.value = 'RUT inválido';
-        return;
+    if (rutDisplay.value) {
+        const err = terms.value.validateId(rutDisplay.value, false);
+        if (err) { rutError.value = err; return; }
     }
     form.rut = rutDisplay.value;
 

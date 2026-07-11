@@ -26,13 +26,13 @@ class RadiologoController extends Controller
             return response()->json(['error' => 'Radiólogo no encontrado.'], 404);
         }
 
-        return response()->json($this->format($row));
+        return response()->json($this->format($row, (int) $holdingId));
     }
 
     // GET /api/v3/radiologo/by-holding
     public function findByHolding(Request $request)
     {
-        $holdingId = $request->_holding_id;
+        $holdingId = (int) $request->_holding_id;
 
         $rows = $this->baseQuery()
             ->join('clinic_staff as cs', 'cs.staff_id', '=', 's.id')
@@ -40,7 +40,7 @@ class RadiologoController extends Controller
             ->where('c.holding_id', $holdingId)
             ->orderBy('u.name')
             ->get()
-            ->map(fn ($r) => $this->format($r));
+            ->map(fn ($r) => $this->format($r, $holdingId));
 
         return response()->json($rows);
     }
@@ -211,18 +211,58 @@ class RadiologoController extends Controller
         return DB::table('staffs as s')
             ->join('users as u', 'u.id', '=', 's.user_id')
             ->where('s.type_staff', 3)
-            ->select('s.id as staff_id', 'u.id as user_id', 'u.name', 'u.mail as email', 's.rut', 's.activo')
+            ->select('s.id as staff_id', 'u.id as user_id', 'u.name', 'u.mail as email', 's.rut', 's.activo', 'u.status', 'u.photo')
             ->distinct();
     }
 
-    private function format(object $r): array
+    private function format(object $r, ?int $holdingId = null): array
     {
+        // Clínicas del holding donde está asignado (igual que sistema antiguo)
+        $clinicasQuery = DB::table('clinic_staff as cs')
+            ->join('clinics as c', 'c.id', '=', 'cs.clinic_id')
+            ->join('users as uc', 'uc.id', '=', 'c.user_id')
+            ->where('cs.staff_id', $r->staff_id);
+
+        if ($holdingId) {
+            $clinicasQuery->where('c.holding_id', $holdingId);
+        }
+
+        $clinicas = $clinicasQuery->select('c.id', 'uc.name')->get()
+            ->map(fn ($c) => ['id' => $c->id, 'name' => $c->name])
+            ->values()
+            ->all();
+
+        // Grupos de exámenes asignados (kind_staff)
+        $grupos = DB::table('kind_staff')
+            ->where('staff_id', $r->staff_id)
+            ->pluck('kind_id')
+            ->map(fn ($kid) => ['id' => $kid])
+            ->values()
+            ->all();
+
+        // URL de firma (foto del usuario)
+        $firma = null;
+        if (! empty($r->photo)) {
+            try {
+                $firma = Storage::disk('s3')->temporaryUrl($r->photo, now()->addHours(4));
+            } catch (\Exception $e) {
+                $firma = null;
+            }
+        }
+
         return [
+            // Campos compatibles con sistema antiguo
+            'id'       => $r->staff_id,
+            'name'     => $r->name,
+            'rut'      => $r->rut,
+            'status'   => (int) $r->status,
+            'firma'    => $firma,
+            'clinicas' => $clinicas,
+            'grupos'   => $grupos,
+            // Campos adicionales del sistema nuevo (no rompen compatibilidad)
             'staff_id' => $r->staff_id,
             'user_id'  => $r->user_id,
-            'name'     => $r->name,
             'email'    => $r->email,
-            'rut'      => $r->rut,
             'activo'   => (bool) $r->activo,
         ];
     }

@@ -66,6 +66,26 @@
                             <InputText v-model="form.telefonoresponsable" class="w-full" />
                         </div>
 
+                        <!-- Logo -->
+                        <div class="md:col-span-2">
+                            <label class="block text-sm font-medium mb-1">Logo del Holding</label>
+                            <div class="flex items-start gap-4">
+                                <div v-if="logoPreview" class="shrink-0">
+                                    <img :src="logoPreview" alt="Logo" class="h-20 w-auto object-contain border border-gray-200 rounded p-1 bg-gray-50" />
+                                </div>
+                                <div class="flex-1">
+                                    <input
+                                        type="file"
+                                        accept="image/*"
+                                        class="block w-full text-sm text-gray-500 file:mr-3 file:py-1.5 file:px-3 file:rounded file:border-0 file:text-sm file:font-medium file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
+                                        @change="onLogoChange"
+                                    />
+                                    <p class="text-xs text-gray-400 mt-1">PNG, JPG o GIF. Máximo 2 MB. Aparece en el encabezado del PDF del informe.</p>
+                                    <small class="text-red-500">{{ form.errors.logo }}</small>
+                                </div>
+                            </div>
+                        </div>
+
                         <div class="md:col-span-2">
                             <label class="block text-sm font-medium mb-1">País *</label>
                             <div class="flex gap-3">
@@ -107,6 +127,7 @@
 </template>
 
 <script setup>
+import { ref, computed } from 'vue';
 import { Link, useForm } from '@inertiajs/vue3';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import Button from 'primevue/button';
@@ -130,11 +151,22 @@ const form = useForm({
     emailresponsable:    props.holding?.emailresponsable ?? '',
     telefonoresponsable: props.holding?.telefonoresponsable ?? '',
     pais:                props.holding?.pais ?? 'CL',
+    logo:                null,
 });
+
+const localPreview = ref(null);
+const logoPreview = computed(() => localPreview.value ?? props.holding?.logo_url ?? null);
+
+const onLogoChange = (e) => {
+    const file = e.target.files[0] ?? null;
+    form.logo = file;
+    localPreview.value = file ? URL.createObjectURL(file) : null;
+};
 
 const submit = () => {
     if (props.holding) {
-        form.put(route('admin.holdings.update', props.holding.id));
+        form.transform(data => ({ ...data, _method: 'put' }))
+            .post(route('admin.holdings.update', props.holding.id));
     } else {
         form.post(route('admin.holdings.store'));
     }

@@ -77,7 +77,8 @@ class ExcelController extends Controller
                 'orders.estadoradiologo',
                 'orders.created_at',
                 'orders.enviada',
-                'orders.respondida'
+                'orders.respondida',
+                'ose.kind_id'
             )
             ->distinct()
             ->orderByDesc('orders.created_at')
@@ -91,9 +92,18 @@ class ExcelController extends Controller
             ->join('examinations as e', 'e.id', '=', 'eo.examination_id')
             ->join('kinds as k', 'k.id', '=', 'e.kind_id')
             ->whereIn('eo.order_id', $orderIds)
-            ->select('eo.order_id', 'e.id as exam_id', 'k.descipcion', 'e.piezas', 'e.url_texto')
+            ->select('eo.order_id', 'e.id as exam_id', 'k.id as kind_id', 'k.descipcion', 'e.piezas', 'e.url_texto')
             ->get()
             ->groupBy('order_id');
+
+        // Exam IDs que tienen informe real completado en la tabla answers
+        $answeredExamIds = DB::table('answers')
+            ->whereIn('examination_id',
+                $examinationsData->flatten()->pluck('exam_id')->unique()->values()
+            )
+            ->pluck('examination_id')
+            ->flip()
+            ->all();
 
         // Rx file count per examination (Cant. de Rx = files uploaded by clinic, not informe)
         $fileCountsPerExam = DB::table('files as f')
@@ -133,6 +143,9 @@ class ExcelController extends Controller
         $expandedRows = [];
         foreach ($rows as $r) {
             $exams = $examinationsData[$r->id] ?? collect();
+            if ($r->kind_id !== null) {
+                $exams = $exams->where('kind_id', $r->kind_id);
+            }
 
             if ($exams->isEmpty()) {
                 $expandedRows[] = ['row' => $r, 'tipo' => '', 'cantInformes' => 0, 'cantRx' => 0, 'cantPiezas' => null];
@@ -153,6 +166,9 @@ class ExcelController extends Controller
                     $piezaCount = count(array_filter(array_map('trim', explode(',', $piezasStr))));
                 }
 
+                $hasAnswer = isset($answeredExamIds[$exam->exam_id]);
+                $isFinal   = (int) $r->estadoradiologo === 1;
+
                 if ($isCefalo && !empty($urlTexto)) {
                     foreach (explode(',', $urlTexto) as $analysis) {
                         $analysis = trim($analysis);
@@ -160,7 +176,7 @@ class ExcelController extends Controller
                             $expandedRows[] = [
                                 'row'          => $r,
                                 'tipo'         => $desc . ' - ' . $analysis,
-                                'cantInformes' => 1,
+                                'cantInformes' => ($hasAnswer && $isFinal) ? 1 : 0,
                                 'cantRx'       => $fileCount,
                                 'cantPiezas'   => null,
                             ];
@@ -170,10 +186,8 @@ class ExcelController extends Controller
                     $expandedRows[] = [
                         'row'          => $r,
                         'tipo'         => $desc,
-                        // Retroalveolar Unitaria: cantInformes = pieza count; all others = 1
-                        'cantInformes' => $isRetroUnitaria ? max($piezaCount, 1) : 1,
+                        'cantInformes' => ($hasAnswer && $isFinal) ? ($isRetroUnitaria ? max($piezaCount, 1) : 1) : 0,
                         'cantRx'       => $fileCount,
-                        // Piezas column: only for Retroalveolar Unitaria
                         'cantPiezas'   => $isRetroUnitaria ? $piezaCount : null,
                     ];
                 }
@@ -496,7 +510,10 @@ class ExcelController extends Controller
             ->join('users as uc', 'uc.id', '=', 'c.user_id')
             ->leftJoin('staffs as od', 'od.id', '=', 'orders.odontologo_id')
             ->leftJoin('users as uod', 'uod.id', '=', 'od.user_id')
-            ->leftJoin('order_staff_exam as ose', 'ose.order_id', '=', 'orders.id')
+            ->leftJoin('order_staff_exam as ose', function ($join) {
+                $join->on('ose.order_id', '=', 'orders.id')
+                     ->on('ose.kind_id', '=', 'k.id');
+            })
             ->leftJoin('staffs as rad', 'rad.id', '=', 'ose.staff_id')
             ->leftJoin('users as urad', 'urad.id', '=', 'rad.user_id')
             ->whereIn('eo.order_id', $filteredOrderIds)
@@ -531,6 +548,13 @@ class ExcelController extends Controller
             ->groupBy('f.examination_id')
             ->pluck('cnt', 'examination_id');
 
+        // Exam IDs que tienen informe real completado (para detalle)
+        $detailAnsweredIds = DB::table('answers')
+            ->whereIn('examination_id', $detailExamIds->values())
+            ->pluck('examination_id')
+            ->flip()
+            ->all();
+
         // Expand cefalométrico by analysis types in detail rows
         $detailRows = [];
         foreach ($detailRaw as $r) {
@@ -538,6 +562,8 @@ class ExcelController extends Controller
             $isCefalo        = str_contains($descLower, 'cefalom');
             $isRetroUnitaria = str_contains($descLower, 'retroalveolar') && str_contains($descLower, 'unitaria');
             $fileCount       = (int) ($detailFileCounts[$r->exam_id] ?? 0);
+            $hasAnswer       = isset($detailAnsweredIds[$r->exam_id]);
+            $isFinal         = (int) $r->estadoradiologo === 1;
             $piezaCount      = 0;
             if ($isRetroUnitaria && !empty($r->piezas)) {
                 $piezaCount = count(array_filter(array_map('trim', explode(',', $r->piezas))));
@@ -549,7 +575,7 @@ class ExcelController extends Controller
                     if ($analysis) {
                         $detailRows[] = array_merge((array) $r, [
                             'tipo_display' => $r->tipo . ' - ' . $analysis,
-                            'cantInformes' => 1,
+                            'cantInformes' => ($hasAnswer && $isFinal) ? 1 : 0,
                             'cantRx'       => $fileCount,
                             'cantPiezas'   => null,
                         ]);
@@ -558,7 +584,7 @@ class ExcelController extends Controller
             } else {
                 $detailRows[] = array_merge((array) $r, [
                     'tipo_display' => $r->tipo,
-                    'cantInformes' => $isRetroUnitaria ? max($piezaCount, 1) : 1,
+                    'cantInformes' => ($hasAnswer && $isFinal) ? ($isRetroUnitaria ? max($piezaCount, 1) : 1) : 0,
                     'cantRx'       => $fileCount,
                     'cantPiezas'   => $isRetroUnitaria ? $piezaCount : null,
                 ]);

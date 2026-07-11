@@ -67,6 +67,26 @@
                             <InputText v-model="form.telephoneone" class="w-full" />
                         </div>
 
+                        <!-- Logo -->
+                        <div class="md:col-span-2">
+                            <label class="block text-sm font-medium mb-1">Logo de la Clínica</label>
+                            <div class="flex items-start gap-4">
+                                <div v-if="logoPreview" class="shrink-0">
+                                    <img :src="logoPreview" alt="Logo" class="h-20 w-auto object-contain border border-gray-200 rounded p-1 bg-gray-50" />
+                                </div>
+                                <div class="flex-1">
+                                    <input
+                                        type="file"
+                                        accept="image/*"
+                                        class="block w-full text-sm text-gray-500 file:mr-3 file:py-1.5 file:px-3 file:rounded file:border-0 file:text-sm file:font-medium file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
+                                        @change="onLogoChange"
+                                    />
+                                    <p class="text-xs text-gray-400 mt-1">PNG, JPG o GIF. Máximo 2 MB.</p>
+                                    <small class="text-red-500">{{ form.errors.logo }}</small>
+                                </div>
+                            </div>
+                        </div>
+
                     </div>
 
                     <!-- Permisos -->
@@ -100,6 +120,7 @@
 </template>
 
 <script setup>
+import { ref, computed } from 'vue';
 import { Link, useForm } from '@inertiajs/vue3';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import Button from 'primevue/button';
@@ -114,19 +135,32 @@ const props = defineProps({
 });
 
 const form = useForm({
-    name:                    props.clinica?.name ?? '',
-    username:                props.clinica?.username ?? '',
-    password:                '',
-    holding_id:              props.clinica?.holding_id ?? null,
-    address:                 props.clinica?.address ?? '',
-    telephoneone:            props.clinica?.telephoneone ?? '',
+    name:                        props.clinica?.name ?? '',
+    username:                    props.clinica?.username ?? '',
+    password:                    '',
+    holding_id:                  props.clinica?.holding_id ?? null,
+    address:                     props.clinica?.address ?? '',
+    telephoneone:                props.clinica?.telephoneone ?? '',
     puede_seleccionar_radiologo: props.clinica?.puede_seleccionar_radiologo ?? false,
-    puede_ver_menu_busqueda: props.clinica?.puede_ver_menu_busqueda ?? false,
+    puede_ver_menu_busqueda:     props.clinica?.puede_ver_menu_busqueda ?? false,
+    logo:                        null,
 });
+
+// Muestra logo existente del servidor o preview del archivo seleccionado
+const localPreview = ref(null);
+const logoPreview = computed(() => localPreview.value ?? props.clinica?.logo_url ?? null);
+
+const onLogoChange = (e) => {
+    const file = e.target.files[0] ?? null;
+    form.logo = file;
+    localPreview.value = file ? URL.createObjectURL(file) : null;
+};
 
 const submit = () => {
     if (props.clinica) {
-        form.put(route('admin.clinicas.update', props.clinica.id));
+        // _method spoofing necesario para file uploads con PUT en Laravel
+        form.transform(data => ({ ...data, _method: 'put' }))
+            .post(route('admin.clinicas.update', props.clinica.id));
     } else {
         form.post(route('admin.clinicas.store'));
     }

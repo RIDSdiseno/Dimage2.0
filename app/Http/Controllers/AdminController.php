@@ -426,9 +426,15 @@ class AdminController extends Controller
             'name'     => ['required', 'min:2'],
             'username' => ['required', 'unique:users,username'],
             'pais'     => ['required', 'in:CL,UY'],
+            'logo'     => ['nullable', 'image', 'max:2048'],
         ]);
 
-        DB::transaction(function () use ($request) {
+        $logoPath = null;
+        if ($request->hasFile('logo')) {
+            $logoPath = $request->file('logo')->store('holding-logos', 'public');
+        }
+
+        DB::transaction(function () use ($request, $logoPath) {
             $userId = DB::table('users')->insertGetId([
                 'name'       => trim($request->name),
                 'username'   => trim($request->username),
@@ -448,6 +454,7 @@ class AdminController extends Controller
                 'emailresponsable'    => trim($request->emailresponsable ?? ''),
                 'telefonoresponsable' => trim($request->telefonoresponsable ?? ''),
                 'pais'                => $request->pais,
+                'logo'                => $logoPath,
                 'created_at'          => now(),
                 'updated_at'          => now(),
             ]);
@@ -472,7 +479,8 @@ class AdminController extends Controller
                 'holdings.emailresponsable',
                 'holdings.telefonoresponsable',
                 'holdings.representantelegal',
-                'holdings.pais'
+                'holdings.pais',
+                'holdings.logo'
             )
             ->where('holdings.id', $id)
             ->first();
@@ -492,6 +500,7 @@ class AdminController extends Controller
                 'telefonoresponsable' => $h->telefonoresponsable,
                 'representantelegal'  => $h->representantelegal,
                 'pais'                => $h->pais ?? 'CL',
+                'logo_url'            => $h->logo ? \Illuminate\Support\Facades\Storage::disk('public')->url($h->logo) : null,
             ],
         ]);
     }
@@ -508,9 +517,18 @@ class AdminController extends Controller
         $request->validate([
             'name' => ['required', 'min:2'],
             'pais' => ['required', 'in:CL,UY'],
+            'logo' => ['nullable', 'image', 'max:2048'],
         ]);
 
-        DB::transaction(function () use ($request, $h) {
+        $logoPath = $h->logo;
+        if ($request->hasFile('logo')) {
+            if ($h->logo) {
+                \Illuminate\Support\Facades\Storage::disk('public')->delete($h->logo);
+            }
+            $logoPath = $request->file('logo')->store('holding-logos', 'public');
+        }
+
+        DB::transaction(function () use ($request, $h, $logoPath) {
             $userData = [
                 'name'       => trim($request->name),
                 'mail'       => trim($request->emailresponsable ?? ''),
@@ -528,6 +546,7 @@ class AdminController extends Controller
                 'emailresponsable'    => trim($request->emailresponsable ?? ''),
                 'telefonoresponsable' => trim($request->telefonoresponsable ?? ''),
                 'pais'                => $request->pais,
+                'logo'                => $logoPath,
                 'updated_at'          => now(),
             ]);
         });
@@ -1030,9 +1049,15 @@ class AdminController extends Controller
             'name'       => ['required', 'min:2'],
             'username'   => ['required', 'unique:users,username'],
             'holding_id' => ['required', 'integer'],
+            'logo'       => ['nullable', 'image', 'max:2048'],
         ]);
 
-        DB::transaction(function () use ($request) {
+        $logoPath = null;
+        if ($request->hasFile('logo')) {
+            $logoPath = $request->file('logo')->store('clinic-logos', 'public');
+        }
+
+        DB::transaction(function () use ($request, $logoPath) {
             $userId = DB::table('users')->insertGetId([
                 'name'       => trim($request->name),
                 'username'   => trim($request->username),
@@ -1046,17 +1071,17 @@ class AdminController extends Controller
             ]);
 
             DB::table('clinics')->insert([
-                'user_id'    => $userId,
-                'holding_id' => (int) $request->holding_id,
-                'address'    => trim($request->address ?? ''),
+                'user_id'      => $userId,
+                'holding_id'   => (int) $request->holding_id,
+                'address'      => trim($request->address ?? ''),
                 'telephoneone' => trim($request->telephoneone ?? ''),
                 'telephonetwo' => '',
                 'responsable'  => '',
+                'logo'         => $logoPath,
                 'created_at'   => now(),
                 'updated_at'   => now(),
             ]);
 
-            // Guardar permisos en staffs (type_staff=4 para clínica)
             DB::table('staffs')->insertOrIgnore([
                 'user_id'                    => $userId,
                 'type_staff'                 => 4,
@@ -1085,7 +1110,8 @@ class AdminController extends Controller
                 'users.username',
                 'clinics.holding_id',
                 'clinics.address',
-                'clinics.telephoneone'
+                'clinics.telephoneone',
+                'clinics.logo'
             )
             ->where('clinics.id', $id)
             ->first();
@@ -1112,6 +1138,7 @@ class AdminController extends Controller
                 'holding_id'                  => $c->holding_id,
                 'address'                     => $c->address,
                 'telephoneone'                => $c->telephoneone,
+                'logo_url'                    => $c->logo ? \Illuminate\Support\Facades\Storage::disk('public')->url($c->logo) : null,
                 'puede_seleccionar_radiologo' => (bool) ($staffPerms->puede_seleccionar_radiologo ?? false),
                 'puede_ver_menu_busqueda'     => (bool) ($staffPerms->puede_ver_menu_busqueda     ?? false),
             ],
@@ -1131,9 +1158,18 @@ class AdminController extends Controller
         $request->validate([
             'name'       => ['required', 'min:2'],
             'holding_id' => ['required', 'integer'],
+            'logo'       => ['nullable', 'image', 'max:2048'],
         ]);
 
-        DB::transaction(function () use ($request, $c) {
+        $logoPath = $c->logo;
+        if ($request->hasFile('logo')) {
+            if ($c->logo) {
+                \Illuminate\Support\Facades\Storage::disk('public')->delete($c->logo);
+            }
+            $logoPath = $request->file('logo')->store('clinic-logos', 'public');
+        }
+
+        DB::transaction(function () use ($request, $c, $logoPath) {
             $userData = ['name' => trim($request->name), 'updated_at' => now()];
             if ($request->filled('password')) {
                 $userData['password'] = bcrypt($request->password);
@@ -1144,6 +1180,7 @@ class AdminController extends Controller
                 'holding_id'   => (int) $request->holding_id,
                 'address'      => trim($request->address ?? ''),
                 'telephoneone' => trim($request->telephoneone ?? ''),
+                'logo'         => $logoPath,
                 'updated_at'   => now(),
             ]);
 

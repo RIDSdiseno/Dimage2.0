@@ -29,6 +29,7 @@ Route::prefix('v3')->middleware('auth.api')->group(function () {
     Route::post('/order/{id}/files/{examinationId}', [OrderController::class, 'uploadFiles']);
     Route::delete('/order/file/{fileId}',            [OrderController::class, 'deleteFile']);
     Route::patch('/order/{id}/send/radiologo',       [OrderController::class, 'sendToRadiologo']);
+    Route::patch('/order/{id}/radiologo',            [OrderController::class, 'changeRadiologo']);
     Route::post('/order/{id}/answers',               [OrderController::class, 'saveAnswers']);
     Route::get('/order/pdf/{id}',                    [OrderController::class, 'generatePdf']);
     Route::get('/order/zip/{id}',                    [OrderController::class, 'generateZip']);

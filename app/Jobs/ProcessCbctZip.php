@@ -32,6 +32,7 @@ class ProcessCbctZip implements ShouldQueue
         $tmpZip = tempnam(sys_get_temp_dir(), 'cbct_') . '.zip';
         $tmpDir = sys_get_temp_dir() . '/cbct_' . uniqid();
 
+        $updated = false;
         try {
             $stream = Storage::disk('s3')->readStream($this->zipS3Path);
             if (! is_resource($stream)) return;
@@ -62,7 +63,8 @@ class ProcessCbctZip implements ShouldQueue
             foreach ($iter as $file) {
                 if (! $file->isFile()) continue;
                 $entryExt = strtolower($file->getExtension());
-                if (! in_array($entryExt, ['dcm', 'dicom'], true)) continue;
+                // Accept .dcm, .dicom, and extensionless files (DICOM standard allows no extension)
+                if ($entryExt !== '' && ! in_array($entryExt, ['dcm', 'dicom'], true)) continue;
 
                 $relPath = ltrim(
                     substr(str_replace('\\', '/', $file->getPathname()), strlen($tmpDirBase)),
@@ -88,9 +90,23 @@ class ProcessCbctZip implements ShouldQueue
                     'extension'  => 'dcm',
                     'updated_at' => now(),
                 ]);
+            } else {
+                // ZIP has no DCM files — clear processing state, serve as download only
+                DB::table('files')->where('id', $this->fileId)->update([
+                    'ruta_dcm'   => null,
+                    'updated_at' => now(),
+                ]);
             }
+            $updated = true;
 
         } finally {
+            // If we returned early (S3 file missing, invalid ZIP), clear the processing state
+            if (! $updated) {
+                DB::table('files')->where('id', $this->fileId)->update([
+                    'ruta_dcm'   => null,
+                    'updated_at' => now(),
+                ]);
+            }
             @unlink($tmpZip);
             $this->rrmdir($tmpDir);
         }

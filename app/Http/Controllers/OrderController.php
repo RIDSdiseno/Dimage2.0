@@ -117,6 +117,7 @@ class OrderController extends Controller
 
         $operatorClinicIds  = $currentStaffId ? $this->clinicIdsForStaff((int) $currentStaffId) : collect();
         $isOdontologo       = $user->hasRole('odontologo') || (int) ($user->type_id ?? 0) === 6;
+        $isRadiologo        = $user->hasRole('radiologo')  || (int) ($user->type_id ?? 0) === 5;
 
         $query = Order::query()
             ->select([
@@ -181,6 +182,16 @@ class OrderController extends Controller
             $query->where('orders.estadoradiologo', (int) $estado);
         }
 
+        // Radiólogo: agregar su estado personal por orden desde order_staff_exam
+        if ($isRadiologo && $currentStaffId) {
+            $sid = (int) $currentStaffId;
+            $query->addSelect(DB::raw(
+                "(SELECT ose.respondida FROM order_staff_exam ose
+                  WHERE ose.order_id = orders.id AND ose.staff_id = {$sid}
+                  ORDER BY ose.id LIMIT 1) as mi_respondida"
+            ));
+        }
+
         $this->applyRoleFilter($query, $user);
 
         if ($soloMis && $user) {
@@ -191,7 +202,21 @@ class OrderController extends Controller
             ->orderByDesc('orders.created_at')
             ->paginate($perPage, ['*'], 'page', $page);
 
-        $items = collect($orders->items())->map(function ($o) use ($currentStaffId, $operatorClinicIds, $isOdontologo) {
+        $estadosRadiologoPersonal = [
+            0 => self::ESTADOS[0],  // No Informada — aún no respondió su parte
+            1 => ['label' => 'Informada',     'color' => 'success'],
+            2 => ['label' => 'En corrección', 'color' => 'danger'],
+        ];
+
+        $items = collect($orders->items())->map(function ($o) use ($currentStaffId, $operatorClinicIds, $isOdontologo, $isRadiologo, $estadosRadiologoPersonal) {
+            $estado = ($isRadiologo && property_exists($o, 'mi_respondida') && !is_null($o->mi_respondida))
+                ? (
+                    (int) $o->estadoradiologo === 2
+                        ? ['label' => 'En corrección', 'color' => 'danger']
+                        : ($estadosRadiologoPersonal[(int) $o->mi_respondida] ?? self::ESTADOS[(int) $o->estadoradiologo])
+                )
+                : (self::ESTADOS[(int) $o->estadoradiologo] ?? ['label' => 'Desconocido', 'color' => 'secondary']);
+
             return [
                 'id'         => $o->id,
                 'paciente'   => $o->paciente,
@@ -203,7 +228,7 @@ class OrderController extends Controller
                 'created_at' => $o->created_at  ? Carbon::parse($o->created_at)->format('d/m/Y')  : '-',
                 'enviada'    => $o->enviada      ? Carbon::parse($o->enviada)->format('d/m/Y')      : '-',
                 'respondida' => $o->respondida   ? Carbon::parse($o->respondida)->format('d/m/Y')  : '-',
-                'estado'     => self::ESTADOS[(int) $o->estadoradiologo] ?? ['label' => 'Desconocido', 'color' => 'secondary'],
+                'estado'     => $estado,
                 'prioridad'  => $o->prioridad,
                 'creado_por' => $o->creado_por ?: '-',
                 'es_mia'     => $currentStaffId && (
@@ -539,7 +564,7 @@ class OrderController extends Controller
                 }
             }
 
-            if ($enviar && !empty($assignments)) {
+            if (!empty($assignments)) {
                 $this->insertRadiologoAssignments($order->id, $assignments);
             }
 
@@ -559,22 +584,10 @@ class OrderController extends Controller
             }
         }
 
-        // Procesar ZIPs CBCT de forma síncrona (visor disponible al abrir la orden)
-        if (!empty($cbctJobs)) {
-            set_time_limit(600);
-            ignore_user_abort(true);
-            foreach ($cbctJobs as [$fid, $zipPath]) {
-                try {
-                    (new ProcessCbctZip($fid, $this->extractOrderIdFromPath($zipPath), $zipPath))->handle();
-                } catch (\Throwable $e) {
-                    \Log::error("CBCT sync processing failed for file {$fid}: " . $e->getMessage());
-                    DB::table('files')->where('id', $fid)->update([
-                        'ruta_dcm'   => null,
-                        'extension'  => 'zip_error',
-                        'updated_at' => now(),
-                    ]);
-                }
-            }
+        // Procesar ZIPs CBCT en segundo plano (1+ GB no puede bloquear el request)
+        foreach ($cbctJobs as [$fid, $zipPath]) {
+            ProcessCbctZip::dispatch($fid, $this->extractOrderIdFromPath($zipPath), $zipPath)
+                ->onConnection('database')->onQueue('default');
         }
 
         return redirect()
@@ -711,9 +724,25 @@ class OrderController extends Controller
             && (
                 in_array((int) $order->estadoradiologo, [0, 4]) ||
                 $miPendiente ||
-                ($user->hasAnyRole(['admin', 'secretaria']) && in_array((int) $order->estadoradiologo, [1, 2]))
+                ($user->hasAnyRole(['admin', 'secretaria']) && in_array((int) $order->estadoradiologo, [1, 2])) ||
+                ($esRadiologoAsignado && (int) $order->estadoradiologo === 2)
             )
             && ($user->hasAnyRole(['admin', 'secretaria']) || $esRadiologoAsignado || $miPendiente || ($user->hasRole('radiologo') && $sinAsignar));
+
+        // Radiólogo asignado solo ve sus exámenes, no los de los demás radiólogos
+        if ($esRadiologoAsignado && $user->staff) {
+            $oseRows = DB::table('order_staff_exam')
+                ->where('order_id', $order->id)
+                ->where('staff_id', $user->staff->id)
+                ->get(['kind_id']);
+            $hasNullAssignment = $oseRows->contains('kind_id', null);
+            if (!$hasNullAssignment) {
+                $assignedKindIds = $oseRows->pluck('kind_id')->filter()->toArray();
+                if (!empty($assignedKindIds)) {
+                    $examenes = $examenes->filter(fn($e) => in_array($e['kind_id'], $assignedKindIds))->values();
+                }
+            }
+        }
 
         return Inertia::render('Orders/Show', [
             'order' => [
@@ -1088,9 +1117,29 @@ class OrderController extends Controller
                 ];
             });
 
-        $paciente  = DB::table('patients')->where('id', $order->patient_id)->first();
-        $clinica   = DB::table('clinics as c')->join('users as u', 'u.id', '=', 'c.user_id')
-                       ->where('c.id', $order->clinic_id)->value('u.name');
+        $paciente    = DB::table('patients')->where('id', $order->patient_id)->first();
+        $clinicaRow  = DB::table('clinics as c')
+                         ->join('users as u', 'u.id', '=', 'c.user_id')
+                         ->join('holdings as h', 'h.id', '=', 'c.holding_id')
+                         ->where('c.id', $order->clinic_id)
+                         ->select('u.name', 'c.logo as clinic_logo', 'h.logo as holding_logo')
+                         ->first();
+        $clinica     = $clinicaRow->name ?? '';
+        $logoPath    = $clinicaRow->clinic_logo ?? $clinicaRow->holding_logo ?? null;
+        $clinicaLogoB64 = null;
+        if ($logoPath) {
+            try {
+                $content = Storage::disk('public')->get($logoPath);
+                $ext     = strtolower(pathinfo($logoPath, PATHINFO_EXTENSION));
+                $mime    = match($ext) {
+                    'png'        => 'image/png',
+                    'gif'        => 'image/gif',
+                    'jpg','jpeg' => 'image/jpeg',
+                    default      => 'image/jpeg',
+                };
+                $clinicaLogoB64 = 'data:' . $mime . ';base64,' . base64_encode($content);
+            } catch (\Throwable) {}
+        }
         $radiologos = DB::table('order_staff_exam as ose')
             ->join('staffs as s', 's.id', '=', 'ose.staff_id')
             ->join('users as u', 'u.id', '=', 's.user_id')
@@ -1120,11 +1169,12 @@ class OrderController extends Controller
             });
 
         return \Barryvdh\DomPDF\Facade\Pdf::loadView('pdf.orden', [
-            'order'      => $order,
-            'paciente'   => $paciente,
-            'clinica'    => $clinica,
-            'radiologos' => $radiologos,
-            'examenes'   => $examenes,
+            'order'          => $order,
+            'paciente'       => $paciente,
+            'clinica'        => $clinica,
+            'clinicaLogoB64' => $clinicaLogoB64,
+            'radiologos'     => $radiologos,
+            'examenes'       => $examenes,
         ]);
     }
 
@@ -1157,9 +1207,29 @@ class OrderController extends Controller
                 ];
             });
 
-        $paciente  = DB::table('patients')->where('id', $order->patient_id)->first();
-        $clinica   = DB::table('clinics as c')->join('users as u', 'u.id', '=', 'c.user_id')
-                       ->where('c.id', $order->clinic_id)->value('u.name');
+        $paciente    = DB::table('patients')->where('id', $order->patient_id)->first();
+        $clinicaRow  = DB::table('clinics as c')
+                         ->join('users as u', 'u.id', '=', 'c.user_id')
+                         ->join('holdings as h', 'h.id', '=', 'c.holding_id')
+                         ->where('c.id', $order->clinic_id)
+                         ->select('u.name', 'c.logo as clinic_logo', 'h.logo as holding_logo')
+                         ->first();
+        $clinica     = $clinicaRow->name ?? '';
+        $logoPath    = $clinicaRow->clinic_logo ?? $clinicaRow->holding_logo ?? null;
+        $clinicaLogoB64 = null;
+        if ($logoPath) {
+            try {
+                $content = Storage::disk('public')->get($logoPath);
+                $ext     = strtolower(pathinfo($logoPath, PATHINFO_EXTENSION));
+                $mime    = match($ext) {
+                    'png'        => 'image/png',
+                    'gif'        => 'image/gif',
+                    'jpg','jpeg' => 'image/jpeg',
+                    default      => 'image/jpeg',
+                };
+                $clinicaLogoB64 = 'data:' . $mime . ';base64,' . base64_encode($content);
+            } catch (\Throwable) {}
+        }
         $radiologos = DB::table('order_staff_exam as ose')
             ->join('staffs as s', 's.id', '=', 'ose.staff_id')
             ->join('users as u', 'u.id', '=', 's.user_id')
@@ -1187,11 +1257,12 @@ class OrderController extends Controller
             });
 
         $pdf = \Barryvdh\DomPDF\Facade\Pdf::loadView('pdf.orden', [
-            'order'      => $order,
-            'paciente'   => $paciente,
-            'clinica'    => $clinica,
-            'radiologos' => $radiologos,
-            'examenes'   => $examenes,
+            'order'          => $order,
+            'paciente'       => $paciente,
+            'clinica'        => $clinica,
+            'clinicaLogoB64' => $clinicaLogoB64,
+            'radiologos'     => $radiologos,
+            'examenes'       => $examenes,
         ]);
 
         return $pdf->stream("orden-{$order->id}.pdf");
@@ -1505,8 +1576,9 @@ class OrderController extends Controller
             'action'    => ['required', 'in:guardar,enviar'],
         ]);
 
-        $enviar          = $request->input('action') === 'enviar';
-        $yaEstabaEnviada = ! is_null($order->enviada); // capturar ANTES del update
+        $enviar            = $request->input('action') === 'enviar';
+        $yaEstabaEnviada   = ! is_null($order->enviada); // capturar ANTES del update
+        $estabaEnCorreccion = (int) $order->estadoradiologo === 2;
 
         // Determinar asignaciones de radiólogo al enviar desde update()
         $radiologoIdUpdate   = null; // legacy single-rad fallback
@@ -1540,7 +1612,7 @@ class OrderController extends Controller
         }
 
         $updateCbctJobs = [];
-        DB::transaction(function () use ($request, $order, $enviar, $yaEstabaEnviada, $radiologoIdUpdate, $updateAssignments, $user, &$updateCbctJobs): void {
+        DB::transaction(function () use ($request, $order, $enviar, $yaEstabaEnviada, $estabaEnCorreccion, $radiologoIdUpdate, $updateAssignments, $user, &$updateCbctJobs): void {
             $orderUpdateData = [
                 'diagnostico'      => $request->boolean('sin_diagnostico') ? 'Sin diagnóstico' : ($request->input('diagnostico') ?? $order->diagnostico),
                 'observaciones'    => $request->input('observaciones') ?? '',
@@ -1548,12 +1620,17 @@ class OrderController extends Controller
                 'sin_diagnostico'  => $request->boolean('sin_diagnostico') ? 1 : 0,
                 'estadoradiologo'  => $enviar ? 0 : ($yaEstabaEnviada ? $order->estadoradiologo : 4),
                 'estadoodontologo' => $enviar ? 0 : ($yaEstabaEnviada ? $order->estadoodontologo : 1),
-                'enviada'          => $enviar && !$order->enviada ? now() : $order->enviada,
+                'enviada'          => $enviar && (!$order->enviada || $estabaEnCorreccion) ? now() : $order->enviada,
             ];
             if ($radiologoIdUpdate) {
                 $orderUpdateData['radiologo_id'] = $radiologoIdUpdate;
             }
             $order->update($orderUpdateData);
+
+            // Al re-enviar desde corrección, resetear asignaciones del radiólogo a pendiente
+            if ($enviar && $estabaEnCorreccion) {
+                DB::table('order_staff_exam')->where('order_id', $order->id)->update(['respondida' => 0]);
+            }
 
             // Actualizar url_texto de exámenes existentes (ej: análisis cefalométrico)
             foreach ((array) $request->input('url_texto_existente', []) as $examinationId => $urlTexto) {
@@ -1673,22 +1750,10 @@ class OrderController extends Controller
             }
         });
 
-        // Procesar ZIPs CBCT de forma síncrona (visor disponible al abrir la orden)
-        if (!empty($updateCbctJobs)) {
-            set_time_limit(600);
-            ignore_user_abort(true);
-            foreach ($updateCbctJobs as [$fid, $zipPath]) {
-                try {
-                    (new ProcessCbctZip($fid, $this->extractOrderIdFromPath($zipPath), $zipPath))->handle();
-                } catch (\Throwable $e) {
-                    \Log::error("CBCT sync processing failed for file {$fid}: " . $e->getMessage());
-                    DB::table('files')->where('id', $fid)->update([
-                        'ruta_dcm'   => null,
-                        'extension'  => 'zip_error',
-                        'updated_at' => now(),
-                    ]);
-                }
-            }
+        // Procesar ZIPs CBCT en segundo plano (1+ GB no puede bloquear el request)
+        foreach ($updateCbctJobs as [$fid, $zipPath]) {
+            ProcessCbctZip::dispatch($fid, $this->extractOrderIdFromPath($zipPath), $zipPath)
+                ->onConnection('database')->onQueue('default');
         }
 
         if ($enviar && ! $yaEstabaEnviada) {
@@ -2212,13 +2277,14 @@ class OrderController extends Controller
             if (!empty($result)) return $result;
         }
 
-        // Al enviar: auto-asignar primero (respeta especialistas en kind_staff).
-        // El radiologo_id manual solo sirve para borradores (no enviar).
-        if ($enviar) {
-            return $this->autoAsignarRadiologoPorExamen($clinicId, $kindIds);
+        // Auto-asignar siempre por kind_staff, tanto al guardar como al enviar,
+        // para que el radiólogo quede asignado desde la creación de la orden.
+        $autoAssignments = $this->autoAsignarRadiologoPorExamen($clinicId, $kindIds);
+        if (!empty($autoAssignments)) {
+            return $autoAssignments;
         }
 
-        // Legacy single radiologo_id (solo para guardar borrador)
+        // Fallback: radiologo_id manual (solo para borradores si no hay auto-asignación)
         if ($request->filled('radiologo_id') && $this->canSelectRadiologo($user)) {
             return [['radiologo_id' => (int) $request->radiologo_id, 'kind_ids' => null]];
         }

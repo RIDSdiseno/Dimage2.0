@@ -36,28 +36,31 @@ class PatientPortalController extends Controller
             return back()->withErrors(['rut' => 'Ingrese un RUT válido.']);
         }
 
-        $rutDb   = "REPLACE(REPLACE(UPPER(rut), '.', ''), '-', '')";
-        $patient = DB::table('patients')
+        $rutDb    = "REPLACE(REPLACE(UPPER(rut), '.', ''), '-', '')";
+        $patients = DB::table('patients')
             ->where(function ($q) use ($rut, $rutDb) {
                 $q->whereRaw("{$rutDb} = ?", [$rut])
                   ->orWhereRaw("LEFT({$rutDb}, CHAR_LENGTH({$rutDb}) - 1) = ?", [$rut]);
             })
-            ->first(['id', 'name', 'rut']);
+            ->get(['id', 'name', 'rut']);
 
-        if (!$patient) {
+        if ($patients->isEmpty()) {
             return back()->withErrors(['rut' => 'El RUT ingresado no está registrado.']);
         }
 
+        // Busca la orden contra todos los pacientes con ese RUT (pueden existir duplicados)
         $order = DB::table('orders')
             ->where('id', $ordenId)
-            ->where('patient_id', $patient->id)
-            ->first(['id', 'estadoradiologo']);
+            ->whereIn('patient_id', $patients->pluck('id'))
+            ->first(['id', 'estadoradiologo', 'patient_id']);
 
         if (!$order) {
             return back()->withErrors([
                 'orden_id' => "No se encontró la orden N° {$ordenId} para el RUT ingresado.",
             ]);
         }
+
+        $patient = $patients->firstWhere('id', $order->patient_id);
 
         session([
             'paciente_portal' => [

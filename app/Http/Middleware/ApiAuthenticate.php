@@ -26,7 +26,7 @@ class ApiAuthenticate
         $record = DB::table('holding_apikey')
             ->where('apikey', $apiKey)
             ->where('activo', true)
-            ->first(['id', 'holding_id']);
+            ->first(['id', 'holding_id', 'is_admin']);
 
         if (! $record) {
             return response()->json(['error' => 'API key inválida o inactiva.'], 401);
@@ -35,6 +35,7 @@ class ApiAuthenticate
         $request->merge([
             '_holding_id'     => $record->holding_id,
             '_holding_key_id' => $record->id,
+            '_is_admin'       => (bool) $record->is_admin,
         ]);
 
         return $next($request);

@@ -47,8 +47,12 @@ if (!function_exists('pdfDienteTable')) {
 <div class="page">
   <div class="header">
     <div>
-      <img src="{{ public_path('images/dimage_logo.png') }}" style="height:44px;object-fit:contain;" />
-      <div class="logo-sub" style="margin-top:4px;">Diagnóstico por Imagen Digital</div>
+      @if(!empty($clinicaLogoB64))
+        <img src="{{ $clinicaLogoB64 }}" style="height:44px;max-width:180px;object-fit:contain;" />
+      @else
+        <img src="{{ public_path('images/dimage_logo.png') }}" style="height:44px;object-fit:contain;" />
+        <div class="logo-sub" style="margin-top:4px;">Diagnóstico por Imagen Digital</div>
+      @endif
     </div>
     <div>
       <div class="badge">INFORME #{{ $order->id }}</div>
