@@ -713,12 +713,13 @@ class AdminController extends Controller
                 'address'                     => trim($request->address ?? ''),
                 'solo_adjuntar_informe'       => $request->boolean('solo_adjuntar_informe'),
                 'puede_crear_ordenes'         => $request->boolean('puede_crear_ordenes'),
-                'puede_seleccionar_radiologo' => $request->boolean('puede_seleccionar_radiologo'),
-                'puede_sin_diagnostico'       => $request->boolean('puede_sin_diagnostico'),
-                'puede_derivacion_clinica'    => $request->boolean('puede_derivacion_clinica'),
-                'puede_ver_menu_busqueda'     => $request->boolean('puede_ver_menu_busqueda'),
-                'activo'                      => 1,
-                'externo'                     => 0,
+                'puede_seleccionar_radiologo'      => $request->boolean('puede_seleccionar_radiologo'),
+                'puede_sin_diagnostico'            => $request->boolean('puede_sin_diagnostico'),
+                'puede_derivacion_clinica'         => $request->boolean('puede_derivacion_clinica'),
+                'puede_ver_menu_busqueda'          => $request->boolean('puede_ver_menu_busqueda'),
+                'puede_editar_ordenes_asignadas'   => $request->boolean('puede_editar_ordenes_asignadas'),
+                'activo'                           => 1,
+                'externo'                          => 0,
                 'created_at'                  => now(),
                 'updated_at'                  => now(),
             ]);
@@ -758,7 +759,8 @@ class AdminController extends Controller
             ->select('s.id', 's.user_id', 'u.name', 'u.username', 'u.mail', 'u.telephone',
                      's.rut', 's.activo', 's.firma', 's.address', 's.solo_adjuntar_informe',
                      's.puede_crear_ordenes', 's.puede_seleccionar_radiologo',
-                     's.puede_sin_diagnostico', 's.puede_derivacion_clinica', 's.puede_ver_menu_busqueda')
+                     's.puede_sin_diagnostico', 's.puede_derivacion_clinica', 's.puede_ver_menu_busqueda',
+                     's.puede_editar_ordenes_asignadas')
             ->first();
 
         abort_if(! $s, 404);
@@ -781,10 +783,11 @@ class AdminController extends Controller
                 'address'                     => $s->address ?? '',
                 'solo_adjuntar_informe'       => (bool) ($s->solo_adjuntar_informe ?? false),
                 'puede_crear_ordenes'         => (bool) ($s->puede_crear_ordenes ?? false),
-                'puede_seleccionar_radiologo' => (bool) ($s->puede_seleccionar_radiologo ?? false),
-                'puede_sin_diagnostico'       => (bool) ($s->puede_sin_diagnostico ?? false),
-                'puede_derivacion_clinica'    => (bool) ($s->puede_derivacion_clinica ?? false),
-                'puede_ver_menu_busqueda'     => (bool) ($s->puede_ver_menu_busqueda ?? false),
+                'puede_seleccionar_radiologo'     => (bool) ($s->puede_seleccionar_radiologo ?? false),
+                'puede_sin_diagnostico'           => (bool) ($s->puede_sin_diagnostico ?? false),
+                'puede_derivacion_clinica'        => (bool) ($s->puede_derivacion_clinica ?? false),
+                'puede_ver_menu_busqueda'         => (bool) ($s->puede_ver_menu_busqueda ?? false),
+                'puede_editar_ordenes_asignadas'  => (bool) ($s->puede_editar_ordenes_asignadas ?? false),
                 'clinica_ids'                 => $clinicaIds,
                 'holding_ids'                 => $holdingIds,
                 'kind_ids'                    => $kindIds,
@@ -829,11 +832,12 @@ class AdminController extends Controller
                 'address'                     => trim($request->address ?? ''),
                 'solo_adjuntar_informe'       => $request->boolean('solo_adjuntar_informe'),
                 'puede_crear_ordenes'         => $request->boolean('puede_crear_ordenes'),
-                'puede_seleccionar_radiologo' => $request->boolean('puede_seleccionar_radiologo'),
-                'puede_sin_diagnostico'       => $request->boolean('puede_sin_diagnostico'),
-                'puede_derivacion_clinica'    => $request->boolean('puede_derivacion_clinica'),
-                'puede_ver_menu_busqueda'     => $request->boolean('puede_ver_menu_busqueda'),
-                'updated_at'                  => now(),
+                'puede_seleccionar_radiologo'     => $request->boolean('puede_seleccionar_radiologo'),
+                'puede_sin_diagnostico'           => $request->boolean('puede_sin_diagnostico'),
+                'puede_derivacion_clinica'        => $request->boolean('puede_derivacion_clinica'),
+                'puede_ver_menu_busqueda'         => $request->boolean('puede_ver_menu_busqueda'),
+                'puede_editar_ordenes_asignadas'  => $request->boolean('puede_editar_ordenes_asignadas'),
+                'updated_at'                      => now(),
             ];
             if ($request->hasFile('firma')) {
                 if ($s->firma) {

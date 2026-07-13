@@ -113,11 +113,13 @@ class OrderController extends Controller
         $perPage = (int) $request->get('per_page', 15);
         $perPage = $perPage > 0 ? min($perPage, 100) : 15;
 
-        $currentStaffId     = DB::table('staffs')->where('user_id', $user->id)->value('id');
+        $currentStaff       = DB::table('staffs')->where('user_id', $user->id)->first(['id', 'puede_editar_ordenes_asignadas']);
+        $currentStaffId     = $currentStaff?->id;
 
         $operatorClinicIds  = $currentStaffId ? $this->clinicIdsForStaff((int) $currentStaffId) : collect();
         $isOdontologo       = $user->hasRole('odontologo') || (int) ($user->type_id ?? 0) === 6;
         $isRadiologo        = $user->hasRole('radiologo')  || (int) ($user->type_id ?? 0) === 5;
+        $puedeEditarAsignadas = $isOdontologo && (bool) ($currentStaff?->puede_editar_ordenes_asignadas ?? false);
 
         $query = Order::query()
             ->select([
@@ -130,6 +132,7 @@ class OrderController extends Controller
                 'orders.estadoodontologo',
                 'orders.prioridad',
                 'orders.operator_id',
+                'orders.odontologo_id',
                 'patients.name as paciente',
                 'patients.rut as rut',
                 'uc.name as clinica',
@@ -192,10 +195,10 @@ class OrderController extends Controller
             ));
         }
 
-        $this->applyRoleFilter($query, $user);
+        $this->applyRoleFilter($query, $user, $puedeEditarAsignadas);
 
         if ($soloMis && $user) {
-            $this->applyMisOrdenesFilter($query, $user);
+            $this->applyMisOrdenesFilter($query, $user, $puedeEditarAsignadas);
         }
 
         $orders = $query
@@ -208,7 +211,7 @@ class OrderController extends Controller
             2 => ['label' => 'En corrección', 'color' => 'danger'],
         ];
 
-        $items = collect($orders->items())->map(function ($o) use ($currentStaffId, $operatorClinicIds, $isOdontologo, $isRadiologo, $estadosRadiologoPersonal) {
+        $items = collect($orders->items())->map(function ($o) use ($currentStaffId, $operatorClinicIds, $isOdontologo, $isRadiologo, $estadosRadiologoPersonal, $puedeEditarAsignadas) {
             $estado = ($isRadiologo && property_exists($o, 'mi_respondida') && !is_null($o->mi_respondida))
                 ? (
                     (int) $o->estadoradiologo === 2
@@ -233,7 +236,8 @@ class OrderController extends Controller
                 'creado_por' => $o->creado_por ?: '-',
                 'es_mia'     => $currentStaffId && (
                     (!is_null($o->operator_id ?? null) && (int) $o->operator_id === (int) $currentStaffId) ||
-                    (!$isOdontologo && $operatorClinicIds->contains($o->clinic_id))
+                    (!$isOdontologo && $operatorClinicIds->contains($o->clinic_id)) ||
+                    ($puedeEditarAsignadas && !is_null($o->odontologo_id ?? null) && (int) $o->odontologo_id === (int) $currentStaffId)
                 ),
             ];
         });
@@ -1310,7 +1314,7 @@ class OrderController extends Controller
         return collect();
     }
 
-    private function applyMisOrdenesFilter(Builder $query, $user): void
+    private function applyMisOrdenesFilter(Builder $query, $user, bool $puedeEditarAsignadas = false): void
     {
         // Radiólogo → órdenes donde está asignado (ya cubierto por applyRoleFilter, sin cambio)
         if ($user->hasRole('radiologo')) {
@@ -1340,12 +1344,19 @@ class OrderController extends Controller
             return;
         }
 
-        // Odontólogo → solo órdenes que él mismo creó
+        // Odontólogo → órdenes que creó + órdenes donde está asignado (si tiene permiso)
         if ($user->hasRole('odontologo')) {
             $staffId = $user->staff?->id
                 ?? DB::table('staffs')->where('user_id', $user->id)->value('id');
             if ($staffId) {
-                $query->where('orders.operator_id', (int) $staffId);
+                if ($puedeEditarAsignadas) {
+                    $query->where(function ($q) use ($staffId) {
+                        $q->where('orders.operator_id', (int) $staffId)
+                          ->orWhere('orders.odontologo_id', (int) $staffId);
+                    });
+                } else {
+                    $query->where('orders.operator_id', (int) $staffId);
+                }
             } else {
                 $query->whereRaw('1 = 0');
             }
@@ -1361,7 +1372,7 @@ class OrderController extends Controller
         // Admin / Secretaria / Holding → sin filtro adicional (ven todo)
     }
 
-    private function applyRoleFilter(Builder $query, $user): void
+    private function applyRoleFilter(Builder $query, $user, bool $puedeEditarAsignadas = false): void
     {
         if (!$user) {
             $query->whereRaw('1 = 0');
@@ -1416,7 +1427,14 @@ class OrderController extends Controller
                     ->filter()->unique();
 
                 if ($holdingIds->isNotEmpty()) {
-                    $query->whereIn('c.holding_id', $holdingIds->all());
+                    if ($puedeEditarAsignadas) {
+                        $query->where(function ($q) use ($holdingIds, $staffId) {
+                            $q->whereIn('c.holding_id', $holdingIds->all())
+                              ->orWhere('orders.odontologo_id', $staffId);
+                        });
+                    } else {
+                        $query->whereIn('c.holding_id', $holdingIds->all());
+                    }
                     return;
                 }
             }

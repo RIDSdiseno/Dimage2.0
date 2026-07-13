@@ -282,6 +282,12 @@
                                 Permiso para ver menú de búsqueda de orden
                             </label>
                         </div>
+                        <div v-if="esOdontologo" class="flex items-center gap-3">
+                            <Checkbox v-model="form.puede_editar_ordenes_asignadas" :binary="true" inputId="puede_editar_ordenes_asignadas" />
+                            <label for="puede_editar_ordenes_asignadas" class="text-sm cursor-pointer">
+                                Permiso para ver y editar órdenes donde está asignado como odontólogo
+                            </label>
+                        </div>
                     </div>
                 </div>
 
@@ -538,7 +544,8 @@ const form = useForm({
     puede_seleccionar_radiologo:  props.staff?.puede_seleccionar_radiologo ?? false,
     puede_sin_diagnostico:        props.staff?.puede_sin_diagnostico ?? false,
     puede_derivacion_clinica:     props.staff?.puede_derivacion_clinica ?? false,
-    puede_ver_menu_busqueda:      props.staff?.puede_ver_menu_busqueda ?? false,
+    puede_ver_menu_busqueda:           props.staff?.puede_ver_menu_busqueda ?? false,
+    puede_editar_ordenes_asignadas:    props.staff?.puede_editar_ordenes_asignadas ?? false,
 });
 
 // Sincroniza telephone cuando cambia país o número
