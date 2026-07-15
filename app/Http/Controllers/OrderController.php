@@ -186,8 +186,10 @@ class OrderController extends Controller
         }
 
         // Radiólogo: agregar su estado personal por orden desde order_staff_exam
-        if ($isRadiologo && $currentStaffId) {
-            $sid = (int) $currentStaffId;
+        // Usamos $user->staff->id (misma fuente que applyRoleFilter y show()) para garantizar
+        // que el staff_id coincide con el registrado en order_staff_exam
+        if ($isRadiologo && $user->staff) {
+            $sid = (int) $user->staff->id;
             $query->addSelect(DB::raw(
                 "(SELECT ose.respondida FROM order_staff_exam ose
                   WHERE ose.order_id = orders.id AND ose.staff_id = {$sid}
@@ -1058,10 +1060,12 @@ class OrderController extends Controller
             if ($action === 'borrador') {
                 // No cambia el estado global — solo marca el borrador personal del radiólogo
                 // Los demás siguen viendo la orden como "No Informada"
-                if ($user->staff) {
+                $staffId = $user->staff?->id
+                    ?? DB::table('staffs')->where('user_id', $user->id)->value('id');
+                if ($staffId) {
                     DB::table('order_staff_exam')
                         ->where('order_id', $order->id)
-                        ->where('staff_id', $user->staff->id)
+                        ->where('staff_id', (int) $staffId)
                         ->update(['borrador' => 1]);
                 }
             } elseif ($action === 'correccion') {
