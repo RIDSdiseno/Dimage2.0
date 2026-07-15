@@ -217,7 +217,11 @@ class OrderController extends Controller
         ];
 
         $items = collect($orders->items())->map(function ($o) use ($currentStaffId, $operatorClinicIds, $isOdontologo, $isRadiologo, $estadosRadiologoPersonal, $puedeEditarAsignadas) {
-            $miBorrador = $isRadiologo && (int) ($o->mi_borrador ?? 0) === 1;
+            // mi_borrador=1 (nuevo) O estadoradiologo=4 con enviada (borrador guardado con código antiguo)
+            $miBorrador = $isRadiologo && (
+                (int) ($o->mi_borrador ?? 0) === 1
+                || (int) $o->estadoradiologo === 4
+            );
             $estado = ($isRadiologo && property_exists($o, 'mi_respondida') && !is_null($o->mi_respondida))
                 ? (
                     $miBorrador
