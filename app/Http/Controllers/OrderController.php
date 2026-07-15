@@ -224,7 +224,7 @@ class OrderController extends Controller
                 (int) ($o->mi_borrador ?? 0) === 1
                 || (int) $o->estadoradiologo === 4
             );
-            $estado = ($isRadiologo && property_exists($o, 'mi_respondida') && !is_null($o->mi_respondida))
+            $estado = ($isRadiologo && isset($o->mi_respondida))
                 ? (
                     $miBorrador
                         ? self::ESTADOS[4]  // solo este radiólogo ve "Guardada"
