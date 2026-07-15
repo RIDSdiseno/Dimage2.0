@@ -164,9 +164,10 @@ class OrderController extends Controller
         $order->profesional_id_externo = null;
 
         // Limpiar RUT: sin puntos ni guiones, con dígito verificador incluido.
-        // Ej: "7.838.054-3" → "78380543", "8205841" → "8205841"
+        // Ej: "7.838.054-3" → "78380543", "21545648-k" → "21545648K"
+        // strtoupper ANTES del regex para que 'k' minúscula no sea eliminada por /[^0-9K]/
         $stripRut = function ($rut) {
-            return strtoupper(preg_replace('/[^0-9K]/', '', (string) $rut));
+            return preg_replace('/[^0-9K]/', '', strtoupper((string) $rut));
         };
 
         if (!empty($order->rut_odontologo)) {
@@ -351,7 +352,7 @@ class OrderController extends Controller
         ]);
 
         $rutPaciente = $request->input('paciente');
-        $rutOdontologo = strtoupper(preg_replace('/[^0-9K]/', '', $request->input('odontologo', '')));
+        $rutOdontologo = preg_replace('/[^0-9K]/', '', strtoupper($request->input('odontologo', '')));
 
         $patient = DB::table('patients')
             ->where('rut', $rutPaciente)
@@ -749,7 +750,7 @@ class OrderController extends Controller
             ->where('s.type_staff', 3)
             ->where('c.holding_id', $request->_holding_id)
             ->where(function ($q) use ($rutRadiologo) {
-                $rutClean = strtoupper(preg_replace('/[^0-9K]/', '', $rutRadiologo));
+                $rutClean = preg_replace('/[^0-9K]/', '', strtoupper($rutRadiologo));
                 $q->whereRaw("REPLACE(REPLACE(UPPER(s.rut), '.', ''), '-', '') = ?", [$rutClean]);
             })
             ->select('s.id as staff_id')
@@ -881,7 +882,7 @@ class OrderController extends Controller
             return response()->json(['error' => 'El campo radiologo_rut es requerido.'], 422);
         }
 
-        $rutClean = strtoupper(preg_replace('/[^0-9K]/', '', $rutInput));
+        $rutClean = preg_replace('/[^0-9K]/', '', strtoupper($rutInput));
 
         $radiologo = DB::table('staffs as s')
             ->join('clinic_staff as cs', function ($j) use ($order) {
@@ -1070,7 +1071,7 @@ class OrderController extends Controller
 
         // Cambio de odontólogo (enviado como RUT)
         if ($request->filled('odontologo')) {
-            $rutOdont = strtoupper(preg_replace('/[^0-9K]/', '', $request->input('odontologo')));
+            $rutOdont = preg_replace('/[^0-9K]/', '', strtoupper($request->input('odontologo')));
             $odont = DB::table('staffs')
                 ->where('type_staff', 6)
                 ->whereRaw("REPLACE(REPLACE(UPPER(rut), '.', ''), '-', '') = ?", [$rutOdont])

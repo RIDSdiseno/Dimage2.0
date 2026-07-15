@@ -14,7 +14,7 @@ class OdontologoController extends Controller
     {
         \Log::info('ODONTOLOGO_BY_RUT', ['rut' => $rut, 'all' => $request->all()]);
 
-        $rutInput = strtoupper(preg_replace('/[^0-9K]/', '', $rut));
+        $rutInput = preg_replace('/[^0-9K]/', '', strtoupper($rut));
 
 $row = $this->query($request->_holding_id)
     ->where(function ($q) use ($rutInput) {
@@ -53,7 +53,7 @@ $row = $this->query($request->_holding_id)
         \Log::info('ODONTOLOGO_CREATE', ['all' => $request->all()]);
 
         $rutRaw = $request->input('rut') ?? $request->input('odontologo') ?? '';
-        $rutInput = strtoupper(preg_replace('/[^0-9K]/', '', $rutRaw));
+        $rutInput = preg_replace('/[^0-9K]/', '', strtoupper($rutRaw));
 
         if ($rutInput === '') {
             return response()->json([
