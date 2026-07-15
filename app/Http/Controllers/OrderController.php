@@ -1401,7 +1401,16 @@ class OrderController extends Controller
                     ->from('order_staff_exam as ose')
                     ->whereColumn('ose.order_id', 'orders.id')
                     ->where('ose.staff_id', $staffId);
-            })->whereIn('orders.estadoradiologo', [0, 1, 2]);
+            })->where(function ($q) {
+                // Estados activos siempre visibles
+                $q->whereIn('orders.estadoradiologo', [0, 1, 2])
+                  // Estado 4 solo si la orden fue enviada (borrador del radiólogo,
+                  // no draft del operador que aún no la envió)
+                  ->orWhere(function ($q2) {
+                      $q2->where('orders.estadoradiologo', 4)
+                         ->whereNotNull('orders.enviada');
+                  });
+            });
 
             return;
         }
