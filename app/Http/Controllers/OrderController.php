@@ -193,6 +193,11 @@ class OrderController extends Controller
                   WHERE ose.order_id = orders.id AND ose.staff_id = {$sid}
                   ORDER BY ose.id LIMIT 1) as mi_respondida"
             ));
+            $query->addSelect(DB::raw(
+                "(SELECT COALESCE(ose.borrador, 0) FROM order_staff_exam ose
+                  WHERE ose.order_id = orders.id AND ose.staff_id = {$sid}
+                  ORDER BY ose.id LIMIT 1) as mi_borrador"
+            ));
         }
 
         $this->applyRoleFilter($query, $user, $puedeEditarAsignadas);
@@ -212,11 +217,16 @@ class OrderController extends Controller
         ];
 
         $items = collect($orders->items())->map(function ($o) use ($currentStaffId, $operatorClinicIds, $isOdontologo, $isRadiologo, $estadosRadiologoPersonal, $puedeEditarAsignadas) {
+            $miBorrador = $isRadiologo && (int) ($o->mi_borrador ?? 0) === 1;
             $estado = ($isRadiologo && property_exists($o, 'mi_respondida') && !is_null($o->mi_respondida))
                 ? (
-                    (int) $o->estadoradiologo === 2
-                        ? ['label' => 'En corrección', 'color' => 'danger']
-                        : ($estadosRadiologoPersonal[(int) $o->mi_respondida] ?? self::ESTADOS[(int) $o->estadoradiologo])
+                    $miBorrador
+                        ? self::ESTADOS[4]  // solo este radiólogo ve "Guardada"
+                        : (
+                            (int) $o->estadoradiologo === 2
+                                ? ['label' => 'En corrección', 'color' => 'danger']
+                                : ($estadosRadiologoPersonal[(int) $o->mi_respondida] ?? self::ESTADOS[(int) $o->estadoradiologo])
+                        )
                 )
                 : (self::ESTADOS[(int) $o->estadoradiologo] ?? ['label' => 'Desconocido', 'color' => 'secondary']);
 
@@ -708,11 +718,18 @@ class OrderController extends Controller
             ->orderBy('created_at')
             ->get(['id', 'detalle', 'enviada', 'respondida', 'description', 'status', 'created_at']);
 
-        $estado = self::ESTADOS[(int) $order->estadoradiologo] ?? [
-            'label' => 'Desconocido', 'color' => 'secondary',
-        ];
-
         $esRadiologoAsignado = $user->hasRole('radiologo') && $radiologos->contains('id', $user->staff?->id);
+
+        // Si este radiólogo tiene borrador personal, él ve "Guardada"; los demás ven el estado global
+        $miBorrador = $esRadiologoAsignado && $user->staff && DB::table('order_staff_exam')
+            ->where('order_id', $order->id)
+            ->where('staff_id', $user->staff->id)
+            ->where('borrador', 1)
+            ->exists();
+
+        $estado = $miBorrador
+            ? self::ESTADOS[4]
+            : (self::ESTADOS[(int) $order->estadoradiologo] ?? ['label' => 'Desconocido', 'color' => 'secondary']);
         // Si ningún radiólogo está asignado y la orden está pendiente, cualquier radiólogo puede responder
         $sinAsignar = $radiologos->isEmpty() && (int) $order->estadoradiologo === 0;
 
@@ -1035,7 +1052,14 @@ class OrderController extends Controller
             ]);
 
             if ($action === 'borrador') {
-                $order->update(['estadoradiologo' => 4]);
+                // No cambia el estado global — solo marca el borrador personal del radiólogo
+                // Los demás siguen viendo la orden como "No Informada"
+                if ($user->staff) {
+                    DB::table('order_staff_exam')
+                        ->where('order_id', $order->id)
+                        ->where('staff_id', $user->staff->id)
+                        ->update(['borrador' => 1]);
+                }
             } elseif ($action === 'correccion') {
                 $order->update(['estadoradiologo' => 2, 'estadoodontologo' => 3]);
                 DB::table('corrections')->insert([
@@ -1047,12 +1071,12 @@ class OrderController extends Controller
                     'updated_at'  => now(),
                 ]);
             } else {
-                // Marcar las asignaciones de este radiólogo como respondidas
+                // Marcar las asignaciones de este radiólogo como respondidas y limpiar borrador
                 if ($user->staff) {
                     DB::table('order_staff_exam')
                         ->where('order_id', $order->id)
                         ->where('staff_id', $user->staff->id)
-                        ->update(['respondida' => 1]);
+                        ->update(['respondida' => 1, 'borrador' => 0]);
                 }
 
                 // Solo marcar orden como completamente respondida si:
