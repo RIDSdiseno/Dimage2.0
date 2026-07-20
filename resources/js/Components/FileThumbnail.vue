@@ -44,7 +44,7 @@
                         @click.stop>
                         <i class="pi pi-eye" style="font-size:12px;" />
                     </a>
-                    <button :title="preparandoZip ? 'Preparando ZIP...' : 'Descargar ZIP'"
+                    <button type="button" :title="preparandoZip ? 'Preparando ZIP...' : 'Descargar ZIP'"
                         style="display:flex; align-items:center; justify-content:center; width:26px; height:26px; border-radius:5px; color:#fff; border:none; cursor:pointer;"
                         :style="preparandoZip ? 'background:rgba(96,165,250,0.4);cursor:wait;' : 'background:rgba(255,255,255,0.15);'"
                         @click.stop="descargarZip">
@@ -88,7 +88,7 @@
                 <span style="font-size:10px; margin-top:3px; color:#fca5a5; text-align:center; padding:0 6px;">Procesamiento fallido</span>
                 <div class="opacity-0 group-hover:opacity-100 transition-opacity"
                     style="position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:6px; background:rgba(59,10,10,0.92); border-radius:inherit;">
-                    <button
+                    <button type="button"
                         style="display:flex; align-items:center; gap:5px; padding:6px 12px; border-radius:6px; background:#3452ff; color:#fff; border:none; cursor:pointer; font-size:11px; font-weight:600;"
                         @click.stop="processZip">
                         <i class="pi pi-refresh" style="font-size:11px;" /> Reintentar
@@ -113,7 +113,7 @@
                 <!-- Hover: procesar + descargar -->
                 <div v-if="!extracting" class="opacity-0 group-hover:opacity-100 transition-opacity"
                     style="position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:6px; background:rgba(11,42,74,0.92); border-radius:inherit;">
-                    <button
+                    <button type="button"
                         style="display:flex; align-items:center; gap:5px; padding:6px 12px; border-radius:6px; background:#3452ff; color:#fff; border:none; cursor:pointer; font-size:11px; font-weight:600;"
                         @click.stop="processZip">
                         <i class="pi pi-cog" style="font-size:11px;" /> Procesar para visor
@@ -155,14 +155,14 @@
                     <i class="pi pi-download" style="font-size:11px;" />
                 </a>
                 <!-- Herramientas: abre el visor con panel de herramientas (solo si imagen cargó) -->
-                <button v-if="!imgFailed"
+                <button type="button" v-if="!imgFailed"
                     @click.stop="$emit('lightbox', { ...file, url: fileSrc })"
                     title="Ver con herramientas"
                     style="display:flex; align-items:center; justify-content:center; width:26px; height:26px; border-radius:5px; background:rgba(52,82,255,0.85); color:#fff; border:none; cursor:pointer;">
                     <i class="pi pi-wrench" style="font-size:11px;" />
                 </button>
                 <!-- Ampliar: abre la imagen en visor full-screen en nueva pestaña (solo si imagen cargó) -->
-                <button v-if="!imgFailed"
+                <button type="button" v-if="!imgFailed"
                     @click.stop="openAmpliar"
                     title="Ampliar (nueva pestaña)"
                     style="display:flex; align-items:center; justify-content:center; width:26px; height:26px; border-radius:5px; background:rgba(255,255,255,0.15); color:#fff; border:none; cursor:pointer;">
