@@ -219,20 +219,11 @@ class OrderController extends Controller
         ];
 
         $items = collect($orders->items())->map(function ($o) use ($currentStaffId, $operatorClinicIds, $isOdontologo, $isRadiologo, $estadosRadiologoPersonal, $puedeEditarAsignadas) {
-            // mi_borrador=1 (nuevo) O estadoradiologo=4 con enviada (borrador guardado con código antiguo)
-            $miBorrador = $isRadiologo && (
-                (int) ($o->mi_borrador ?? 0) === 1
-                || (int) $o->estadoradiologo === 4
-            );
             $estado = ($isRadiologo && isset($o->mi_respondida))
                 ? (
-                    $miBorrador
-                        ? self::ESTADOS[4]  // solo este radiólogo ve "Guardada"
-                        : (
-                            (int) $o->estadoradiologo === 2
-                                ? ['label' => 'En corrección', 'color' => 'danger']
-                                : ($estadosRadiologoPersonal[(int) $o->mi_respondida] ?? self::ESTADOS[(int) $o->estadoradiologo])
-                        )
+                    (int) $o->estadoradiologo === 2
+                        ? ['label' => 'En corrección', 'color' => 'danger']
+                        : ($estadosRadiologoPersonal[(int) $o->mi_respondida] ?? self::ESTADOS[(int) $o->estadoradiologo])
                 )
                 : (self::ESTADOS[(int) $o->estadoradiologo] ?? ['label' => 'Desconocido', 'color' => 'secondary']);
 
@@ -726,16 +717,7 @@ class OrderController extends Controller
 
         $esRadiologoAsignado = $user->hasRole('radiologo') && $radiologos->contains('id', $user->staff?->id);
 
-        // Si este radiólogo tiene borrador personal, él ve "Guardada"; los demás ven el estado global
-        $miBorrador = $esRadiologoAsignado && $user->staff && DB::table('order_staff_exam')
-            ->where('order_id', $order->id)
-            ->where('staff_id', $user->staff->id)
-            ->where('borrador', 1)
-            ->exists();
-
-        $estado = $miBorrador
-            ? self::ESTADOS[4]
-            : (self::ESTADOS[(int) $order->estadoradiologo] ?? ['label' => 'Desconocido', 'color' => 'secondary']);
+        $estado = self::ESTADOS[(int) $order->estadoradiologo] ?? ['label' => 'Desconocido', 'color' => 'secondary'];
         // Si ningún radiólogo está asignado y la orden está pendiente, cualquier radiólogo puede responder
         $sinAsignar = $radiologos->isEmpty() && (int) $order->estadoradiologo === 0;
 
