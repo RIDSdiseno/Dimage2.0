@@ -68,12 +68,13 @@ const TERMS = {
 
     UY: {
         id_label:       'C.I.',
-        id_placeholder: '1.234.567-8',
-        id_hint:        'Ej: 1.234.567-8 (Cédula de Identidad)',
-        validateId:     (value, required = true) => validateUruguayanCI(value, required),
-        formatId:       (raw) => formatCI_UY(raw),
+        id_placeholder: 'Nº de documento',
+        id_hint:        'Cédula de identidad, pasaporte u otro documento',
+        validateId:     (value, required = true) => (!required || value) ? null : 'El documento es requerido.',
+        formatId:       (raw) => raw,
     },
 };
+
 
 // ── Mapa de nombres de exámenes CL → UY ───────────────────────────────────
 
