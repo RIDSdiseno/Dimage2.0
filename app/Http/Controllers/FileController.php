@@ -59,10 +59,12 @@ class FileController extends Controller
 
         // CBCT serie procesada
         if ($file->ruta_dcm && $file->ruta_dcm !== 'processing') {
-            // 1. nombre_dcm seteado por ProcessCbctZip — confiamos que existe en S3
-            $zipPath = $file->nombre_dcm ?: null;
+            // 1. nombre_dcm seteado por ProcessCbctZip — solo válido si apunta a un ZIP real
+            $zipPath = ($file->nombre_dcm && strtolower(pathinfo($file->nombre_dcm, PATHINFO_EXTENSION)) === 'zip')
+                ? $file->nombre_dcm
+                : null;
 
-            // 2. nombre_dcm nulo (viejo) — buscar cualquier ZIP en el directorio raíz de la orden
+            // 2. nombre_dcm nulo o apunta a un DCM — buscar cualquier ZIP en el directorio raíz de la orden
             if (!$zipPath) {
                 preg_match('/^ordenes\/(\d+)\//', $file->ruta_dcm, $m);
                 $orderId = isset($m[1]) ? (int) $m[1] : 0;
