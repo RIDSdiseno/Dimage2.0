@@ -124,6 +124,15 @@ class FileController extends Controller
                         }
                     }
                     $za->close();
+                    // Guardar el ZIP reconstruido en S3 para que próximas descargas sean instantáneas
+                    $s3ZipPath = rtrim($file->ruta_dcm, '/') . '/../' . $baseName . '.zip';
+                    $s3ZipPath = preg_replace('#/[^/]+/\.\./#', '/', $s3ZipPath); // normalizar path
+                    try {
+                        $stream = fopen($tmpZip, 'rb');
+                        Storage::disk('s3')->put($s3ZipPath, $stream);
+                        if (is_resource($stream)) fclose($stream);
+                        DB::table('files')->where('id', $id)->update(['nombre_dcm' => $s3ZipPath]);
+                    } catch (\Throwable) {}
                     return response()->download($tmpZip, $baseName . '.zip', [
                         'Content-Type' => 'application/zip',
                     ])->deleteFileAfterSend(true);
