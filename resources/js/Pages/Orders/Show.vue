@@ -236,7 +236,8 @@
                             <div v-if="examen.archivos?.length" class="flex flex-wrap gap-3">
                                 <div v-for="f in examen.archivos" :key="f.id" class="relative group">
                                     <FileThumbnail :file="f" @lightbox="openLightbox" :showDicom="parseInt(examen.grupo ?? 0) === 4" />
-                                    <button v-if="esAdmin && order.estadoradiologo != 1"
+                                    <button v-if="(esAdmin || esRadiologo) && order.estadoradiologo != 1"
+                                        type="button"
                                         @click="eliminarArchivo(f.id)"
                                         class="absolute top-1 right-1 hidden group-hover:flex items-center justify-center w-5 h-5 rounded-full bg-red-500 text-white shadow"
                                         title="Eliminar archivo">
@@ -662,11 +663,19 @@
                                     <div v-if="examen.archivos_informe?.length" class="mt-4">
                                         <p class="text-xs text-gray-500 mb-2">Archivos adjuntos del informe:</p>
                                         <div class="flex flex-wrap gap-3">
-                                            <FileThumbnail
-                                                v-for="f in examen.archivos_informe" :key="f.id"
-                                                :file="f"
-                                                @lightbox="openLightbox"
-                                                :showDicom="parseInt(examen.grupo ?? 0) === 4" />
+                                            <div v-for="f in examen.archivos_informe" :key="f.id" class="relative group">
+                                                <FileThumbnail
+                                                    :file="f"
+                                                    @lightbox="openLightbox"
+                                                    :showDicom="parseInt(examen.grupo ?? 0) === 4" />
+                                                <button v-if="(esAdmin || esRadiologo) && order.estadoradiologo != 1"
+                                                    type="button"
+                                                    @click="eliminarArchivo(f.id)"
+                                                    class="absolute top-1 right-1 hidden group-hover:flex items-center justify-content-center w-5 h-5 rounded-full bg-red-500 text-white shadow"
+                                                    title="Eliminar archivo">
+                                                    <i class="pi pi-times" style="font-size:9px" />
+                                                </button>
+                                            </div>
                                         </div>
                                     </div>
 
