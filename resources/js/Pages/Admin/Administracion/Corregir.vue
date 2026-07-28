@@ -76,12 +76,10 @@
                                     @change="subirArchivo(ex.id, $event)" />
                             </div>
                         </div>
-                        <div v-if="ex.archivos?.length" class="p-4 flex flex-wrap gap-2">
+                        <div v-if="ex.archivos?.length" class="p-4 flex flex-wrap gap-3">
                             <div v-for="f in ex.archivos" :key="f.id" class="relative group/file">
-                                <a :href="route('archivos.serve', f.id)" target="_blank"
-                                    class="flex items-center gap-1.5 px-3 py-1.5 bg-gray-50 border border-gray-200 rounded-lg text-xs text-blue-600 hover:bg-blue-50 transition">
-                                    <i class="pi pi-file text-sm" /> {{ f.name || 'Archivo' }}
-                                </a>
+                                <FileThumbnail :file="f"
+                                    :showDicom="f.ruta_dcm && f.ruta_dcm !== 'processing'" />
                                 <button type="button" @click="eliminarArchivo(f.id)"
                                     class="absolute -top-1.5 -right-1.5 hidden group-hover/file:flex items-center justify-center w-5 h-5 rounded-full bg-red-500 text-white shadow"
                                     title="Eliminar archivo">
@@ -133,6 +131,7 @@
 import { ref, computed } from 'vue';
 import { router } from '@inertiajs/vue3';
 import AppLayout from '@/Layouts/AppLayout.vue';
+import FileThumbnail from '@/Components/FileThumbnail.vue';
 import Button from 'primevue/button';
 import InputText from 'primevue/inputtext';
 import Textarea from 'primevue/textarea';

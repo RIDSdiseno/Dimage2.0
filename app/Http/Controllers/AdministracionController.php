@@ -39,7 +39,7 @@ class AdministracionController extends Controller
                     ->map(function ($e) {
                         $archivos = DB::table('files')
                             ->where('examination_id', $e->examination_id)
-                            ->get(['id', 'name', 'extension'])
+                            ->get(['id', 'name', 'extension', 'ruta_dcm', 'nombre_dcm', 'type_id'])
                             ->toArray();
 
                         return [
