@@ -63,14 +63,31 @@
                         class="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
                         <div class="px-5 py-2.5 flex items-center justify-between" style="background-color:#0b2a4a;">
                             <span class="font-semibold text-white text-sm">{{ ex.descripcion }}</span>
-                            <span class="text-xs text-blue-200">{{ ex.archivos?.length ?? 0 }} archivo(s)</span>
+                            <div class="flex items-center gap-3">
+                                <span class="text-xs text-blue-200">{{ ex.archivos?.length ?? 0 }} archivo(s)</span>
+                                <button type="button" @click="fileInputs[ex.id]?.click()"
+                                    :disabled="subiendoArchivo"
+                                    class="flex items-center gap-1 text-xs text-blue-200 hover:text-white transition disabled:opacity-50">
+                                    <i class="pi pi-paperclip text-xs" />
+                                    {{ subiendoArchivo ? 'Subiendo...' : 'Adjuntar' }}
+                                </button>
+                                <input type="file" :ref="el => { if (el) fileInputs[ex.id] = el }"
+                                    class="hidden" accept="image/*,.pdf"
+                                    @change="subirArchivo(ex.id, $event)" />
+                            </div>
                         </div>
                         <div v-if="ex.archivos?.length" class="p-4 flex flex-wrap gap-2">
-                            <a v-for="f in ex.archivos" :key="f.id"
-                                :href="route('archivos.serve', f.id)" target="_blank"
-                                class="flex items-center gap-1.5 px-3 py-1.5 bg-gray-50 border border-gray-200 rounded-lg text-xs text-blue-600 hover:bg-blue-50 transition">
-                                <i class="pi pi-file text-sm" /> {{ f.name || 'Archivo' }}
-                            </a>
+                            <div v-for="f in ex.archivos" :key="f.id" class="relative group/file">
+                                <a :href="route('archivos.serve', f.id)" target="_blank"
+                                    class="flex items-center gap-1.5 px-3 py-1.5 bg-gray-50 border border-gray-200 rounded-lg text-xs text-blue-600 hover:bg-blue-50 transition">
+                                    <i class="pi pi-file text-sm" /> {{ f.name || 'Archivo' }}
+                                </a>
+                                <button type="button" @click="eliminarArchivo(f.id)"
+                                    class="absolute -top-1.5 -right-1.5 hidden group-hover/file:flex items-center justify-center w-5 h-5 rounded-full bg-red-500 text-white shadow"
+                                    title="Eliminar archivo">
+                                    <i class="pi pi-times" style="font-size:9px" />
+                                </button>
+                            </div>
                         </div>
                         <p v-else class="px-5 py-3 text-xs text-gray-400 italic">Sin archivos adjuntos.</p>
                     </div>
@@ -123,12 +140,14 @@ import Message from 'primevue/message';
 
 const props = defineProps({ orden: Object });
 
-const busqueda          = ref(props.orden?.id ?? '');
-const error             = ref('');
-const buscando          = ref(false);
-const mensajeCorreccion = ref('');
+const busqueda           = ref(props.orden?.id ?? '');
+const error              = ref('');
+const buscando           = ref(false);
+const mensajeCorreccion  = ref('');
 const enviandoCorreccion = ref(false);
-const cambiandoEstado   = ref(false);
+const cambiandoEstado    = ref(false);
+const subiendoArchivo    = ref(false);
+const fileInputs         = ref({});
 
 const estadoClass = computed(() => {
     const e = props.orden?.estadoradiologo;
@@ -165,6 +184,27 @@ function cambiarNoInformada() {
         orden_id: props.orden.id,
     }, {
         onFinish: () => { cambiandoEstado.value = false; },
+    });
+}
+
+function eliminarArchivo(id) {
+    if (!confirm('¿Eliminar este archivo?')) return;
+    router.delete(route('archivos.destroy', id), { preserveScroll: true });
+}
+
+function subirArchivo(examinationId, event) {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    subiendoArchivo.value = true;
+    const form = new FormData();
+    form.append('examination_id', examinationId);
+    form.append('file', file);
+    router.post(route('admin.administracion.subir-archivo'), form, {
+        forceFormData: true,
+        onFinish: () => {
+            subiendoArchivo.value = false;
+            if (fileInputs.value[examinationId]) fileInputs.value[examinationId].value = '';
+        },
     });
 }
 </script>

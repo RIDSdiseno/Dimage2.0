@@ -97,6 +97,38 @@ class AdministracionController extends Controller
             ->with('success', 'Orden enviada a corrección.');
     }
 
+    public function uploadArchivo(Request $request)
+    {
+        $request->validate([
+            'examination_id' => ['required', 'integer', 'exists:examinations,id'],
+            'file'           => ['required', 'file', 'max:102400'],
+        ]);
+
+        $examinationId = (int) $request->examination_id;
+        $eo = DB::table('examination_order')->where('examination_id', $examinationId)->first(['order_id']);
+        abort_if(!$eo, 404);
+        $orderId = (int) $eo->order_id;
+
+        $file = $request->file('file');
+        $ext  = strtolower($file->getClientOriginalExtension());
+        $path = $file->store("ordenes/{$orderId}", 's3');
+
+        DB::table('files')->insert([
+            'examination_id' => $examinationId,
+            'ruta'           => $path,
+            'name'           => $file->getClientOriginalName(),
+            'extension'      => $ext,
+            'file_size'      => (int) $file->getSize(),
+            'type_id'        => 0,
+            'created_at'     => now(),
+            'updated_at'     => now(),
+        ]);
+
+        return redirect()
+            ->route('admin.administracion.corregir', ['orden_id' => $orderId])
+            ->with('success', 'Archivo adjuntado correctamente.');
+    }
+
     public function noInformada(Request $request)
     {
         $request->validate([
