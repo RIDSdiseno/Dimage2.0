@@ -244,6 +244,7 @@
                     <template v-if="isAdmin">
                         <NavGroup label="Administración" icon="pi-cog" icon-color="#64748b"
                             :open="menus.administracion" @toggle="menus.administracion = !menus.administracion">
+                            <NavSub href="/admin/administracion/corregir" label="Corregir" />
                             <NavSub href="/admin/administracion/gestion-estado" label="Gestión de Estado" />
                             <NavSub href="/admin/administracion/reasignacion" label="Reasignación" />
                             <NavSub href="/admin/feriados/crear" label="Crear Feriado" />
