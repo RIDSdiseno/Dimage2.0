@@ -34,7 +34,7 @@ class AdministracionController extends Controller
                     ->join('examination_order', 'examination_order.examination_id', '=', 'examinations.id')
                     ->join('kinds', 'kinds.id', '=', 'examinations.kind_id')
                     ->where('examination_order.order_id', $o->id)
-                    ->select(['examinations.id as examination_id', 'kinds.descipcion as descripcion'])
+                    ->select(['examinations.id as examination_id', 'kinds.descipcion as descripcion', 'kinds.grupo as grupo'])
                     ->get()
                     ->map(function ($e) {
                         $archivos = DB::table('files')
@@ -45,6 +45,7 @@ class AdministracionController extends Controller
                         return [
                             'id'          => $e->examination_id,
                             'descripcion' => $e->descripcion,
+                            'grupo'       => (int) $e->grupo,
                             'archivos'    => $archivos,
                         ];
                     });

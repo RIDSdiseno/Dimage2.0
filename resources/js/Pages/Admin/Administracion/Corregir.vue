@@ -79,7 +79,7 @@
                         <div v-if="ex.archivos?.length" class="p-4 flex flex-wrap gap-3">
                             <div v-for="f in ex.archivos" :key="f.id" class="relative group/file">
                                 <FileThumbnail :file="f"
-                                    :showDicom="f.ruta_dcm && f.ruta_dcm !== 'processing'" />
+                                    :showDicom="parseInt(ex.grupo ?? 0) === 4" />
                                 <button type="button" @click="eliminarArchivo(f.id)"
                                     class="absolute -top-1.5 -right-1.5 hidden group-hover/file:flex items-center justify-center w-5 h-5 rounded-full bg-red-500 text-white shadow"
                                     title="Eliminar archivo">
