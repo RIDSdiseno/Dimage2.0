@@ -309,7 +309,6 @@ class AdministracionController extends Controller
         $radiologos = DB::table('staffs')
             ->join('users', 'users.id', '=', 'staffs.user_id')
             ->where('staffs.type_staff', 3)
-            ->where('staffs.activo', 1)
             ->select(['staffs.id', 'users.name'])
             ->orderBy('users.name')
             ->get();
@@ -317,7 +316,6 @@ class AdministracionController extends Controller
         $odontologos = DB::table('staffs')
             ->join('users', 'users.id', '=', 'staffs.user_id')
             ->where('staffs.type_staff', 6)
-            ->where('staffs.activo', 1)
             ->select(['staffs.id', 'users.name'])
             ->orderBy('users.name')
             ->get();
