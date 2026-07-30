@@ -17,10 +17,10 @@
                     <p class="text-xs font-semibold text-blue-200">Subiendo archivo 3D/CBCT...</p>
                     <div class="w-full bg-white/20 rounded-full h-1.5 mt-1 overflow-hidden">
                         <div class="h-1.5 rounded-full bg-blue-400 transition-all duration-300"
-                            :style="`width:${Object.values(cbctUploads).find(u=>u.uploading)?.progress ?? 0}%`" />
+                            :style="`width:${Object.values(cbctUploads).flatMap(arr=>arr).find(u=>u.uploading)?.progress ?? 0}%`" />
                     </div>
                     <p class="text-[10px] text-blue-300 mt-1">
-                        {{ Object.values(cbctUploads).find(u=>u.uploading)?.progress ?? 0 }}% — El formulario sigue disponible
+                        {{ Object.values(cbctUploads).flatMap(arr=>arr).find(u=>u.uploading)?.progress ?? 0 }}% — El formulario sigue disponible
                     </p>
                 </div>
             </div>
@@ -348,7 +348,7 @@ const uploadProgress      = ref(0);
 const fileError           = ref(null);
 
 // Eager upload: ZIP CBCT sube a S3 en segundo plano al seleccionarlo
-const cbctUploads = reactive({}); // { [examId]: {uploading, progress, s3_path, filename, file_size, error} }
+const cbctUploads = reactive({}); // { [examId]: [{uploading, progress, s3_path, filename, file_size, error}] }
 
 const hasCbctFiles = computed(() =>
     Object.values(examFiles).some(files =>
@@ -357,11 +357,14 @@ const hasCbctFiles = computed(() =>
 );
 
 const cbctStillUploading = computed(() =>
-    Object.values(cbctUploads).some(u => u.uploading)
+    Object.values(cbctUploads).some(arr => arr?.some(u => u.uploading))
 );
 
 async function startEagerUpload(examId, file) {
-    cbctUploads[examId] = { uploading: true, progress: 0, s3_path: null, filename: file.name, file_size: file.size, error: null };
+    if (!cbctUploads[examId]) cbctUploads[examId] = [];
+    const idx = cbctUploads[examId].push({
+        uploading: true, progress: 0, s3_path: null, filename: file.name, file_size: file.size, error: null,
+    }) - 1;
 
     // Intentar subida directa browser→S3 con presigned PUT (evita el proxy PHP)
     try {
@@ -375,13 +378,13 @@ async function startEagerUpload(examId, file) {
                     xhr.setRequestHeader('Content-Type', 'application/zip');
                     Object.entries(headers || {}).forEach(([k, v]) => xhr.setRequestHeader(k, v));
                     xhr.upload.onprogress = (e) => {
-                        if (e.lengthComputable) cbctUploads[examId].progress = Math.round((e.loaded / e.total) * 100);
+                        if (e.lengthComputable) cbctUploads[examId][idx].progress = Math.round((e.loaded / e.total) * 100);
                     };
                     xhr.onload = () => {
                         if (xhr.status >= 200 && xhr.status < 300) {
-                            cbctUploads[examId].s3_path   = s3_path;
-                            cbctUploads[examId].filename  = filename;
-                            cbctUploads[examId].uploading = false;
+                            cbctUploads[examId][idx].s3_path   = s3_path;
+                            cbctUploads[examId][idx].filename  = filename;
+                            cbctUploads[examId][idx].uploading = false;
                             // Notificar al servidor para disparar el pre-procesamiento
                             const csrf = document.querySelector('meta[name="csrf-token"]')?.content;
                             fetch(route('archivos.cbct-preprocess'), {
@@ -391,11 +394,11 @@ async function startEagerUpload(examId, file) {
                             }).catch(() => {});
                         } else {
                             // S3 rechazó (CORS no configurado u otro error) — fallback a PHP
-                            startEagerUploadViaPHP(examId, file);
+                            startEagerUploadViaPHP(examId, idx, file);
                         }
                         resolve();
                     };
-                    xhr.onerror = () => { startEagerUploadViaPHP(examId, file); resolve(); };
+                    xhr.onerror = () => { startEagerUploadViaPHP(examId, idx, file); resolve(); };
                     xhr.send(file);
                 });
                 return;
@@ -404,10 +407,10 @@ async function startEagerUpload(examId, file) {
     } catch {}
 
     // Fallback: proxy PHP (browser→PHP→S3)
-    startEagerUploadViaPHP(examId, file);
+    startEagerUploadViaPHP(examId, idx, file);
 }
 
-function startEagerUploadViaPHP(examId, file) {
+function startEagerUploadViaPHP(examId, idx, file) {
     const fd = new FormData();
     fd.append('file', file);
 
@@ -418,22 +421,22 @@ function startEagerUploadViaPHP(examId, file) {
     xhr.setRequestHeader('Accept', 'application/json');
 
     xhr.upload.onprogress = (e) => {
-        if (e.lengthComputable) cbctUploads[examId].progress = Math.round((e.loaded / e.total) * 100);
+        if (e.lengthComputable) cbctUploads[examId][idx].progress = Math.round((e.loaded / e.total) * 100);
     };
     xhr.onload = () => {
         if (xhr.status === 200) {
             const data = JSON.parse(xhr.responseText);
-            cbctUploads[examId].s3_path  = data.s3_path;
-            cbctUploads[examId].filename = data.filename;
-            cbctUploads[examId].uploading = false;
+            cbctUploads[examId][idx].s3_path   = data.s3_path;
+            cbctUploads[examId][idx].filename  = data.filename;
+            cbctUploads[examId][idx].uploading = false;
         } else {
-            cbctUploads[examId].error    = 'Error subiendo ZIP';
-            cbctUploads[examId].uploading = false;
+            cbctUploads[examId][idx].error    = 'Error subiendo ZIP';
+            cbctUploads[examId][idx].uploading = false;
         }
     };
     xhr.onerror = () => {
-        cbctUploads[examId].error    = 'Error de red';
-        cbctUploads[examId].uploading = false;
+        cbctUploads[examId][idx].error    = 'Error de red';
+        cbctUploads[examId][idx].uploading = false;
     };
     xhr.send(fd);
 }
@@ -491,9 +494,9 @@ const onPatientSelect = (event) => {
 // Guardar archivos, piezas y URL por tipo de examen
 const onFilesSelect   = (examId, event) => {
     examFiles[examId] = event.files;
-    // ZIP CBCT → subir inmediatamente en segundo plano
-    const zip = event.files.find(f => f.name?.toLowerCase().endsWith('.zip'));
-    if (zip) startEagerUpload(examId, zip);
+    // ZIP CBCT → subir todos inmediatamente en segundo plano
+    event.files.filter(f => f.name?.toLowerCase().endsWith('.zip'))
+               .forEach(zip => startEagerUpload(examId, zip));
 };
 const onPiezasSelect  = (examId, piezas) => { examPiezas[examId]  = piezas; };
 const onUrlTextChange = (examId, val)   => { examUrlTexts[examId] = val; };
@@ -523,10 +526,11 @@ const submitAction = async (action) => {
     // Subir ZIPs CBCT que aún no tengan s3_path (ya sea eager o ahora)
     const zipPendientes = [];
     Object.entries(examFiles).forEach(([examId, files]) => {
-        const zip = files.find(f => f.name?.toLowerCase().endsWith('.zip'));
-        if (zip && !cbctUploads[examId]?.s3_path) {
-            zipPendientes.push({ examId, file: zip });
-        }
+        const uploadedNames = new Set((cbctUploads[examId] || []).filter(u => u.s3_path).map(u => u.filename));
+        files.filter(f => f.name?.toLowerCase().endsWith('.zip'))
+             .forEach(zip => {
+                 if (!uploadedNames.has(zip.name)) zipPendientes.push({ examId, file: zip });
+             });
     });
 
     if (zipPendientes.length > 0) {
@@ -556,7 +560,8 @@ const submitAction = async (action) => {
                                 xhr.upload.onprogress = trackProgress;
                                 xhr.onload = () => {
                                     if (xhr.status >= 200 && xhr.status < 300) {
-                                        cbctUploads[examId] = { s3_path, filename, file_size: file.size };
+                                        if (!cbctUploads[examId]) cbctUploads[examId] = [];
+                                        cbctUploads[examId].push({ s3_path, filename, file_size: file.size });
                                         uploaded = true;
                                         resolve();
                                     } else {
@@ -583,7 +588,8 @@ const submitAction = async (action) => {
                         xhr.onload = () => {
                             if (xhr.status === 200) {
                                 const resp = JSON.parse(xhr.responseText);
-                                cbctUploads[examId] = { s3_path: resp.s3_path, filename: resp.filename, file_size: resp.file_size };
+                                if (!cbctUploads[examId]) cbctUploads[examId] = [];
+                                cbctUploads[examId].push({ s3_path: resp.s3_path, filename: resp.filename, file_size: resp.file_size });
                                 resolve();
                             } else if (xhr.status === 413) {
                                 reject(new Error('El archivo es demasiado grande para el servidor. Contacte al administrador para aumentar el límite de subida.'));
@@ -638,13 +644,14 @@ const submitAction = async (action) => {
 
     // Archivos: ZIPs ya subidos → enviar ruta S3; resto → adjuntar normalmente
     Object.entries(examFiles).forEach(([examId, files]) => {
+        const uploads = cbctUploads[examId] || [];
         files.forEach(file => {
-            const isZip  = file.name?.toLowerCase().endsWith('.zip');
-            const upload = cbctUploads[examId];
-            if (isZip && upload?.s3_path) {
-                data.append(`cbct_s3_path_${examId}`, upload.s3_path);
-                data.append(`cbct_s3_name_${examId}`, upload.filename || file.name);
-                data.append(`cbct_s3_size_${examId}`, String(upload.file_size || file.size));
+            const isZip = file.name?.toLowerCase().endsWith('.zip');
+            const uploadEntry = isZip ? uploads.find(u => u.s3_path && u.filename === file.name) : null;
+            if (uploadEntry) {
+                data.append(`cbct_s3_path_${examId}[]`, uploadEntry.s3_path);
+                data.append(`cbct_s3_name_${examId}[]`, uploadEntry.filename || file.name);
+                data.append(`cbct_s3_size_${examId}[]`, String(uploadEntry.file_size || file.size));
             } else {
                 data.append(`files_${examId}[]`, file);
             }
