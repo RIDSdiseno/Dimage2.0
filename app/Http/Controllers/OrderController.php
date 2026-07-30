@@ -511,6 +511,13 @@ class OrderController extends Controller
                 ];
 
                 // ZIP CBCT pre-subido en segundo plano (eager upload) — soporta múltiples ZIPs
+                \Log::info('CBCT_STORE_DEBUG', [
+                    'kindId'       => $kindId,
+                    'cbct_paths'   => $request->input("cbct_s3_path_{$kindId}"),
+                    'cbct_names'   => $request->input("cbct_s3_name_{$kindId}"),
+                    'has_files'    => $request->hasFile("files_{$kindId}"),
+                    'all_keys'     => array_keys($request->all()),
+                ]);
                 $cbctTempPaths = array_values(array_filter((array) $request->input("cbct_s3_path_{$kindId}", [])));
                 $cbctTempNames = array_values((array) $request->input("cbct_s3_name_{$kindId}", []));
                 $cbctTempSizes = array_values((array) $request->input("cbct_s3_size_{$kindId}", []));
