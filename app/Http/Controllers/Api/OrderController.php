@@ -961,6 +961,91 @@ class OrderController extends Controller
     }
 
     // GET /api/v3/order/by-radiologo/{rut}
+    // GET /api/v3/orders/pendientes
+    public function listPendientes(Request $request)
+    {
+        $holdingId = (int) $request->_holding_id;
+        $page      = max(1, (int) $request->get('page', 1));
+        $perPage   = min(100, max(1, (int) $request->get('per_page', 25)));
+        $estado    = $request->has('estado') ? (int) $request->estado : 0; // 0=No Informada, 2=En Corrección
+
+        $query = DB::table('orders as o')
+            ->join('clinics as c',    'c.id',  '=', 'o.clinic_id')
+            ->join('users as uc',     'uc.id', '=', 'c.user_id')
+            ->join('patients as p',   'p.id',  '=', 'o.patient_id')
+            ->leftJoin('staffs as sr',  'sr.id',  '=', 'o.radiologo_id')
+            ->leftJoin('users as ur',   'ur.id',  '=', 'sr.user_id')
+            ->leftJoin('staffs as so',  'so.id',  '=', 'o.odontologo_id')
+            ->leftJoin('users as uo',   'uo.id',  '=', 'so.user_id')
+            ->where('c.holding_id', $holdingId)
+            ->where('o.estadoradiologo', $estado)
+            ->select(
+                'o.id', 'o.estadoradiologo', 'o.prioridad',
+                'o.created_at as fecha_creacion', 'o.enviada as fecha_envio',
+                'p.name as paciente', 'p.rut as rut_paciente',
+                'uc.name as clinica',
+                'uo.name as odontologo', 'so.rut as rut_odontologo',
+                'ur.name as radiologo',  'sr.rut as rut_radiologo'
+            );
+
+        if ($request->filled('clinic_id')) {
+            $query->where('o.clinic_id', (int) $request->clinic_id);
+        }
+
+        if ($request->filled('radiologo_rut')) {
+            $query->where('sr.rut', $request->radiologo_rut);
+        }
+
+        $total  = $query->count();
+        $orders = $query->orderByDesc('o.enviada')
+            ->offset(($page - 1) * $perPage)
+            ->limit($perPage)
+            ->get();
+
+        // Agregar tipos de examen por orden (batch, sin N+1)
+        $orderIds = $orders->pluck('id')->toArray();
+        $examenes = DB::table('examinations as e')
+            ->join('examination_order as eo', 'eo.examination_id', '=', 'e.id')
+            ->join('kinds as k', 'k.id', '=', 'e.kind_id')
+            ->whereIn('eo.order_id', $orderIds)
+            ->select('eo.order_id', 'k.id as kind_id', 'k.descipcion as descripcion', 'k.group as grupo')
+            ->get()
+            ->groupBy('order_id');
+
+        $estadoTexto = [0 => 'No Informada', 1 => 'Informada', 2 => 'En Corrección'];
+
+        $data = $orders->map(function ($o) use ($examenes, $estadoTexto) {
+            return [
+                'id'             => $o->id,
+                'paciente'       => $o->paciente,
+                'rut_paciente'   => $o->rut_paciente,
+                'clinica'        => $o->clinica,
+                'odontologo'     => $o->odontologo,
+                'rut_odontologo' => $o->rut_odontologo,
+                'radiologo'      => $o->radiologo,
+                'rut_radiologo'  => $o->rut_radiologo,
+                'prioridad'      => (int) ($o->prioridad ?? 0),
+                'fecha_creacion' => $o->fecha_creacion,
+                'fecha_envio'    => $o->fecha_envio,
+                'estado'         => (int) $o->estadoradiologo,
+                'estado_texto'   => $estadoTexto[(int) $o->estadoradiologo] ?? 'Desconocido',
+                'examenes'       => ($examenes[$o->id] ?? collect())->map(fn($e) => [
+                    'kind_id'     => $e->kind_id,
+                    'descripcion' => $e->descripcion,
+                    'grupo'       => (int) $e->grupo,
+                ])->values(),
+            ];
+        });
+
+        return response()->json([
+            'data'        => $data,
+            'total'       => $total,
+            'page'        => $page,
+            'per_page'    => $perPage,
+            'total_pages' => (int) ceil($total / max(1, $perPage)),
+        ]);
+    }
+
     public function listByRadiologo(Request $request, string $rut)
     {
         $holdingId = $request->_holding_id;

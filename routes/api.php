@@ -23,6 +23,7 @@ Route::prefix('v3')->middleware('auth.api')->group(function () {
     Route::get('/order/examinations/groups',         [OrderController::class, 'examGroups']);
     Route::get('/order/by-patient/{rut}',            [OrderController::class, 'listByPatient']);
     Route::get('/order/by-radiologo/{rut}',          [OrderController::class, 'listByRadiologo']);
+    Route::get('/orders/pendientes',                 [OrderController::class, 'listPendientes']);
     Route::get('/order/by-id/{id}',                  [OrderController::class, 'byId']);
     Route::post('/order',                            [OrderController::class, 'create']);
     Route::put('/order/{id}',                        [OrderController::class, 'update']);
