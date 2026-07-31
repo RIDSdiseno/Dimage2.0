@@ -525,13 +525,22 @@ const submitAction = async (action) => {
     uploadProgress.value = 0;
     uploadLabel.value    = '';
 
+    // Esperar que terminen eager uploads en progreso antes de evaluar pendientes
+    while (Object.values(cbctUploads).some(arr => arr?.some(u => u.uploading))) {
+        uploadLabel.value = 'Esperando subida de archivo ZIP...';
+        await new Promise(r => setTimeout(r, 300));
+    }
+
     // Subir ZIPs CBCT que aún no tengan s3_path (ya sea eager o ahora)
     const zipPendientes = [];
     Object.entries(examFiles).forEach(([examId, files]) => {
-        const uploadedNames = new Set((cbctUploads[examId] || []).filter(u => u.s3_path).map(u => u.filename));
+        const uploadedNames  = new Set((cbctUploads[examId] || []).filter(u => u.s3_path).map(u => u.filename));
+        const uploadingNames = new Set((cbctUploads[examId] || []).filter(u => u.uploading).map(u => u.filename));
         files.filter(f => f.name?.toLowerCase().endsWith('.zip'))
              .forEach(zip => {
-                 if (!uploadedNames.has(zip.name)) zipPendientes.push({ examId, file: zip });
+                 if (!uploadedNames.has(zip.name) && !uploadingNames.has(zip.name)) {
+                     zipPendientes.push({ examId, file: zip });
+                 }
              });
     });
 
