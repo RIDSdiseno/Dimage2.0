@@ -34,9 +34,9 @@
                             <small class="text-red-500">{{ form.errors.name }}</small>
                         </div>
 
-                        <div v-if="!holding">
-                            <label class="block text-sm font-medium mb-1">Username *</label>
-                            <InputText v-model="form.username" class="w-full" :class="{ 'p-invalid': form.errors.username }" />
+                        <div>
+                            <label class="block text-sm font-medium mb-1">Username {{ !holding ? '*' : '' }}</label>
+                            <InputText v-model="form.username" class="w-full" :class="{ 'p-invalid': form.errors.username }" :disabled="!!holding" />
                             <small class="text-red-500">{{ form.errors.username }}</small>
                         </div>
 
