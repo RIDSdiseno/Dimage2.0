@@ -494,8 +494,10 @@ const onPatientSelect = (event) => {
 // Guardar archivos, piezas y URL por tipo de examen
 const onFilesSelect   = (examId, event) => {
     examFiles[examId] = event.files;
-    // ZIP CBCT → subir todos inmediatamente en segundo plano
+    // ZIP CBCT → subir en segundo plano solo los que no están ya en tracking
+    const alreadyTracked = new Set((cbctUploads[examId] || []).map(u => u.filename));
     event.files.filter(f => f.name?.toLowerCase().endsWith('.zip'))
+               .filter(f => !alreadyTracked.has(f.name))
                .forEach(zip => startEagerUpload(examId, zip));
 };
 const onPiezasSelect  = (examId, piezas) => { examPiezas[examId]  = piezas; };
@@ -642,20 +644,25 @@ const submitAction = async (action) => {
 
     form.examenes.forEach(id => data.append('examenes[]', id));
 
-    // Archivos: ZIPs ya subidos → enviar ruta S3; resto → adjuntar normalmente
+    // Archivos: ZIPs ya subidos → enviar rutas S3; resto → adjuntar normalmente
     Object.entries(examFiles).forEach(([examId, files]) => {
-        const uploads = cbctUploads[examId] || [];
-        files.forEach(file => {
-            const isZip = file.name?.toLowerCase().endsWith('.zip');
-            const uploadEntry = isZip ? uploads.find(u => u.s3_path && u.filename === file.name) : null;
-            if (uploadEntry) {
-                data.append(`cbct_s3_path_${examId}[]`, uploadEntry.s3_path);
-                data.append(`cbct_s3_name_${examId}[]`, uploadEntry.filename || file.name);
-                data.append(`cbct_s3_size_${examId}[]`, String(uploadEntry.file_size || file.size));
-            } else {
-                data.append(`files_${examId}[]`, file);
-            }
-        });
+        const uploads   = cbctUploads[examId] || [];
+        const eagerDone = uploads.filter(u => u.s3_path);
+
+        if (eagerDone.length > 0) {
+            // Enviar todas las rutas S3 de ZIPs subidos
+            eagerDone.forEach(u => {
+                data.append(`cbct_s3_path_${examId}[]`, u.s3_path);
+                data.append(`cbct_s3_name_${examId}[]`, u.filename || '');
+                data.append(`cbct_s3_size_${examId}[]`, String(u.file_size || 0));
+            });
+            // Archivos no-ZIP (imágenes, PDF) siguen por canal normal
+            files.filter(f => !f.name?.toLowerCase().endsWith('.zip'))
+                 .forEach(f => data.append(`files_${examId}[]`, f));
+        } else {
+            // Sin eager uploads: todos los archivos por canal normal
+            files.forEach(f => data.append(`files_${examId}[]`, f));
+        }
     });
     Object.entries(examPiezas).forEach(([examId, piezas]) => {
         piezas.forEach(p => data.append(`piezas_${examId}[]`, p));
