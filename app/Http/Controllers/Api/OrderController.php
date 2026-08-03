@@ -163,11 +163,11 @@ class OrderController extends Controller
         // Solución: siempre null, igual que el sistema antiguo.
         $order->profesional_id_externo = null;
 
-        // Limpiar RUT: sin puntos ni guiones, con dígito verificador incluido.
-        // Ej: "7.838.054-3" → "78380543", "21545648-k" → "21545648K"
-        // strtoupper ANTES del regex para que 'k' minúscula no sea eliminada por /[^0-9K]/
+        // Limpiar RUT: sin puntos, CON guión y dígito verificador.
+        // DentalSoft compara en formato "21545648-K" (sin puntos, con guión).
+        // Ej: "21.545.648-K" → "21545648-K", "7.838.054-3" → "7838054-3"
         $stripRut = function ($rut) {
-            return preg_replace('/[^0-9K]/', '', strtoupper((string) $rut));
+            return str_replace('.', '', strtoupper((string) $rut));
         };
 
         if (!empty($order->rut_odontologo)) {
