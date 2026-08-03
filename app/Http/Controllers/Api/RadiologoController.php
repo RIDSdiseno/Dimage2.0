@@ -211,7 +211,6 @@ class RadiologoController extends Controller
         return DB::table('staffs as s')
             ->join('users as u', 'u.id', '=', 's.user_id')
             ->where('s.type_staff', 3)
-            ->where('s.activo', 1)
             ->select('s.id as staff_id', 'u.id as user_id', 'u.name', 'u.mail as email', 's.rut', 's.activo', 'u.status', 'u.photo')
             ->distinct();
     }
