@@ -70,13 +70,15 @@ class ProcessCbctZip implements ShouldQueue
                     substr(str_replace('\\', '/', $file->getPathname()), strlen($tmpDirBase)),
                     '/'
                 );
-                $s3Path = "ordenes/{$this->orderId}/{$relPath}";
+                // Namespace DCMs under cbct-{fileId}/ so that two ZIPs in the same order
+                // never overwrite each other's extracted slices on S3.
+                $s3Path = "ordenes/{$this->orderId}/cbct-{$this->fileId}/{$relPath}";
                 $uploads[] = [$s3Path, $file->getPathname()];
 
                 if ($firstDcmS3 === null) {
                     $firstDcmS3  = $s3Path;
                     $dir         = dirname($relPath);
-                    $seriePrefix = "ordenes/{$this->orderId}/" . ($dir === '.' ? '' : rtrim($dir, '/') . '/');
+                    $seriePrefix = "ordenes/{$this->orderId}/cbct-{$this->fileId}/" . ($dir === '.' ? '' : rtrim($dir, '/') . '/');
                 }
             }
 

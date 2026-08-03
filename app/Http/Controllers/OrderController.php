@@ -513,19 +513,16 @@ class OrderController extends Controller
                 ];
 
                 // ZIP CBCT pre-subido en segundo plano (eager upload) — soporta múltiples ZIPs
-                \Log::info('CBCT_STORE_DEBUG', [
-                    'kindId'       => $kindId,
-                    'cbct_paths'   => $request->input("cbct_s3_path_{$kindId}"),
-                    'cbct_names'   => $request->input("cbct_s3_name_{$kindId}"),
-                    'has_files'    => $request->hasFile("files_{$kindId}"),
-                    'all_keys'     => array_keys($request->all()),
-                ]);
                 $cbctTempPaths = array_values(array_filter((array) $request->input("cbct_s3_path_{$kindId}", [])));
                 $cbctTempNames = array_values((array) $request->input("cbct_s3_name_{$kindId}", []));
                 $cbctTempSizes = array_values((array) $request->input("cbct_s3_size_{$kindId}", []));
                 if (!empty($cbctTempPaths)) {
                     foreach ($cbctTempPaths as $i => $cbctTempPath) {
-                        $finalPath = "ordenes/{$order->id}/" . basename($cbctTempPath);
+                        // Preserve the UUID segment already embedded in the temp path
+                        // (cbct-temp/{uuid}/file.zip) to guarantee a unique final path per ZIP.
+                        // Using basename() alone caused S3 collisions when two ZIPs share the same filename.
+                        $tempUuid  = explode('/', $cbctTempPath)[1] ?? \Illuminate\Support\Str::uuid()->toString();
+                        $finalPath = "ordenes/{$order->id}/{$tempUuid}/" . basename($cbctTempPath);
                         Storage::disk('s3')->move($cbctTempPath, $finalPath);
 
                         $fileRows[] = [
