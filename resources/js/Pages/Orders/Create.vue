@@ -67,6 +67,8 @@
                                     optionLabel="name"
                                     optionValue="id"
                                     placeholder="Selecciona clínica"
+                                    filter
+                                    filterPlaceholder="Buscar clínica..."
                                     class="w-full"
                                     :class="{'p-invalid': form.errors.clinic_id}"
                                     @change="onClinicChange"
