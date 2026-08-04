@@ -284,7 +284,7 @@
 </template>
 
 <script setup>
-import { ref, reactive, computed } from 'vue';
+import { ref, reactive, computed, onMounted } from 'vue';
 import { Link, useForm, router, usePage } from '@inertiajs/vue3';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import { useTerms } from '@/composables/useTerms.js';
@@ -319,6 +319,14 @@ const form = useForm({
     sin_diagnostico: false,
     examenes:        [],
     action:          'guardar',
+});
+
+// Auto-seleccionar clínica si el usuario solo tiene una asignada
+onMounted(() => {
+    if (props.clinics?.length === 1) {
+        form.clinic_id = props.clinics[0].id;
+        onClinicChange();
+    }
 });
 
 // Estado auxiliar
@@ -681,7 +689,8 @@ const submitAction = async (action) => {
     });
 
     router.post(route('ordenes.store'), data, {
-        forceFormData: true,
+        forceFormData:  true,
+        preserveState:  true,
         onError:  (errors) => { form.errors = errors; submitting.value = false; uploadProgress.value = 0; },
         onFinish: ()       => { submitting.value = false; },
     });

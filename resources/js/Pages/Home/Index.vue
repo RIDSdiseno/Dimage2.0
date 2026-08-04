@@ -108,11 +108,11 @@
                     class="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium bg-white border border-gray-200 text-gray-700 hover:border-blue-300 hover:text-blue-600 transition shadow-sm">
                     <i class="pi pi-list" /> Ver órdenes
                 </a>
-                <a v-if="!isRadiologo" href="/ordenes/crear"
+                <Link v-if="!isRadiologo" :href="route('ordenes.create')"
                     class="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium text-white transition shadow-sm"
                     style="background-color:#3452ff;">
                     <i class="pi pi-plus" /> Crear orden
-                </a>
+                </Link>
                 <a href="/dashboard"
                     class="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium bg-white border border-gray-200 text-gray-700 hover:border-indigo-300 hover:text-indigo-600 transition shadow-sm">
                     <i class="pi pi-chart-bar" /> Ver dashboard
@@ -214,7 +214,7 @@
 
 <script setup>
 import { ref, computed } from 'vue';
-import { router, usePage } from '@inertiajs/vue3';
+import { Link, router, usePage } from '@inertiajs/vue3';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import Dialog from 'primevue/dialog';
 
