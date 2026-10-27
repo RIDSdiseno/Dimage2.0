@@ -49,10 +49,24 @@ class OrderController extends Controller
         $holdingId = $request->_holding_id;
 
         $patient = DB::table('patients as p')
-            ->leftJoin('clinic_patient as cp', 'p.id', '=', 'cp.patient_id')
-            ->leftJoin('clinics as c', 'cp.clinic_id', '=', 'c.id')
-            ->where('c.holding_id', $holdingId)
             ->where('p.rut', $rut)
+            ->where(function ($q) use ($holdingId) {
+                // Vínculo directo en clinic_patient
+                $q->whereExists(function ($sub) use ($holdingId) {
+                    $sub->select(DB::raw(1))
+                        ->from('clinic_patient as cp')
+                        ->join('clinics as c', 'c.id', '=', 'cp.clinic_id')
+                        ->whereColumn('cp.patient_id', 'p.id')
+                        ->where('c.holding_id', $holdingId);
+                // O tiene órdenes en clínicas del mismo holding
+                })->orWhereExists(function ($sub) use ($holdingId) {
+                    $sub->select(DB::raw(1))
+                        ->from('orders as o')
+                        ->join('clinics as c', 'c.id', '=', 'o.clinic_id')
+                        ->whereColumn('o.patient_id', 'p.id')
+                        ->where('c.holding_id', $holdingId);
+                });
+            })
             ->first(['p.id']);
 
         if (! $patient) {
@@ -254,7 +268,7 @@ class OrderController extends Controller
                 'sr.rut as rut_radiologo',
                 'ose.respondida'
             )
-            ->selectRaw('case when ose.respondida = 0 then 1 else 0 end as respondible')
+            ->selectRaw('case when coalesce(ose.respondida, 0) = 0 then 1 else 0 end as respondible')
             ->get()
             ->map(function ($e) {
                 $archivos = DB::table('files')
@@ -277,8 +291,6 @@ class OrderController extends Controller
                     ->where('examination_id', $e->id)
                     ->first();
 
-                // Separar piezas en permanentes y temporales — mismo formato que API v3 antigua.
-                // piezas_adultos/piezas_ninos: enteros separados por punto ("26.27").
                 $permanentes = [11,12,13,14,15,16,17,18,21,22,23,24,25,26,27,28,
                                 31,32,33,34,35,36,37,38,41,42,43,44,45,46,47,48];
                 $temporales  = [51,52,53,54,55,61,62,63,64,65,71,72,73,74,75,81,82,83,84,85];
@@ -289,54 +301,86 @@ class OrderController extends Controller
                 $piezasNinos   = implode('.', array_values(array_filter($dList, fn($d) => in_array($d, $temporales))));
 
                 return [
-                    'id'              => $e->id,
-                    'id_tipo_examen'  => $e->id_tipo_examen,
-                    'tipo_examen'     => $e->tipo_examen,
-                    'descripcion'     => $e->descripcion,
-                    'grupo'           => $e->grupo,
-                    'piezas_adultos'  => $piezasAdultos,
-                    'piezas_ninos'    => $piezasNinos,
-                    'dientes'         => $dList,
-                    'url_texto'       => implode(',', $this->urlTextoToTrazados($e->url_texto)) ?: null,
-                    'trazados'        => $this->urlTextoToTrazados($e->url_texto),
-                    // columnas individuales que DentalSoft usa para pre-poblar checkboxes
-                    'otrocheck'       => (int) $e->otrocheck,
-                    'otrocheck1'      => (int) $e->otrocheck1,
-                    'otrocheck2'      => (int) $e->otrocheck2,
-                    'otrocheck3'      => (int) $e->otrocheck3,
-                    'otrocheck4'      => (int) $e->otrocheck4,
-                    'otrocheck5'      => (int) $e->otrocheck5,
-                    'otroinput'       => $e->otroinput,
+                    'id'                   => $e->id,
+                    'id_tipo_examen'       => $e->id_tipo_examen,
+                    'tipo_examen'          => $e->tipo_examen,
+                    'descripcion'          => $e->descripcion,
+                    'grupo'                => $e->grupo,
+                    'piezas_adultos'       => $piezasAdultos,
+                    'piezas_ninos'         => $piezasNinos,
+                    'dientes'              => $dList,
+                    'url_texto'            => implode(',', $this->urlTextoToTrazados($e->url_texto)) ?: null,
+                    'trazados'             => $this->urlTextoToTrazados($e->url_texto),
+                    'otrocheck'            => (int) $e->otrocheck,
+                    'otrocheck1'           => (int) $e->otrocheck1,
+                    'otrocheck2'           => (int) $e->otrocheck2,
+                    'otrocheck3'           => (int) $e->otrocheck3,
+                    'otrocheck4'           => (int) $e->otrocheck4,
+                    'otrocheck5'           => (int) $e->otrocheck5,
+                    'otroinput'            => $e->otroinput,
                     'trazados_otros_texto' => $e->otroinput,
-                    'radiologo'      => $e->radiologo,
-                    'rut_radiologo'  => $e->rut_radiologo,
-                    'respondida'     => $e->respondida,
-                    'respondible'    => (int) $e->respondible,
-                    'archivos'       => $archivos,
-                    'respuesta'      => $respuesta,
+                    'radiologo'            => $e->radiologo,
+                    'rut_radiologo'        => $e->rut_radiologo,
+                    'respondida'           => $e->respondida,
+                    'respondible'          => (int) $e->respondible,
+                    'archivos'             => $archivos,
+                    'respuesta'            => $respuesta,
                 ];
             });
-
-        $order->examenes = $examenes;
 
         \Log::info('BY_ID_EXAMENES_TRAZADOS', [
             'order_id' => $order->id,
             'examenes' => $examenes->map(fn($e) => [
-                'id'         => $e['id'],
-                'kind_id'    => $e['id_tipo_examen'],
-                'url_texto'  => $e['url_texto'],
-                'trazados'   => $e['trazados'],
-                'archivos'   => collect($e['archivos'])->map(fn($a) => [
-                    'id'        => $a['id'],
-                    'name'      => $a['name'],
-                    'extension' => $a['extension'],
-                    'is_image'  => $a['is_image'],
-                    'url_prefix' => $a['url'] ? substr($a['url'], 0, 80) : null,
-                ])->all(),
+                'id'        => $e['id'],
+                'kind_id'   => $e['id_tipo_examen'],
+                'url_texto' => $e['url_texto'],
             ])->all(),
         ]);
 
-        return response()->json($order);
+        // Respuesta explícita: solo los campos que DentalSoft conoce.
+        // Retornar $order directo (con o.*) incluye campos DB desconocidos para DentalSoft
+        // (updated_at, radiologo_id, operator_id, patient_id, clinic_id, observaciones_2,
+        // estado_activacion, vista, odonto3d_*, trx_number, etc.) que causan que el backend
+        // PHP de DentalSoft falle al procesar la respuesta (blank page).
+        return response()->json([
+            'id'                     => $order->id,
+            'paciente'               => $order->paciente,
+            'rut_paciente'           => $order->rut_paciente,
+            'clinic_id'              => $order->clinic_id,
+            'clinica'                => $order->clinica,
+            'profesional_id'         => $order->profesional_id,
+            'profesional'            => $order->profesional,
+            'profesional_rut'        => $order->profesional_rut,
+            'profesional_id_externo' => $order->profesional_id_externo,
+            'odontologo_id'          => $order->odontologo_id,
+            'odontologo'             => $order->odontologo,
+            'odontologo_rut'         => $order->profesional_rut,
+            'odontologo_id_externo'  => $order->profesional_id_externo,
+            'rut_odontologo'         => $order->rut_odontologo,
+            'mail_odontologo'        => $order->mail_odontologo,
+            'diagnostico'            => $order->diagnostico,
+            'observaciones'          => $order->observaciones,
+            'prioridad'              => $order->prioridad,
+            'estadoradiologo'        => $order->estadoradiologo,
+            'estadoodontologo'       => $order->estadoodontologo,
+            'enviada'                => $order->enviada,
+            'respondida'             => $order->respondida,
+            'created_at'             => $order->created_at,
+            // Campos computados agregados después de la construcción inicial
+            'editable'                   => $order->editable,
+            'visitable'                  => $order->visitable,
+            'estado_radiologo'           => $order->estado_radiologo,
+            'estado_odontologo'          => $order->estado_odontologo,
+            'fecha_creacion'             => $order->fecha_creacion,
+            'fecha_envio'                => $order->fecha_envio,
+            'fecha_respuesta'            => $order->fecha_respuesta,
+            'observaciones_informe'      => $order->observaciones_informe,
+            'estado_texto'               => $order->estado_texto,
+            'ruts_radiologos_asignados'  => $order->ruts_radiologos_asignados,
+            'ruts_radiologos_pendientes' => $order->ruts_radiologos_pendientes,
+            'correcciones'               => $order->correcciones,
+            'examenes'                   => $examenes,
+        ]);
     }
 
     // POST /api/v3/order
@@ -588,6 +632,70 @@ class OrderController extends Controller
         ]);
     }
 
+    // DELETE /api/v3/order/{id}
+    // Solo permite borrar órdenes en estado "Guardada" (estadoradiologo=4, aún no enviadas al radiólogo).
+    public function destroy(Request $request, int $id)
+    {
+        $holdingId = $request->_holding_id;
+
+        $order = DB::table('orders as o')
+            ->join('clinics as c', 'c.id', '=', 'o.clinic_id')
+            ->where('o.id', $id)
+            ->where('c.holding_id', $holdingId)
+            ->select('o.id', 'o.estadoradiologo', 'o.enviada')
+            ->first();
+
+        if (! $order) {
+            return response()->json(['error' => "Orden $id no encontrada."], 404);
+        }
+
+        if ((int) $order->estadoradiologo !== 4) {
+            return response()->json([
+                'error' => 'Solo se pueden eliminar órdenes en estado Guardada (no enviadas al radiólogo).',
+            ], 422);
+        }
+
+        // Obtener examinations vinculadas a esta orden
+        $examinationIds = DB::table('examination_order')
+            ->where('order_id', $id)
+            ->pluck('examination_id');
+
+        // Eliminar archivos de S3 y sus registros en DB
+        if ($examinationIds->isNotEmpty()) {
+            $files = DB::table('files')
+                ->whereIn('examination_id', $examinationIds)
+                ->get(['id', 'ruta']);
+
+            foreach ($files as $file) {
+                if ($file->ruta && $file->ruta !== '0') {
+                    try { Storage::disk('s3')->delete($file->ruta); } catch (\Throwable) {}
+                }
+            }
+
+            DB::table('files')->whereIn('examination_id', $examinationIds)->delete();
+        }
+
+        DB::table('order_staff_exam')->where('order_id', $id)->delete();
+        DB::table('examination_order')->where('order_id', $id)->delete();
+
+        if ($examinationIds->isNotEmpty()) {
+            DB::table('examinations')->whereIn('id', $examinationIds)->delete();
+        }
+
+        DB::table('orders')->where('id', $id)->delete();
+
+        \Log::info('ORDER_DELETED', [
+            'order_id'   => $id,
+            'holding_id' => $holdingId,
+            'deleted_by' => $request->_api_key_id ?? null,
+        ]);
+
+        return response()->json([
+            'message'    => "Orden $id eliminada exitosamente.",
+            'referencia' => $id,
+        ]);
+    }
+
     // DELETE /api/v3/order/file/{fileId}
     public function deleteFile(Request $request, int $fileId)
     {
@@ -631,10 +739,28 @@ class OrderController extends Controller
                 ->all();
 
             if (!empty($yaAsignados)) {
-                // Mantener asignación de la creación: no tocar order_staff_exam
-                $staffIds = $yaAsignados;
-                $mantenerAsignacion = true;
-            } else {
+                // Verificar si los asignados siguen activos
+                $activosIds = DB::table('staffs')
+                    ->whereIn('id', $yaAsignados)
+                    ->where('activo', 1)
+                    ->pluck('id')
+                    ->all();
+
+                if (!empty($activosIds)) {
+                    // Al menos uno activo → mantener asignación (o solo los activos)
+                    $staffIds = $activosIds;
+                    $mantenerAsignacion = true;
+                } else {
+                    // Todos inactivos → caer al auto-asignar
+                    $mantenerAsignacion = false;
+                    \Log::warning('SEND_TO_RADIOLOGO_ASSIGNED_INACTIVE', [
+                        'order_id'         => $id,
+                        'staff_ids_inactivos' => $yaAsignados,
+                    ]);
+                }
+            }
+
+            if (empty($mantenerAsignacion)) {
                 $mantenerAsignacion = false;
 
                 // Sin asignación previa: auto-asignar por kind_staff
@@ -659,21 +785,55 @@ class OrderController extends Controller
                     ->orderBy('pending_count')
                     ->get();
 
+                $kindsWithoutRadiologo = [];
+
                 if ($especialistas->isNotEmpty()) {
                     $assigned = collect();
-                    foreach ($kindIds as $kindId) {
-                        $esp = $especialistas->where('kind_id', $kindId)->sortBy('pending_count')->first();
-                        if ($esp && !$assigned->contains($esp->id)) {
-                            $assigned->push($esp->id);
+
+                    // Preferir un solo radiólogo que cubra todos los kinds del pedido
+                    $staffConTodos = $especialistas
+                        ->groupBy('id')
+                        ->filter(fn($entries) => $kindIds->every(fn($k) => $entries->contains('kind_id', $k)))
+                        ->keys();
+
+                    if ($staffConTodos->isNotEmpty()) {
+                        $assigned->push($staffConTodos->shuffle()->first());
+                    } else {
+                        foreach ($kindIds as $kindId) {
+                            $cubierto = $assigned->contains(fn($sid) => $especialistas->where('id', $sid)->where('kind_id', $kindId)->isNotEmpty());
+                            if ($cubierto) continue;
+                            $esp = $especialistas->where('kind_id', $kindId)->shuffle()->first();
+                            if ($esp) {
+                                if (!$assigned->contains($esp->id)) {
+                                    $assigned->push($esp->id);
+                                }
+                            } else {
+                                $kindsWithoutRadiologo[] = $kindId;
+                            }
                         }
                     }
+
                     $staffIds = $assigned->all();
+                } else {
+                    $kindsWithoutRadiologo = $kindIds->all();
+                }
+
+                if (!empty($kindsWithoutRadiologo)) {
+                    \Log::warning('SEND_TO_RADIOLOGO_KINDS_UNASSIGNED', [
+                        'order_id'               => $id,
+                        'clinic_id'              => $order->clinic_id,
+                        'kind_ids_sin_radiologo'  => $kindsWithoutRadiologo,
+                    ]);
                 }
 
                 if (empty($staffIds)) {
+                    // Fallback: solo radiólogos que tengan kind_staff para alguno de los kinds pedidos
+                    // (excluye radiólogos de grupos sin exámenes asociados, ej. grupo 6)
                     $radiologo = DB::table('staffs as s')
                         ->join('clinic_staff as cs', 'cs.staff_id', '=', 's.id')
+                        ->join('kind_staff as ks', 'ks.staff_id', '=', 's.id')
                         ->where('cs.clinic_id', $order->clinic_id)
+                        ->whereIn('ks.kind_id', $kindIds)
                         ->where('s.type_staff', 3)
                         ->where('s.activo', 1)
                         ->select('s.id')
@@ -713,15 +873,25 @@ class OrderController extends Controller
         }
 
         \Log::info('SEND_TO_RADIOLOGO_ASSIGNED', [
-            'order_id' => $id,
-            'staff_ids' => $staffIds,
+            'order_id'               => $id,
+            'staff_ids'              => $staffIds,
+            'kind_ids_sin_radiologo' => $kindsWithoutRadiologo ?? [],
         ]);
 
-        return response()->json([
+        $response = [
             'message'    => 'Orden enviada al radiólogo.',
             'mensaje'    => 'Orden enviada exitosamente a radiólogo',
             'referencia' => $id,
-        ]);
+        ];
+
+        if (!empty($kindsWithoutRadiologo ?? [])) {
+            $response['advertencias'] = [
+                'tipos_sin_radiologo' => $kindsWithoutRadiologo,
+                'detalle' => 'Algunos tipos de examen no tienen radiólogo configurado para esta clínica. Verifique la configuración de kind_staff.',
+            ];
+        }
+
+        return response()->json($response);
     }
 
     // POST /api/v3/order/{id}/answers
@@ -786,6 +956,7 @@ class OrderController extends Controller
             [51,52,53,54,55,61,62,63,64,65,71,72,73,74,75,81,82,83,84,85]
         );
 
+        $sendToOdonto3D = false;
         DB::beginTransaction();
         try {
             foreach ($examenes as $examen) {
@@ -830,6 +1001,7 @@ class OrderController extends Controller
                     $updateOrden['estadoradiologo']  = 1;
                     $updateOrden['estadoodontologo'] = $hayEnCorreccion ? $order->estadoodontologo : 1;
                     $updateOrden['respondida']       = now();
+                    $sendToOdonto3D                  = true;
                 }
                 if ($obsInforme !== '') {
                     $updateOrden['observaciones_2'] = $obsInforme;
@@ -843,6 +1015,9 @@ class OrderController extends Controller
             }
 
             DB::commit();
+            if ($sendToOdonto3D) {
+                \App\Jobs\SendReportToOdonto3D::dispatch($id);
+            }
         } catch (\Throwable $e) {
             DB::rollBack();
             \Log::error('SAVE_ANSWERS_ERROR', ['error' => $e->getMessage(), 'order_id' => $id]);
@@ -909,36 +1084,6 @@ class OrderController extends Controller
             return response()->json(['error' => "Radiólogo con RUT $rutInput no encontrado en este holding."], 404);
         }
 
-        // Validar que el radiólogo tiene permiso para los tipos de examen de la orden
-        $kindIds = DB::table('examination_order as eo')
-            ->join('examinations as e', 'e.id', '=', 'eo.examination_id')
-            ->where('eo.order_id', $id)
-            ->pluck('e.kind_id')
-            ->unique()
-            ->values();
-
-        if ($kindIds->isNotEmpty()) {
-            $kindsCubiertos = DB::table('kind_staff')
-                ->where('staff_id', $radiologo->id)
-                ->whereIn('kind_id', $kindIds)
-                ->pluck('kind_id')
-                ->unique()
-                ->values();
-
-            $kindsFaltantes = $kindIds->diff($kindsCubiertos);
-
-            if ($kindsFaltantes->isNotEmpty()) {
-                $nombres = DB::table('kinds')
-                    ->whereIn('id', $kindsFaltantes)
-                    ->pluck('descipcion')
-                    ->implode(', ');
-
-                return response()->json([
-                    'error' => "El radiólogo no tiene permiso para los siguientes tipos de examen: $nombres.",
-                ], 422);
-            }
-        }
-
         DB::table('order_staff_exam')
             ->where('order_id', $id)
             ->where('respondida', 0)
@@ -960,7 +1105,211 @@ class OrderController extends Controller
         return response()->json(['message' => 'Radiólogo actualizado correctamente.', 'staff_id' => $radiologo->id]);
     }
 
+    // PATCH /api/v3/orders/radiologo
+    // Reasigna masivamente el radiólogo de múltiples órdenes. Solo admins.
+    public function changeRadiologoBulk(Request $request)
+    {
+        if (! $request->_is_admin) {
+            return response()->json(['error' => 'Solo administradores pueden cambiar el radiólogo.'], 403);
+        }
+
+        $holdingId = $request->_holding_id;
+
+        $orderIds = $request->input('order_ids');
+        if (empty($orderIds) || ! is_array($orderIds)) {
+            return response()->json(['error' => 'El campo order_ids es requerido y debe ser un arreglo.'], 422);
+        }
+
+        $rutInput = $request->input('radiologo_rut');
+        if (! $rutInput) {
+            return response()->json(['error' => 'El campo radiologo_rut es requerido.'], 422);
+        }
+
+        $rutClean = preg_replace('/[^0-9K]/', '', strtoupper($rutInput));
+
+        $radiologo = DB::table('staffs as s')
+            ->join('clinic_staff as cs', 'cs.staff_id', '=', 's.id')
+            ->join('clinics as cl', 'cl.id', '=', 'cs.clinic_id')
+            ->where('cl.holding_id', $holdingId)
+            ->where('s.activo', 1)
+            ->whereRaw("REPLACE(REPLACE(UPPER(s.rut), '.', ''), '-', '') = ?", [$rutClean])
+            ->select('s.id')
+            ->first();
+
+        if (! $radiologo) {
+            return response()->json(['error' => "Radiólogo con RUT $rutInput no encontrado en este holding."], 404);
+        }
+
+        $orderIds = array_map('intval', array_unique($orderIds));
+
+        // Cargar todas las órdenes del holding de una sola vez
+        $orders = DB::table('orders as o')
+            ->join('clinics as c', 'c.id', '=', 'o.clinic_id')
+            ->whereIn('o.id', $orderIds)
+            ->where('c.holding_id', $holdingId)
+            ->select('o.id', 'o.estadoradiologo')
+            ->get()
+            ->keyBy('id');
+
+        $cambiadas = [];
+        $omitidas  = [];
+
+        foreach ($orderIds as $orderId) {
+            $order = $orders->get($orderId);
+
+            if (! $order) {
+                $omitidas[] = ['order_id' => $orderId, 'motivo' => 'No encontrada en este holding'];
+                continue;
+            }
+
+            if ((int) $order->estadoradiologo === 1) {
+                $omitidas[] = ['order_id' => $orderId, 'motivo' => 'Ya fue respondida'];
+                continue;
+            }
+
+            DB::table('order_staff_exam')
+                ->where('order_id', $orderId)
+                ->where('respondida', 0)
+                ->delete();
+
+            DB::table('order_staff_exam')->insertOrIgnore([
+                'order_id'   => $orderId,
+                'staff_id'   => $radiologo->id,
+                'group_exam' => 1,
+                'kind_id'    => null,
+                'respondida' => 0,
+            ]);
+
+            DB::table('orders')->where('id', $orderId)->update([
+                'radiologo_id' => $radiologo->id,
+                'updated_at'   => now(),
+            ]);
+
+            $cambiadas[] = $orderId;
+        }
+
+        return response()->json([
+            'message'   => 'Reasignación masiva completada.',
+            'cambiadas' => $cambiadas,
+            'omitidas'  => $omitidas,
+        ]);
+    }
+
     // GET /api/v3/order/by-radiologo/{rut}
+    // GET /api/v3/orders
+    // Filters: radiologo_rut, estado (0=No Informada,1=Informada,2=En Corrección,4=Guardada)
+    // Dates returned: fecha_creacion, fecha_envio, fecha_respuesta
+    public function listOrders(Request $request)
+    {
+        $holdingId = (int) $request->_holding_id;
+        $page      = max(1, (int) $request->get('page', 1));
+        $perPage   = min(100, max(1, (int) $request->get('per_page', 25)));
+
+        $query = DB::table('orders as o')
+            ->join('clinics as c',   'c.id',  '=', 'o.clinic_id')
+            ->join('users as uc',    'uc.id', '=', 'c.user_id')
+            ->join('patients as p',  'p.id',  '=', 'o.patient_id')
+            ->leftJoin('staffs as so',  'so.id',  '=', 'o.odontologo_id')
+            ->leftJoin('users as uo',   'uo.id',  '=', 'so.user_id')
+            ->where('c.holding_id', $holdingId)
+            ->select(
+                'o.id',
+                'o.estadoradiologo as estado',
+                'o.prioridad',
+                'o.created_at as fecha_creacion',
+                'o.enviada as fecha_envio',
+                'o.respondida as fecha_respuesta',
+                'p.name as paciente',
+                'p.rut as rut_paciente',
+                'uc.name as clinica',
+                'uo.name as odontologo',
+                'so.rut as rut_odontologo'
+            )
+            ->selectRaw("case
+                when o.estadoradiologo = 0 then 'No Informada'
+                when o.estadoradiologo = 1 then 'Informada'
+                when o.estadoradiologo = 2 then 'En Corrección'
+                when o.estadoradiologo = 4 then 'Guardada'
+                else 'Desconocido' end as estado_texto")
+            ->selectRaw("(SELECT GROUP_CONCAT(DISTINCT us.name SEPARATOR ', ')
+                FROM order_staff_exam ose
+                LEFT JOIN staffs s ON s.id = ose.staff_id
+                LEFT JOIN users us ON us.id = s.user_id
+                WHERE ose.order_id = o.id) as radiologos_asignados")
+            ->selectRaw("(SELECT GROUP_CONCAT(DISTINCT s.rut SEPARATOR ', ')
+                FROM order_staff_exam ose
+                LEFT JOIN staffs s ON s.id = ose.staff_id
+                WHERE ose.order_id = o.id) as ruts_radiologos_asignados");
+
+        if ($request->has('estado')) {
+            $query->where('o.estadoradiologo', (int) $request->estado);
+        }
+
+        if ($request->filled('radiologo_rut')) {
+            $rut = $request->radiologo_rut;
+            $query->whereExists(function ($sub) use ($rut, $holdingId) {
+                $sub->from('order_staff_exam as ose')
+                    ->join('staffs as sr', 'sr.id', '=', 'ose.staff_id')
+                    ->join('clinic_staff as cs', 'cs.staff_id', '=', 'sr.id')
+                    ->join('clinics as cr', 'cr.id', '=', 'cs.clinic_id')
+                    ->whereColumn('ose.order_id', 'o.id')
+                    ->where('sr.rut', $rut)
+                    ->where('cr.holding_id', $holdingId);
+            });
+        }
+
+        $total  = (clone $query)->count();
+        $orders = $query->orderByDesc('o.id')
+            ->offset(($page - 1) * $perPage)
+            ->limit($perPage)
+            ->get();
+
+        $orderIds = $orders->pluck('id')->toArray();
+        $examenes = DB::table('examinations as e')
+            ->join('examination_order as eo', 'eo.examination_id', '=', 'e.id')
+            ->join('kinds as k', 'k.id', '=', 'e.kind_id')
+            ->whereIn('eo.order_id', $orderIds)
+            ->select('eo.order_id', 'k.id as kind_id', 'k.descipcion as descripcion', 'k.group as grupo')
+            ->get()
+            ->groupBy('order_id');
+
+        $data = $orders->map(function ($o) use ($examenes) {
+            return [
+                'id'                      => $o->id,
+                'paciente'                => $o->paciente,
+                'rut_paciente'            => $o->rut_paciente,
+                'clinica'                 => $o->clinica,
+                'odontologo'              => $o->odontologo,
+                'rut_odontologo'          => $o->rut_odontologo,
+                'radiologos_asignados'    => $o->radiologos_asignados,
+                'ruts_radiologos_asignados' => $o->ruts_radiologos_asignados,
+                'prioridad'               => $o->prioridad,
+                'fecha_creacion'          => $o->fecha_creacion,
+                'fecha_envio'             => $o->fecha_envio,
+                'fecha_respuesta'         => $o->fecha_respuesta,
+                'estado'                  => (int) $o->estado,
+                'estado_texto'            => $o->estado_texto,
+                'examenes'                => ($examenes[$o->id] ?? collect())->map(fn($e) => [
+                    'kind_id'     => $e->kind_id,
+                    'descripcion' => $e->descripcion,
+                    'grupo'       => (int) $e->grupo,
+                ])->values(),
+            ];
+        });
+
+        return response()->json([
+            'current_page' => $page,
+            'data'         => $data,
+            'from'         => $total > 0 ? (($page - 1) * $perPage) + 1 : null,
+            'last_page'    => (int) ceil($total / max(1, $perPage)),
+            'per_page'     => $perPage,
+            'to'           => min($page * $perPage, $total),
+            'total'        => $total,
+            'page'         => $page,
+            'total_pages'  => (int) ceil($total / max(1, $perPage)),
+        ]);
+    }
+
     // GET /api/v3/orders/pendientes
     public function listPendientes(Request $request)
     {
@@ -1068,10 +1417,12 @@ class OrderController extends Controller
         $page    = max(1, (int) $request->get('page', 1));
         $perPage = min(50, max(1, (int) $request->get('per_page', 15)));
 
-        $query = DB::table('orders as o')
+        $base = DB::table('orders as o')
             ->join('clinics as c', 'c.id', '=', 'o.clinic_id')
             ->join('users as uc', 'uc.id', '=', 'c.user_id')
             ->join('patients as p', 'p.id', '=', 'o.patient_id')
+            ->leftJoin('staffs as odont', 'odont.id', '=', 'o.odontologo_id')
+            ->leftJoin('users as uo', 'uo.id', '=', 'odont.user_id')
             ->where('c.holding_id', $holdingId)
             ->whereExists(function ($sub) use ($radiologo, $soloPendientes) {
                 $sub->from('order_staff_exam as ose')
@@ -1080,30 +1431,56 @@ class OrderController extends Controller
                 if ($soloPendientes) {
                     $sub->where('ose.respondida', 0);
                 }
-            })
-            ->select(
-                'o.id', 'o.estadoradiologo', 'o.estadoodontologo',
-                'o.prioridad', 'o.created_at', 'o.enviada', 'o.respondida',
-                'p.name as paciente', 'p.rut as rut_paciente',
-                'uc.name as clinica'
-            );
+            });
 
         if ($soloPendientes) {
-            $query->where('o.estadoradiologo', 0);
+            $base->where('o.estadoradiologo', 0);
         }
 
-        $total  = $query->count();
-        $orders = $query->orderByDesc('o.created_at')
+        $total  = (clone $base)->count();
+        $orders = $base
+            ->select(
+                'o.id',
+                'o.diagnostico',
+                'o.prioridad',
+                'o.created_at',
+                'o.created_at as fecha_creacion',
+                'o.enviada as fecha_envio',
+                'o.respondida as fecha_respuesta',
+                'o.estadoradiologo',
+                'o.estadoodontologo',
+                'o.estadoradiologo as estado_radiologo',
+                'o.estadoodontologo as estado_odontologo',
+                'o.odontologo_id',
+                'p.name as paciente',
+                'p.rut as rut_paciente',
+                'uc.name as clinica',
+                'uo.name as odontologo',
+                'odont.rut as rut_odontologo',
+                'uo.email as mail_odontologo'
+            )
+            ->selectRaw("case when o.estadoradiologo = 0 then 'No Informada' when o.estadoradiologo = 1 then 'Informada' when o.estadoradiologo = 2 and o.estadoodontologo = 3 then 'Corrección' else 'Guardada' end as estado_texto")
+            ->selectRaw("case when o.estadoradiologo in (4, 2) then 1 else 0 end as editable")
+            ->selectRaw("case when o.estadoradiologo = 1 then 1 else 0 end as visitable")
+            ->selectRaw("(SELECT GROUP_CONCAT(DISTINCT k.descipcion SEPARATOR ', ') FROM kinds as k LEFT JOIN examinations AS ex ON ex.kind_id = k.id LEFT JOIN examination_order AS eo ON eo.examination_id = ex.id WHERE eo.order_id = o.id) as examenes_orden")
+            ->selectRaw("(SELECT GROUP_CONCAT(DISTINCT us.name SEPARATOR ', ') FROM order_staff_exam as ose LEFT JOIN staffs as s ON s.id = ose.staff_id LEFT JOIN users as us ON us.id = s.user_id WHERE ose.order_id = o.id) as radiologos_asignados")
+            ->selectRaw("(SELECT GROUP_CONCAT(DISTINCT s.rut SEPARATOR ', ') FROM order_staff_exam as ose LEFT JOIN staffs as s ON s.id = ose.staff_id WHERE ose.order_id = o.id) as ruts_radiologos_asignados")
+            ->selectRaw("(SELECT GROUP_CONCAT(DISTINCT s.rut SEPARATOR ', ') FROM order_staff_exam as ose LEFT JOIN staffs as s ON s.id = ose.staff_id WHERE ose.order_id = o.id AND ose.respondida = 0) as ruts_radiologos_pendientes")
+            ->orderByDesc('o.id')
             ->offset(($page - 1) * $perPage)
             ->limit($perPage)
             ->get();
 
         return response()->json([
-            'data'        => $orders,
-            'total'       => $total,
-            'page'        => $page,
-            'per_page'    => $perPage,
-            'total_pages' => (int) ceil($total / $perPage),
+            'current_page' => $page,
+            'data'         => $orders,
+            'from'         => $total > 0 ? (($page - 1) * $perPage) + 1 : null,
+            'last_page'    => (int) ceil($total / max(1, $perPage)),
+            'per_page'     => $perPage,
+            'to'           => min($page * $perPage, $total),
+            'total'        => $total,
+            'page'         => $page,
+            'total_pages'  => (int) ceil($total / max(1, $perPage)),
         ]);
     }
 
@@ -1537,20 +1914,41 @@ class OrderController extends Controller
 
             if ($especialistas->isNotEmpty()) {
                 $assigned = collect();
-                foreach ($kindIds as $kindId) {
-                    $esp = $especialistas->where('kind_id', $kindId)->sortBy('pending_count')->first();
-                    if ($esp && !$assigned->contains($esp->id)) {
-                        $assigned->push($esp->id);
+
+                // Preferir un solo radiólogo que cubra todos los kinds del pedido
+                $staffConTodos = $especialistas
+                    ->groupBy('id')
+                    ->filter(fn($entries) => $kindIds->every(fn($k) => $entries->contains('kind_id', $k)))
+                    ->keys();
+
+                if ($staffConTodos->isNotEmpty()) {
+                    $assigned->push($staffConTodos->shuffle()->first());
+                } else {
+                    // Ninguno cubre todo: asignar por kind sin duplicar si ya cubre
+                    foreach ($kindIds as $kindId) {
+                        $cubierto = $assigned->contains(fn($sid) => $especialistas->where('id', $sid)->where('kind_id', $kindId)->isNotEmpty());
+                        if ($cubierto) continue;
+                        $esp = $especialistas->where('kind_id', $kindId)->shuffle()->first();
+                        if ($esp && !$assigned->contains($esp->id)) {
+                            $assigned->push($esp->id);
+                        }
                     }
                 }
+
                 $staffIds = $assigned->all();
             }
         }
 
-        if (empty($staffIds)) {
+        if (empty($staffIds) && $kindIds->isNotEmpty()) {
+            // Fallback con kind_staff: buscar radiólogo que al menos tenga algún kind del mismo grupo
+            $groupIds = DB::table('kinds')->whereIn('id', $kindIds)->pluck('group')->unique()->values();
+            $kindIdsDelGrupo = DB::table('kinds')->whereIn('group', $groupIds)->pluck('id');
+
             $radiologo = DB::table('staffs as s')
                 ->join('clinic_staff as cs', 'cs.staff_id', '=', 's.id')
+                ->join('kind_staff as ks', 'ks.staff_id', '=', 's.id')
                 ->where('cs.clinic_id', $clinicId)
+                ->whereIn('ks.kind_id', $kindIdsDelGrupo)
                 ->where('s.type_staff', 3)
                 ->where('s.activo', 1)
                 ->select('s.id')
